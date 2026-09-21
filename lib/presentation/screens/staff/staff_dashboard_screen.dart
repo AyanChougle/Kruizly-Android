@@ -47,7 +47,7 @@ class StaffDashboardScreen extends ConsumerStatefulWidget {
 
 class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   String _selectedRole = 'ADMIN';
-  bool _bgVideoEnabled = true;
+  final bool _bgVideoEnabled = true;
 
   // Sub-tabs for Admin (8 tabs matching admin.html)
   int _adminSubTab = 0;
@@ -250,15 +250,6 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
         elevation: 0,
         actions: [
           IconButton(
-            icon: Icon(
-              _bgVideoEnabled ? Icons.videocam_rounded : Icons.videocam_off_rounded,
-              color: _bgVideoEnabled ? accentColor : context.themeTextMuted,
-              size: 20,
-            ),
-            tooltip: _bgVideoEnabled ? 'Background Video: Playing' : 'Background Video: Off',
-            onPressed: () => setState(() => _bgVideoEnabled = !_bgVideoEnabled),
-          ),
-          IconButton(
             icon: const Icon(Icons.refresh, size: 20),
             tooltip: 'Refresh MySQL Data',
             onPressed: () {
@@ -302,29 +293,47 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                             duration: const Duration(milliseconds: 180),
                             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                             decoration: BoxDecoration(
-                              color: isSelected ? accentColor : context.themeSurfaceElevated,
+                              color: isSelected
+                                  ? accentColor
+                                  : (context.isDarkMode
+                                      ? const Color(0x441A2333)
+                                      : const Color(0xE6FFFFFF)),
                               borderRadius: BorderRadius.circular(24),
                               border: Border.all(
-                                color: isSelected ? Colors.transparent : context.themeBorder,
-                                width: 0.8,
+                                color: isSelected
+                                    ? accentColor.withValues(alpha: 0.8)
+                                    : (context.isDarkMode
+                                        ? Colors.white.withValues(alpha: 0.22)
+                                        : AppColors.lightBorder),
+                                width: isSelected ? 1.4 : 0.8,
                               ),
                               boxShadow: isSelected
                                   ? [
                                       BoxShadow(
-                                        color: accentColor.withValues(alpha: 0.35),
-                                        blurRadius: 10,
+                                        color: accentColor.withValues(alpha: 0.45),
+                                        blurRadius: 12,
                                         offset: const Offset(0, 3),
                                       ),
                                     ]
-                                  : null,
+                                  : [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.2),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
                             ),
                             child: Text(
                               role,
                               style: TextStyle(
                                 fontSize: 13.5,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w900,
                                 letterSpacing: 0.6,
-                                color: isSelected ? Colors.white : context.themeTextSecondary,
+                                color: isSelected
+                                    ? Colors.white
+                                    : (context.isDarkMode
+                                        ? Colors.white.withValues(alpha: 0.88)
+                                        : AppColors.lightTextPrimary),
                               ),
                             ),
                           ),
@@ -2972,22 +2981,49 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOutCubic,
         margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : context.themeSurfaceElevated,
+          color: isSelected
+              ? AppColors.primary
+              : (context.isDarkMode
+                  ? const Color(0x401A2436)
+                  : const Color(0xE6FFFFFF)),
           borderRadius: BorderRadius.circular(22),
-          border: isSelected ? null : Border.all(color: context.themeBorder, width: 0.6),
+          border: Border.all(
+            color: isSelected
+                ? AppColors.primaryLight.withValues(alpha: 0.8)
+                : (context.isDarkMode
+                    ? Colors.white.withValues(alpha: 0.20)
+                    : AppColors.lightBorder),
+            width: isSelected ? 1.4 : 0.8,
+          ),
           boxShadow: isSelected
-              ? [BoxShadow(color: AppColors.primary.withValues(alpha: 0.35), blurRadius: 8, offset: const Offset(0, 2))]
-              : null,
+              ? [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.45),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  )
+                ]
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.15),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  )
+                ],
         ),
         child: Text(
           title,
           style: TextStyle(
             fontSize: 13,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-            letterSpacing: 0.2,
-            color: isSelected ? Colors.white : context.themeTextSecondary,
+            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w700,
+            letterSpacing: 0.25,
+            color: isSelected
+                ? Colors.white
+                : (context.isDarkMode
+                    ? Colors.white.withValues(alpha: 0.90)
+                    : AppColors.lightTextPrimary),
           ),
         ),
       ),

@@ -18,7 +18,7 @@ class VehicleCard extends StatelessWidget {
     required this.onBookNow,
   });
 
-  Widget _buildCarImage(bool isDark) {
+  Widget _buildCarImage() {
     final candidates = AppAssets.getCarImageCandidates(
       vehicle.brand,
       vehicle.model,
@@ -30,35 +30,22 @@ class VehicleCard extends StatelessWidget {
       }
       return Image.asset(
         candidates[candidateIndex],
-        height: 195,
-        fit: BoxFit.contain,
+        width: double.infinity,
+        height: 220,
+        fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) {
           return buildFromAsset(candidateIndex + 1);
         },
       );
     }
 
-    return Container(
-      width: double.infinity,
-      height: 215,
-      margin: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF141C28) : const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(20),
-        gradient: isDark
-            ? const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFF1B2433), Color(0xFF0E141E)],
-              )
-            : const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFFFFFFFF), Color(0xFFF1F5F9)],
-              ),
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      child: SizedBox(
+        width: double.infinity,
+        height: 220,
+        child: buildFromAsset(0),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Center(child: buildFromAsset(0)),
     );
   }
 
@@ -69,8 +56,9 @@ class VehicleCard extends StatelessWidget {
           : '${AppConfig.mediaBaseUrl}/${vehicle.imageUrl!}';
       return CachedNetworkImage(
         imageUrl: netUrl,
-        height: 195,
-        fit: BoxFit.contain,
+        width: double.infinity,
+        height: 220,
+        fit: BoxFit.cover,
         placeholder: (c, u) => const Center(
           child: SizedBox(
             width: 28,
@@ -83,15 +71,17 @@ class VehicleCard extends StatelessWidget {
         ),
         errorWidget: (c, u, e) => Image.asset(
           AppAssets.carPlaceholder,
-          height: 195,
-          fit: BoxFit.contain,
+          width: double.infinity,
+          height: 220,
+          fit: BoxFit.cover,
         ),
       );
     }
     return Image.asset(
       AppAssets.carPlaceholder,
-      height: 195,
-      fit: BoxFit.contain,
+      width: double.infinity,
+      height: 220,
+      fit: BoxFit.cover,
     );
   }
 
@@ -103,19 +93,20 @@ class VehicleCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 20),
       borderRadius: 24,
       padding: EdgeInsets.zero,
-      blur: 14,
+      blur:
+          0, // 0 blur eliminates GPU shader thrashing for buttery 60/120fps scrolling
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Studio car showcase podium
-            _buildCarImage(isDark),
+            // Full-bleed car image covering the top fully with no borders and no space
+            _buildCarImage(),
 
             // Car Details
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -227,7 +218,7 @@ class VehicleCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
 
-                  // Action Buttons Row (Unified colors)
+                  // Equal-sized Action Buttons (BOOK NOW and Show More)
                   Row(
                     children: [
                       Expanded(
@@ -261,50 +252,53 @@ class VehicleCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      SizedBox(
-                        height: 46,
-                        child: OutlinedButton(
-                          onPressed: onTap,
-                          style: OutlinedButton.styleFrom(
-                            backgroundColor: isDark
-                                ? Colors.white.withValues(alpha: 0.06)
-                                : Colors.black.withValues(alpha: 0.04),
-                            foregroundColor: isDark
-                                ? Colors.white
-                                : const Color(0xFF0F172A),
-                            side: BorderSide(
-                              color: isDark
-                                  ? Colors.white.withValues(alpha: 0.12)
-                                  : AppColors.lightBorder,
-                              width: 0.8,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'Show More',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: isDark
-                                      ? Colors.white
-                                      : const Color(0xFF0F172A),
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Icon(
-                                Icons.keyboard_arrow_down_rounded,
-                                size: 18,
+                      Expanded(
+                        child: SizedBox(
+                          height: 46,
+                          child: OutlinedButton(
+                            onPressed: onTap,
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: isDark
+                                  ? Colors.white.withValues(alpha: 0.06)
+                                  : Colors.black.withValues(alpha: 0.04),
+                              foregroundColor: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF0F172A),
+                              side: BorderSide(
                                 color: isDark
-                                    ? Colors.white70
-                                    : const Color(0xFF64748B),
+                                    ? Colors.white.withValues(alpha: 0.12)
+                                    : AppColors.lightBorder,
+                                width: 0.8,
                               ),
-                            ],
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              padding: EdgeInsets.zero,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Show More',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: isDark
+                                        ? Colors.white
+                                        : const Color(0xFF0F172A),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  size: 18,
+                                  color: isDark
+                                      ? Colors.white70
+                                      : const Color(0xFF64748B),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),

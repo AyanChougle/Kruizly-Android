@@ -10,7 +10,7 @@ class BackgroundVideoWidget extends StatefulWidget {
     super.key,
     required this.child,
     this.isEnabled = true,
-    this.overlayOpacity = 0.78,
+    this.overlayOpacity = 0.48,
   });
 
   @override
@@ -83,9 +83,18 @@ class _BackgroundVideoWidgetState extends State<BackgroundVideoWidget> {
               ),
             ),
           ),
-        // Darkened glass tint to preserve pristine UI contrast
+        // Ultra-translucent gradient so video is vividly visible across the app
         Container(
-          color: Colors.black.withValues(alpha: _isInitialized ? widget.overlayOpacity : 0.88),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withValues(alpha: _isInitialized ? (widget.overlayOpacity * 0.8) : 0.7),
+                Colors.black.withValues(alpha: _isInitialized ? widget.overlayOpacity : 0.8),
+              ],
+            ),
+          ),
         ),
         widget.child,
       ],

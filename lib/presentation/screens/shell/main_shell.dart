@@ -23,7 +23,7 @@ class MainShell extends ConsumerWidget {
       extendBody: true,
       body: BackgroundVideoWidget(
         isEnabled: true,
-        overlayOpacity: isDark ? 0.80 : 0.90,
+        overlayOpacity: isDark ? 0.45 : 0.65,
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 260),
           switchInCurve: Curves.easeOutCubic,
@@ -89,16 +89,21 @@ class _AppleNavBar extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 6),
               decoration: BoxDecoration(
                 color: isDark
-                    ? Colors.black.withValues(alpha: 0.58)
-                    : Colors.white.withValues(alpha: 0.78),
+                    ? Colors.black.withValues(alpha: 0.38)
+                    : Colors.white.withValues(alpha: 0.72),
                 borderRadius: BorderRadius.circular(28),
                 border: Border.all(
                   color: isDark
-                      ? Colors.white.withValues(alpha: 0.1)
-                      : Colors.black.withValues(alpha: 0.06),
-                  width: 0.5,
+                      ? AppColors.primary.withValues(alpha: 0.28)
+                      : AppColors.primary.withValues(alpha: 0.18),
+                  width: 0.8,
                 ),
                 boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.12),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
+                  ),
                   BoxShadow(
                     color: isDark
                         ? Colors.black.withValues(alpha: 0.4)

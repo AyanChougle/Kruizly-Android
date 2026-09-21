@@ -95,15 +95,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
                 actions: [
-                  IconButton(
-                    tooltip: 'Host Your Car',
-                    icon: Icon(
-                      Icons.add_business_outlined,
-                      color: isDark ? Colors.white54 : AppColors.lightTextSecondary,
-                      size: 21,
-                    ),
-                    onPressed: () => context.go('/host'),
-                  ),
                   if (authState.isAuthenticated)
                     Padding(
                       padding: const EdgeInsets.only(right: 14),
