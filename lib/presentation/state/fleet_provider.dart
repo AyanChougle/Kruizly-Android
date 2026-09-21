@@ -17,7 +17,7 @@ class FleetState {
     this.selectedCategory = 'all',
     this.selectedTransmission = 'all',
     this.searchQuery = '',
-    this.sortBy = 'price_asc',
+    this.sortBy = 'recommended',
     this.errorMessage,
   });
 
@@ -46,10 +46,18 @@ class FleetState {
 
     if (sortBy == 'price_desc') {
       list.sort((a, b) => b.priceDay.compareTo(a.priceDay));
+    } else if (sortBy == 'price_asc') {
+      list.sort((a, b) => a.priceDay.compareTo(b.priceDay));
     } else if (sortBy == 'name') {
       list.sort((a, b) => a.fullName.compareTo(b.fullName));
     } else {
-      list.sort((a, b) => a.priceDay.compareTo(b.priceDay));
+      // 'recommended' - Available vehicles first, then popular/highest tier
+      list.sort((a, b) {
+        if (a.isAvailable != b.isAvailable) {
+          return a.isAvailable ? -1 : 1;
+        }
+        return b.priceDay.compareTo(a.priceDay);
+      });
     }
 
     return list;

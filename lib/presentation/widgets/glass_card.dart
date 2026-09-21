@@ -41,9 +41,9 @@ class GlassCard extends StatelessWidget {
         color: backgroundColor ??
             (isDark
                 ? Colors.black.withValues(alpha: 0.38)
-                : Colors.white.withValues(alpha: 0.94)),
+                : Colors.white.withValues(alpha: 0.95)),
         borderRadius: BorderRadius.circular(borderRadius),
-        // Liquid glass gradient with subtle colored accent sheen
+        // Dark mode keeps liquid glass gradient with subtle colored accent sheen; light mode uses clean frosted surface
         gradient: isDark
             ? LinearGradient(
                 begin: Alignment.topLeft,
@@ -55,21 +55,12 @@ class GlassCard extends StatelessWidget {
                 ],
                 stops: const [0.0, 0.45, 1.0],
               )
-            : LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withValues(alpha: 0.96),
-                  effectiveAccent.withValues(alpha: 0.04),
-                  Colors.white.withValues(alpha: 0.93),
-                ],
-                stops: const [0.0, 0.5, 1.0],
-              ),
+            : null,
         border: Border.all(
           color: borderColor ??
               (isDark
                   ? effectiveAccent.withValues(alpha: 0.22)
-                  : effectiveAccent.withValues(alpha: 0.18)),
+                  : const Color(0xFFE2E8F0)),
           width: 0.8,
         ),
         boxShadow: [
@@ -77,16 +68,16 @@ class GlassCard extends StatelessWidget {
           BoxShadow(
             color: isDark
                 ? effectiveAccent.withValues(alpha: 0.10)
-                : const Color(0x0E0F172A),
-            blurRadius: 20,
+                : const Color(0x120F172A),
+            blurRadius: 18,
             spreadRadius: -2,
             offset: const Offset(0, 4),
           ),
           BoxShadow(
             color: isDark
                 ? Colors.black.withValues(alpha: 0.35)
-                : const Color(0x080F172A),
-            blurRadius: 10,
+                : const Color(0x060F172A),
+            blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],

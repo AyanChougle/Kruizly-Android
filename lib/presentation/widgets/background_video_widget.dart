@@ -5,12 +5,14 @@ class BackgroundVideoWidget extends StatefulWidget {
   final Widget child;
   final bool isEnabled;
   final double overlayOpacity;
+  final bool isDark;
 
   const BackgroundVideoWidget({
     super.key,
     required this.child,
     this.isEnabled = true,
     this.overlayOpacity = 0.48,
+    this.isDark = true,
   });
 
   @override
@@ -69,6 +71,12 @@ class _BackgroundVideoWidgetState extends State<BackgroundVideoWidget> {
 
   @override
   Widget build(BuildContext context) {
+    // Light mode: white-tinted overlay so video appears bright/faded
+    // Dark mode: black overlay so video appears dark/moody
+    final overlayBase = widget.isDark ? Colors.black : Colors.white;
+    final fallbackTop = widget.isDark ? 0.7 : 0.6;
+    final fallbackBottom = widget.isDark ? 0.8 : 0.7;
+
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -83,15 +91,15 @@ class _BackgroundVideoWidgetState extends State<BackgroundVideoWidget> {
               ),
             ),
           ),
-        // Ultra-translucent gradient so video is vividly visible across the app
+        // Theme-aware overlay
         Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Colors.black.withValues(alpha: _isInitialized ? (widget.overlayOpacity * 0.8) : 0.7),
-                Colors.black.withValues(alpha: _isInitialized ? widget.overlayOpacity : 0.8),
+                overlayBase.withValues(alpha: _isInitialized ? (widget.overlayOpacity * 0.8) : fallbackTop),
+                overlayBase.withValues(alpha: _isInitialized ? widget.overlayOpacity : fallbackBottom),
               ],
             ),
           ),

@@ -19,11 +19,12 @@ class MainShell extends ConsumerWidget {
     final isDark = themeMode == ThemeMode.dark;
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: isDark ? Colors.black : const Color(0xFFF8FAFC),
       extendBody: true,
       body: BackgroundVideoWidget(
         isEnabled: true,
-        overlayOpacity: isDark ? 0.45 : 0.75,
+        isDark: isDark,
+        overlayOpacity: isDark ? 0.45 : 0.85,
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 260),
           switchInCurve: Curves.easeOutCubic,
@@ -90,7 +91,7 @@ class _AppleNavBar extends StatelessWidget {
               decoration: BoxDecoration(
                 color: isDark
                     ? Colors.black.withValues(alpha: 0.38)
-                    : Colors.white.withValues(alpha: 0.72),
+                    : Colors.white.withValues(alpha: 0.92),
                 borderRadius: BorderRadius.circular(28),
                 border: Border.all(
                   color: isDark

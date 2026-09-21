@@ -30,12 +30,9 @@ String _formatINR(num value) {
   return '₹$formattedRest,$last3';
 }
 
-/// Short format for KPI cards: ₹6.57L, ₹29.6K, ₹2.3Cr — clearly readable amounts
+/// User requested: "dont show amounts like eg 124L show full figures like 123456"
 String _formatINRShort(num value) {
-  if (value >= 10000000) return '₹${(value / 10000000).toStringAsFixed(2)}Cr';
-  if (value >= 100000) return '₹${(value / 100000).toStringAsFixed(2)}L';
-  if (value >= 1000) return '₹${(value / 1000).toStringAsFixed(1)}K';
-  return '₹${value.toInt()}';
+  return _formatINR(value);
 }
 
 class StaffDashboardScreen extends ConsumerStatefulWidget {
@@ -2816,7 +2813,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                         child: CustomButton(
                           text: 'Review & Verify Documents',
                           height: 34,
-                          onPressed: () => _showExecutiveKycModal(name, phone, email, uid),
+                          onPressed: () => _showExecutiveKycModal(name, phone, email, uid, item),
                         ),
                       ),
                     ],
@@ -4270,7 +4267,207 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     }
   }
 
-  void _showExecutiveKycModal(String name, String phone, String email, String uid) {
+  Widget _buildDocumentImages(int docType, Map<String, dynamic> kycData) {
+    String? frontUrl;
+    String? backUrl;
+    String frontLabel;
+    String backLabel;
+
+    if (docType == 0) {
+      frontUrl = (kycData['licenseFrontUrl'] ?? kycData['license_front'])?.toString();
+      backUrl = (kycData['licenseBackUrl'] ?? kycData['license_back'])?.toString();
+      frontLabel = 'License Front';
+      backLabel = 'License Back';
+    } else if (docType == 1) {
+      frontUrl = (kycData['aadharFrontUrl'] ?? kycData['aadhar_front'])?.toString();
+      backUrl = (kycData['aadharBackUrl'] ?? kycData['aadhar_back'])?.toString();
+      frontLabel = 'Aadhaar Front';
+      backLabel = 'Aadhaar Back';
+    } else {
+      frontUrl = (kycData['panFrontUrl'] ?? kycData['pan_front'])?.toString();
+      backUrl = (kycData['panBackUrl'] ?? kycData['pan_back'])?.toString();
+      frontLabel = 'PAN Front';
+      backLabel = 'PAN Back';
+    }
+
+    if (frontUrl == null && backUrl == null) {
+      return GlassCard(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(Icons.image_not_supported_outlined, size: 32, color: context.themeTextMuted),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'No uploaded document images available for this ID type.',
+                style: TextStyle(fontSize: 12, color: context.themeTextSecondary),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('UPLOADED DOCUMENTS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: context.themeTextMuted)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            if (frontUrl != null)
+              Expanded(
+                child: _buildDocImageCard(frontUrl, frontLabel),
+              ),
+            if (frontUrl != null && backUrl != null)
+              const SizedBox(width: 10),
+            if (backUrl != null)
+              Expanded(
+                child: _buildDocImageCard(backUrl, backLabel),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDocImageCard(String imageUrl, String label) {
+    return GestureDetector(
+      onTap: () => _showFullScreenImage(imageUrl, label),
+      child: GlassCard(
+        padding: const EdgeInsets.all(6),
+        child: Column(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.network(
+                imageUrl,
+                height: 120,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) return child;
+                  return SizedBox(
+                    height: 120,
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        value: progress.expectedTotalBytes != null
+                            ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
+                            : null,
+                        color: AppColors.primary,
+                        strokeWidth: 2,
+                      ),
+                    ),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) => Container(
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: context.themeSurfaceElevated,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.broken_image_outlined, size: 28, color: context.themeTextMuted),
+                        const SizedBox(height: 4),
+                        Text('Failed to load', style: TextStyle(fontSize: 10, color: context.themeTextMuted)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.zoom_in_rounded, size: 14, color: context.themeTextSecondary),
+                const SizedBox(width: 4),
+                Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.themeTextSecondary)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showFullScreenImage(String imageUrl, String title) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: const EdgeInsets.all(8),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 5.0,
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+                  },
+                  errorBuilder: (context, error, stackTrace) => Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.broken_image_outlined, size: 48, color: Colors.white54),
+                        const SizedBox(height: 8),
+                        Text('Image unavailable', style: const TextStyle(color: Colors.white70)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              left: 12,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: IconButton(
+                icon: const Icon(Icons.close_rounded, color: Colors.white, size: 28),
+                onPressed: () => Navigator.pop(ctx),
+              ),
+            ),
+            Positioned(
+              bottom: 12,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text('Pinch to zoom • Drag to pan', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showExecutiveKycModal(String name, String phone, String email, String uid, Map<String, dynamic> kycData) {
     final messenger = ScaffoldMessenger.of(context);
     int currentDocTab = 0; // 0: DL, 1: Aadhaar, 2: PAN
 
@@ -4318,8 +4515,11 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               Expanded(
                 child: ListView(
                   children: [
-                    // Enlarged Realistic KYC Document Preview Card
+                    // Realistic KYC Card Template
                     _buildRealisticKycCardPreview(currentDocTab, name, phone),
+                    const SizedBox(height: 14),
+                    // Real Uploaded Document Images
+                    _buildDocumentImages(currentDocTab, kycData),
                     const SizedBox(height: 14),
 
                     GlassCard(
