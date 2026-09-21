@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "903989537070",
+    "project_id": "carrentpeweb",
+    "storage_bucket": "carrentpeweb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:903989537070:android:d395db570438dae75d32bf",
+        "android_client_info": {
+          "package_name": "com.example.kruizly"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "903989537070-49o90g3dsntianjmc0m5s8sqf92t3oef.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCCjU3mnovnJz7e3ehIKHfD1sjsmqB6HiI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "903989537070-49o90g3dsntianjmc0m5s8sqf92t3oef.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
