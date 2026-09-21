@@ -23,7 +23,9 @@ class VehicleDetailScreen extends ConsumerWidget {
     final isDark = themeMode == ThemeMode.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.background : AppColors.lightBackground,
+      backgroundColor: isDark
+          ? AppColors.background
+          : AppColors.lightBackground,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -134,7 +136,7 @@ class VehicleDetailScreen extends ConsumerWidget {
                             child: Text(
                               vehicle.categoryDisplay.toUpperCase(),
                               style: const TextStyle(
-                                color: AppColors.primaryLight,
+                                color: AppColors.primary,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -175,7 +177,9 @@ class VehicleDetailScreen extends ConsumerWidget {
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.w800,
-                          color: isDark ? AppColors.textPrimary : AppColors.lightTextPrimary,
+                          color: isDark
+                              ? AppColors.textPrimary
+                              : AppColors.lightTextPrimary,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -183,7 +187,9 @@ class VehicleDetailScreen extends ConsumerWidget {
                         'Registration: ${vehicle.regNo} • Year ${vehicle.year}',
                         style: TextStyle(
                           fontSize: 13,
-                          color: isDark ? AppColors.textSecondary : AppColors.lightTextSecondary,
+                          color: isDark
+                              ? AppColors.textSecondary
+                              : AppColors.lightTextSecondary,
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -199,7 +205,9 @@ class VehicleDetailScreen extends ConsumerWidget {
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
-                                color: isDark ? AppColors.textPrimary : AppColors.lightTextPrimary,
+                                color: isDark
+                                    ? AppColors.textPrimary
+                                    : AppColors.lightTextPrimary,
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -240,7 +248,9 @@ class VehicleDetailScreen extends ConsumerWidget {
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
-                                color: isDark ? AppColors.textPrimary : AppColors.lightTextPrimary,
+                                color: isDark
+                                    ? AppColors.textPrimary
+                                    : AppColors.lightTextPrimary,
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -290,7 +300,9 @@ class VehicleDetailScreen extends ConsumerWidget {
             text,
             style: TextStyle(
               fontSize: 13,
-              color: isDark ? AppColors.textSecondary : AppColors.lightTextSecondary,
+              color: isDark
+                  ? AppColors.textSecondary
+                  : AppColors.lightTextSecondary,
             ),
           ),
         ),

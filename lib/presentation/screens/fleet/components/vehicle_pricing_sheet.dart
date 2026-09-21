@@ -54,7 +54,7 @@ class VehiclePricingSheet extends ConsumerWidget {
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
-                      color: isDark ? AppColors.primaryLight : AppColors.primary,
+                      color: isDark ? AppColors.primary : AppColors.primary,
                     ),
                     children: [
                       TextSpan(
@@ -62,7 +62,9 @@ class VehiclePricingSheet extends ConsumerWidget {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
-                          color: isDark ? AppColors.textSecondary : AppColors.lightTextSecondary,
+                          color: isDark
+                              ? AppColors.textSecondary
+                              : AppColors.lightTextSecondary,
                         ),
                       ),
                     ],
@@ -73,7 +75,9 @@ class VehiclePricingSheet extends ConsumerWidget {
                   '₹${vehicle.securityDeposit.toInt()} deposit (refundable)',
                   style: TextStyle(
                     fontSize: 11,
-                    color: isDark ? AppColors.textMuted : AppColors.lightTextSecondary,
+                    color: isDark
+                        ? AppColors.textMuted
+                        : AppColors.lightTextSecondary,
                   ),
                 ),
               ],

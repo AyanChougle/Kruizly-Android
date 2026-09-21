@@ -1,8 +1,11 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../state/app_providers.dart';
+import '../../widgets/background_video_widget.dart';
 
 class MainShell extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
@@ -16,142 +19,186 @@ class MainShell extends ConsumerWidget {
     final isDark = themeMode == ThemeMode.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.background : AppColors.lightBackground,
-      body: navigationShell,
+      backgroundColor: Colors.black,
       extendBody: true,
-      bottomNavigationBar: Container(
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xF2101622) : const Color(0xF8FFFFFF),
-            borderRadius: BorderRadius.circular(24),
-            gradient: isDark
-                ? const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xF2161F2E),
-                      Color(0xFA0B0F17),
-                    ],
-                  )
-                : const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFFFFFFFF),
-                      Color(0xFFF1F5F9),
-                    ],
-                  ),
-            border: Border.all(
-              color: isDark ? Colors.white.withValues(alpha: 0.14) : AppColors.lightBorder,
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: isDark ? Colors.black.withValues(alpha: 0.45) : const Color(0x1F0F172A),
-                blurRadius: 20,
-                offset: const Offset(0, 6),
-              ),
-            ],
+      body: BackgroundVideoWidget(
+        isEnabled: true,
+        overlayOpacity: isDark ? 0.80 : 0.90,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 260),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) {
+            return FadeTransition(
+              opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+              child: child,
+            );
+          },
+          child: KeyedSubtree(
+            key: ValueKey(currentIndex),
+            child: navigationShell,
           ),
-          child: SafeArea(
-            top: false,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(
-                  0,
-                  Icons.home_outlined,
-                  Icons.home_rounded,
-                  'Home',
-                  currentIndex,
-                  isDark,
+        ),
+      ),
+      bottomNavigationBar: _AppleNavBar(
+        currentIndex: currentIndex,
+        isDark: isDark,
+        onTap: (index) {
+          HapticFeedback.selectionClick();
+          navigationShell.goBranch(
+            index,
+            initialLocation: index == navigationShell.currentIndex,
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _AppleNavBar extends StatelessWidget {
+  final int currentIndex;
+  final bool isDark;
+  final ValueChanged<int> onTap;
+
+  const _AppleNavBar({
+    required this.currentIndex,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  static const _items = [
+    (icon: Icons.home_outlined, activeIcon: Icons.home_rounded, label: 'Home'),
+    (icon: Icons.directions_car_outlined, activeIcon: Icons.directions_car_filled_rounded, label: 'Fleet'),
+    (icon: Icons.add_business_outlined, activeIcon: Icons.add_business_rounded, label: 'Host'),
+    (icon: Icons.luggage_outlined, activeIcon: Icons.luggage_rounded, label: 'Trips'),
+    (icon: Icons.person_outline_rounded, activeIcon: Icons.person_rounded, label: 'Profile'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(28),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              height: 64,
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Colors.black.withValues(alpha: 0.58)
+                    : Colors.white.withValues(alpha: 0.78),
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : Colors.black.withValues(alpha: 0.06),
+                  width: 0.5,
                 ),
-                _buildNavItem(
-                  1,
-                  Icons.directions_car_outlined,
-                  Icons.directions_car_rounded,
-                  'Fleet',
-                  currentIndex,
-                  isDark,
-                ),
-                _buildNavItem(
-                  2,
-                  Icons.luggage_outlined,
-                  Icons.luggage_rounded,
-                  'Trips',
-                  currentIndex,
-                  isDark,
-                ),
-                _buildNavItem(
-                  3,
-                  Icons.person_outline_rounded,
-                  Icons.person_rounded,
-                  'Profile',
-                  currentIndex,
-                  isDark,
-                ),
-              ],
+                boxShadow: [
+                  BoxShadow(
+                    color: isDark
+                        ? Colors.black.withValues(alpha: 0.4)
+                        : const Color(0x12000000),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: List.generate(_items.length, (i) {
+                  return _NavItem(
+                    index: i,
+                    icon: _items[i].icon,
+                    activeIcon: _items[i].activeIcon,
+                    label: _items[i].label,
+                    currentIndex: currentIndex,
+                    isDark: isDark,
+                    onTap: onTap,
+                  );
+                }),
+              ),
             ),
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildNavItem(
-    int index,
-    IconData icon,
-    IconData activeIcon,
-    String label,
-    int currentIndex,
-    bool isDark,
-  ) {
+class _NavItem extends StatelessWidget {
+  final int index;
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  final int currentIndex;
+  final bool isDark;
+  final ValueChanged<int> onTap;
+
+  const _NavItem({
+    required this.index,
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+    required this.currentIndex,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final isSelected = index == currentIndex;
     final activeColor = AppColors.primary;
     final inactiveColor = isDark
-        ? AppColors.textSecondary.withValues(alpha: 0.7)
-        : AppColors.lightTextMuted;
+        ? Colors.white.withValues(alpha: 0.48)
+        : Colors.black.withValues(alpha: 0.42);
 
-    return InkWell(
-      onTap: () => navigationShell.goBranch(
-        index,
-        initialLocation: index == navigationShell.currentIndex,
-      ),
-      borderRadius: BorderRadius.circular(16),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => onTap(index),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppColors.primary.withValues(alpha: isDark ? 0.15 : 0.12)
+              ? (isDark
+                  ? AppColors.primary.withValues(alpha: 0.18)
+                  : AppColors.primary.withValues(alpha: 0.12))
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-          border: isSelected
-              ? Border.all(
-                  color: AppColors.primary.withValues(alpha: isDark ? 0.3 : 0.25),
-                  width: 1,
-                )
-              : null,
+          borderRadius: BorderRadius.circular(18),
         ),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              isSelected ? activeIcon : icon,
-              color: isSelected ? activeColor : inactiveColor,
-              size: 22,
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              transitionBuilder: (child, anim) => ScaleTransition(
+                scale: CurvedAnimation(parent: anim, curve: Curves.easeOutBack),
+                child: FadeTransition(opacity: anim, child: child),
+              ),
+              child: Icon(
+                isSelected ? activeIcon : icon,
+                key: ValueKey(isSelected),
+                color: isSelected ? activeColor : inactiveColor,
+                size: 22,
+              ),
             ),
             const SizedBox(height: 3),
-            Text(
-              label,
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
               style: TextStyle(
-                fontSize: 10.5,
+                fontSize: 9.5,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                letterSpacing: 0.2,
+                letterSpacing: isSelected ? 0.2 : 0.0,
                 color: isSelected ? activeColor : inactiveColor,
               ),
+              child: Text(label),
             ),
           ],
         ),

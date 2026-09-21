@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../../core/constants/app_assets.dart';
 import '../../../../core/theme/app_colors.dart';
 
 class HomeHeroBanner extends StatelessWidget {
@@ -28,7 +27,9 @@ class HomeHeroBanner extends StatelessWidget {
                 end: Alignment.bottomRight,
               ),
         border: Border.all(
-          color: isDark ? AppColors.primary.withValues(alpha: 0.2) : Colors.transparent,
+          color: isDark
+              ? AppColors.primary.withValues(alpha: 0.2)
+              : Colors.transparent,
         ),
         boxShadow: [
           BoxShadow(
@@ -44,14 +45,18 @@ class HomeHeroBanner extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: isDark ? AppColors.primary.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.2),
+              color: isDark
+                  ? AppColors.primary.withValues(alpha: 0.2)
+                  : Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: isDark ? AppColors.primary.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.35),
+                color: isDark
+                    ? AppColors.primary.withValues(alpha: 0.4)
+                    : Colors.white.withValues(alpha: 0.35),
               ),
             ),
             child: Text(
-              'SELF-DRIVE & CHAUFFEUR IN MUMBAI / NAVI MUMBAI',
+              'SELF-DRIVE CAR IN MUMBAI / NAVI MUMBAI',
               style: TextStyle(
                 color: isDark ? AppColors.primaryLight : Colors.white,
                 fontSize: 10,
@@ -79,15 +84,15 @@ class HomeHeroBanner extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 140,
-            child: Image.asset(
-              AppAssets.carPlaceholder,
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) => const SizedBox.shrink(),
-            ),
-          ),
+          // SizedBox(
+          //   width: double.infinity,
+          //   height: 140,
+          //   child: Image.asset(
+          //     AppAssets.carPlaceholder,
+          //     fit: BoxFit.contain,
+          //     errorBuilder: (_, _, _) => const SizedBox.shrink(),
+          //   ),
+          // ),
         ],
       ),
     );

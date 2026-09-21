@@ -41,7 +41,7 @@ class GlassCard extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Colors.white.withValues(alpha: 0.08),
+                  Colors.white.withValues(alpha: 0.07),
                   Colors.white.withValues(alpha: 0.02),
                 ],
               )
@@ -50,19 +50,31 @@ class GlassCard extends StatelessWidget {
                 end: Alignment.bottomRight,
                 colors: [
                   Color(0xFFFFFFFF),
-                  Color(0xFFF8FAFC),
+                  Color(0xFFF9FAFB),
                 ],
               ),
-        border: Border.all(
-          color: borderColor ?? (isDark ? Colors.white.withValues(alpha: 0.12) : AppColors.lightBorder),
-          width: 1.0,
-        ),
+        // Apple-style: no visible border — ultra-subtle separator only in dark mode
+        border: borderColor != null
+            ? Border.all(color: borderColor!, width: 1.0)
+            : isDark
+                ? Border.all(color: Colors.white.withValues(alpha: 0.06), width: 0.5)
+                : null, // no border in light mode — clean Apple card look
         boxShadow: [
           BoxShadow(
-            color: isDark ? Colors.black.withValues(alpha: 0.25) : const Color(0x120F172A),
-            blurRadius: isDark ? 18 : 12,
-            offset: const Offset(0, 4),
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.3)
+                : const Color(0x0A0F172A),
+            blurRadius: isDark ? 20 : 8,
+            spreadRadius: 0,
+            offset: const Offset(0, 3),
           ),
+          if (!isDark)
+            const BoxShadow(
+              color: Color(0x080F172A),
+              blurRadius: 1,
+              spreadRadius: 0,
+              offset: Offset(0, 1),
+            ),
         ],
       ),
       child: child,
@@ -94,8 +106,8 @@ class GlassCard extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(borderRadius),
-          splashColor: AppColors.primary.withValues(alpha: 0.15),
-          highlightColor: Colors.white.withValues(alpha: 0.05),
+          splashColor: AppColors.primary.withValues(alpha: 0.12),
+          highlightColor: Colors.white.withValues(alpha: 0.04),
           child: content,
         ),
       );

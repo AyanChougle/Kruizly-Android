@@ -4,6 +4,7 @@ import '../../core/config/app_config.dart';
 import '../../core/constants/app_assets.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/models/vehicle_model.dart';
+import 'glass_card.dart';
 
 class VehicleCard extends StatelessWidget {
   final VehicleModel vehicle;
@@ -17,8 +18,11 @@ class VehicleCard extends StatelessWidget {
     required this.onBookNow,
   });
 
-  Widget _buildCarImage() {
-    final candidates = AppAssets.getCarImageCandidates(vehicle.brand, vehicle.model);
+  Widget _buildCarImage(bool isDark) {
+    final candidates = AppAssets.getCarImageCandidates(
+      vehicle.brand,
+      vehicle.model,
+    );
 
     Widget buildFromAsset(int candidateIndex) {
       if (candidateIndex >= candidates.length) {
@@ -26,7 +30,7 @@ class VehicleCard extends StatelessWidget {
       }
       return Image.asset(
         candidates[candidateIndex],
-        height: 165,
+        height: 195,
         fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) {
           return buildFromAsset(candidateIndex + 1);
@@ -36,11 +40,25 @@ class VehicleCard extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      height: 180,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Center(
-        child: buildFromAsset(0),
+      height: 215,
+      margin: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF141C28) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(20),
+        gradient: isDark
+            ? const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF1B2433), Color(0xFF0E141E)],
+              )
+            : const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFFFFFFFF), Color(0xFFF1F5F9)],
+              ),
       ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Center(child: buildFromAsset(0)),
     );
   }
 
@@ -51,12 +69,12 @@ class VehicleCard extends StatelessWidget {
           : '${AppConfig.mediaBaseUrl}/${vehicle.imageUrl!}';
       return CachedNetworkImage(
         imageUrl: netUrl,
-        height: 165,
+        height: 195,
         fit: BoxFit.contain,
         placeholder: (c, u) => const Center(
           child: SizedBox(
-            width: 24,
-            height: 24,
+            width: 28,
+            height: 28,
             child: CircularProgressIndicator(
               strokeWidth: 2,
               color: AppColors.primary,
@@ -65,14 +83,14 @@ class VehicleCard extends StatelessWidget {
         ),
         errorWidget: (c, u, e) => Image.asset(
           AppAssets.carPlaceholder,
-          height: 165,
+          height: 195,
           fit: BoxFit.contain,
         ),
       );
     }
     return Image.asset(
       AppAssets.carPlaceholder,
-      height: 165,
+      height: 195,
       fit: BoxFit.contain,
     );
   }
@@ -81,228 +99,221 @@ class VehicleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 18),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0F1520) : Colors.white,
+    return GlassCard(
+      margin: const EdgeInsets.only(bottom: 20),
+      borderRadius: 24,
+      padding: EdgeInsets.zero,
+      blur: 14,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: isDark ? const Color(0x1FFFFFFF) : const Color(0xFFE2E8F0),
-          width: 1.0,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.35)
-                : const Color(0x120F172A),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Top car image with crisp light studio backdrop
-              _buildCarImage(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Studio car showcase podium
+            _buildCarImage(isDark),
 
-              // Bottom car details card
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Availability Status & Hourly Price Row
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
+            // Car Details
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Availability Status & Hourly Price
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: vehicle.isAvailable
+                              ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                              : const Color(0xFFEF4444).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
                           vehicle.isAvailable ? 'AVAILABLE' : 'RENTED',
                           style: TextStyle(
                             color: vehicle.isAvailable
                                 ? const Color(0xFF10B981)
                                 : const Color(0xFFEF4444),
-                            fontSize: 11.5,
+                            fontSize: 11,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 0.8,
                           ),
                         ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              '₹${vehicle.priceHour.toInt()}',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w900,
-                                color: isDark
-                                    ? Colors.white
-                                    : const Color(0xFF0F172A),
-                                letterSpacing: -0.5,
-                                height: 1.0,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '/HOUR',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: isDark
-                                    ? const Color(0xFF94A3B8)
-                                    : const Color(0xFF64748B),
-                                letterSpacing: 0.6,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-
-                    // Vehicle Name
-                    Text(
-                      vehicle.fullName,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
-                        letterSpacing: -0.3,
                       ),
-                    ),
-                    const SizedBox(height: 2),
-
-                    // Vehicle year and category
-                    Text(
-                      '${vehicle.year} • ${vehicle.categoryDisplay.toLowerCase()}',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: isDark
-                            ? const Color(0xFF94A3B8)
-                            : const Color(0xFF64748B),
-                        fontWeight: FontWeight.w500,
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '₹${vehicle.priceHour.toInt()}',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF0F172A),
+                              letterSpacing: -0.5,
+                              height: 1.0,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '/HOUR',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: isDark
+                                  ? const Color(0xFF94A3B8)
+                                  : const Color(0xFF64748B),
+                              letterSpacing: 0.6,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 14),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
 
-                    // Feature Pills Row
-                    Row(
-                      children: [
-                        _buildTag(vehicle.transmission, isDark),
-                        const SizedBox(width: 8),
-                        _buildTag(vehicle.fuel, isDark),
-                        const SizedBox(width: 8),
-                        _buildTag('${vehicle.seats} Seats', isDark),
-                      ],
+                  // Vehicle Name
+                  Text(
+                    vehicle.fullName,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      letterSpacing: -0.3,
                     ),
-                    const SizedBox(height: 14),
+                  ),
+                  const SizedBox(height: 3),
 
-                    // Thin Divider
-                    Divider(
+                  // Vehicle year and category
+                  Text(
+                    '${vehicle.year} • ${vehicle.categoryDisplay.toLowerCase()}',
+                    style: TextStyle(
+                      fontSize: 12.5,
                       color: isDark
-                          ? const Color(0x1AFFFFFF)
-                          : const Color(0xFFE2E8F0),
-                      height: 1,
-                      thickness: 0.8,
+                          ? const Color(0xFF94A3B8)
+                          : const Color(0xFF64748B),
+                      fontWeight: FontWeight.w500,
                     ),
-                    const SizedBox(height: 14),
+                  ),
+                  const SizedBox(height: 14),
 
-                    // Action Buttons Row (BOOK NOW + Show More)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: SizedBox(
-                            height: 44,
-                            child: ElevatedButton(
-                              onPressed: vehicle.isAvailable ? onBookNow : null,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: vehicle.isAvailable
-                                    ? const Color(0xFF4EE4FF)
-                                    : const Color(0xFF334155),
-                                foregroundColor: const Color(0xFF071017),
-                                disabledBackgroundColor:
-                                    const Color(0xFF334155),
-                                disabledForegroundColor: Colors.white38,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(24),
-                                ),
-                                padding: EdgeInsets.zero,
+                  // Feature Pills Row
+                  Row(
+                    children: [
+                      _buildTag(vehicle.transmission, isDark),
+                      const SizedBox(width: 8),
+                      _buildTag(vehicle.fuel, isDark),
+                      const SizedBox(width: 8),
+                      _buildTag('${vehicle.seats} Seats', isDark),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Thin Divider
+                  Divider(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : AppColors.lightBorder,
+                    height: 1,
+                    thickness: 0.8,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Action Buttons Row (Unified colors)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 46,
+                          child: ElevatedButton(
+                            onPressed: vehicle.isAvailable ? onBookNow : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: vehicle.isAvailable
+                                  ? AppColors.primary
+                                  : const Color(0xFF334155),
+                              foregroundColor: Colors.white,
+                              disabledBackgroundColor: const Color(0xFF334155),
+                              disabledForegroundColor: Colors.white38,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(24),
                               ),
-                              child: const Text(
-                                'BOOK NOW',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.6,
-                                ),
+                              padding: EdgeInsets.zero,
+                            ),
+                            child: const Text(
+                              'BOOK NOW',
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.8,
+                                color: Colors.white,
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        SizedBox(
-                          height: 44,
-                          child: OutlinedButton(
-                            onPressed: onTap,
-                            style: OutlinedButton.styleFrom(
-                              backgroundColor: isDark
-                                  ? const Color(0xFF18202C)
-                                  : const Color(0xFFF1F5F9),
-                              foregroundColor: isDark
-                                  ? Colors.white
-                                  : const Color(0xFF0F172A),
-                              side: BorderSide(
-                                color: isDark
-                                    ? const Color(0x2EFFFFFF)
-                                    : const Color(0xFFCBD5E1),
-                                width: 1.0,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(24),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                              ),
+                      ),
+                      const SizedBox(width: 10),
+                      SizedBox(
+                        height: 46,
+                        child: OutlinedButton(
+                          onPressed: onTap,
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: isDark
+                                ? Colors.white.withValues(alpha: 0.06)
+                                : Colors.black.withValues(alpha: 0.04),
+                            foregroundColor: isDark
+                                ? Colors.white
+                                : const Color(0xFF0F172A),
+                            side: BorderSide(
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.12)
+                                  : AppColors.lightBorder,
+                              width: 0.8,
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'Show More',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: isDark
-                                        ? Colors.white
-                                        : const Color(0xFF0F172A),
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Icon(
-                                  Icons.keyboard_arrow_down_rounded,
-                                  size: 18,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Show More',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
                                   color: isDark
                                       ? Colors.white
                                       : const Color(0xFF0F172A),
                                 ),
-                              ],
-                            ),
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                size: 18,
+                                color: isDark
+                                    ? Colors.white70
+                                    : const Color(0xFF64748B),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -312,10 +323,14 @@ class VehicleCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF18202C) : const Color(0xFFF1F5F9),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.06)
+            : const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isDark ? const Color(0x24FFFFFF) : const Color(0xFFE2E8F0),
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : AppColors.lightBorder,
           width: 0.8,
         ),
       ),

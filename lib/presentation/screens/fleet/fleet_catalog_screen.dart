@@ -19,9 +19,9 @@ class FleetCatalogScreen extends ConsumerWidget {
     final isDark = themeMode == ThemeMode.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.background : AppColors.lightBackground,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: isDark ? AppColors.background : AppColors.lightBackground,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
           'Our Fleet',
@@ -31,20 +31,6 @@ class FleetCatalogScreen extends ConsumerWidget {
             color: isDark ? AppColors.textPrimary : AppColors.lightTextPrimary,
           ),
         ),
-        actions: [
-          IconButton(
-            tooltip: isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
-            icon: Icon(
-              isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-              color: isDark ? Colors.amber : AppColors.primary,
-              size: 22,
-            ),
-            onPressed: () {
-              ref.read(themeModeProvider.notifier).toggleTheme();
-            },
-          ),
-          const SizedBox(width: 8),
-        ],
       ),
       body: RefreshIndicator(
         color: AppColors.primary,
@@ -66,61 +52,79 @@ class FleetCatalogScreen extends ConsumerWidget {
             const SizedBox(height: 8),
             Expanded(
               child: fleetState.isLoading
-                  ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                      ),
+                    )
                   : fleetState.filteredVehicles.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.car_crash_outlined, size: 54, color: AppColors.textMuted),
-                              const SizedBox(height: 12),
-                              Text(
-                                'No vehicles match your criteria',
-                                style: TextStyle(
-                                  color: isDark ? AppColors.textPrimary : AppColors.lightTextPrimary,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'Try clearing filters or changing search terms.',
-                                style: TextStyle(
-                                  color: isDark ? AppColors.textSecondary : AppColors.lightTextSecondary,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              TextButton(
-                                onPressed: () {
-                                  fleetNotifier.setCategory('all');
-                                  fleetNotifier.setTransmission('all');
-                                  fleetNotifier.setSearchQuery('');
-                                },
-                                child: const Text(
-                                  'Clear All Filters',
-                                  style: TextStyle(color: AppColors.primaryLight, fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                            ],
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.car_crash_outlined,
+                            size: 54,
+                            color: AppColors.textMuted,
                           ),
-                        )
-                      : ListView.builder(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          itemCount: fleetState.filteredVehicles.length,
-                          itemBuilder: (context, index) {
-                            final v = fleetState.filteredVehicles[index];
-                            return VehicleCard(
-                              vehicle: v,
-                              onTap: () => context.push('/fleet/${v.id}'),
-                              onBookNow: () {
-                                ref.read(bookingProvider.notifier).setVehicle(v);
-                                context.push('/booking');
-                              },
-                            );
+                          const SizedBox(height: 12),
+                          Text(
+                            'No vehicles match your criteria',
+                            style: TextStyle(
+                              color: isDark
+                                  ? AppColors.textPrimary
+                                  : AppColors.lightTextPrimary,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Try clearing filters or changing search terms.',
+                            style: TextStyle(
+                              color: isDark
+                                  ? AppColors.textSecondary
+                                  : AppColors.lightTextSecondary,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextButton(
+                            onPressed: () {
+                              fleetNotifier.setCategory('all');
+                              fleetNotifier.setTransmission('all');
+                              fleetNotifier.setSearchQuery('');
+                            },
+                            child: const Text(
+                              'Clear All Filters',
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      itemCount: fleetState.filteredVehicles.length,
+                      itemBuilder: (context, index) {
+                        final v = fleetState.filteredVehicles[index];
+                        return VehicleCard(
+                          vehicle: v,
+                          onTap: () => context.push('/fleet/${v.id}'),
+                          onBookNow: () {
+                            ref.read(bookingProvider.notifier).setVehicle(v);
+                            context.push('/booking');
                           },
-                        ),
+                        );
+                      },
+                    ),
             ),
           ],
         ),

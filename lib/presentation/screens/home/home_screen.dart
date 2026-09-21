@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -54,91 +55,90 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final isDark = themeMode == ThemeMode.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.background : AppColors.lightBackground,
+      backgroundColor: Colors.transparent,
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(60),
-        child: Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xF2080B10) : const Color(0xF8FFFFFF),
-            border: Border(
-              bottom: BorderSide(
-                color: isDark ? const Color(0x1AFFFFFF) : AppColors.lightBorder,
-                width: 0.8,
-              ),
-            ),
-          ),
-          child: AppBar(
-            backgroundColor: Colors.transparent,
-            surfaceTintColor: Colors.transparent,
-            elevation: 0,
-            titleSpacing: 16,
-            title: Image.asset(
-              isDark ? AppAssets.logoDark : AppAssets.logoLight,
-              height: 38,
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) => Text(
-                'KRUIZLY',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 2,
-                  color: isDark ? AppColors.primaryLight : AppColors.primary,
+        child: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Colors.black.withValues(alpha: 0.55)
+                    : Colors.white.withValues(alpha: 0.72),
+                border: Border(
+                  bottom: BorderSide(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : Colors.black.withValues(alpha: 0.06),
+                    width: 0.5,
+                  ),
                 ),
               ),
-            ),
-            actions: [
-              IconButton(
-                tooltip: isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
-                icon: Icon(
-                  isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-                  color: isDark ? Colors.amber : AppColors.primary,
-                  size: 22,
+              child: AppBar(
+                backgroundColor: Colors.transparent,
+                surfaceTintColor: Colors.transparent,
+                elevation: 0,
+                titleSpacing: 16,
+                title: Image.asset(
+                  isDark ? AppAssets.logoDark : AppAssets.logoLight,
+                  height: 36,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, _, _) => Text(
+                    'KRUIZLY',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.8,
+                      color: isDark ? AppColors.primaryLight : AppColors.primary,
+                    ),
+                  ),
                 ),
-                onPressed: () {
-                  ref.read(themeModeProvider.notifier).toggleTheme();
-                },
-              ),
-              IconButton(
-                tooltip: 'Host Your Car',
-                icon: Icon(
-                  Icons.add_business_outlined,
-                  color: isDark ? Colors.white70 : AppColors.lightTextSecondary,
-                ),
-                onPressed: () => context.push('/host-car'),
-              ),
-              if (authState.isAuthenticated)
-                Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: GestureDetector(
-                    onTap: () => context.go('/profile'),
-                    child: CircleAvatar(
-                      radius: 16,
-                      backgroundColor: AppColors.primary,
-                      child: Text(
-                        (authState.user?.name ?? 'U').substring(0, 1).toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13,
+                actions: [
+                  IconButton(
+                    tooltip: 'Host Your Car',
+                    icon: Icon(
+                      Icons.add_business_outlined,
+                      color: isDark ? Colors.white54 : AppColors.lightTextSecondary,
+                      size: 21,
+                    ),
+                    onPressed: () => context.go('/host'),
+                  ),
+                  if (authState.isAuthenticated)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 14),
+                      child: GestureDetector(
+                        onTap: () => context.go('/profile'),
+                        child: CircleAvatar(
+                          radius: 15,
+                          backgroundColor: AppColors.primary,
+                          child: Text(
+                            (authState.user?.name ?? 'U').substring(0, 1).toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
                         ),
                       ),
+                    )
+                  else
+                    Padding(
+                      padding: const EdgeInsets.only(right: 10),
+                      child: IconButton(
+                        tooltip: 'Sign In',
+                        icon: Icon(
+                          Icons.account_circle_outlined,
+                          color: isDark ? Colors.white54 : AppColors.lightTextSecondary,
+                          size: 23,
+                        ),
+                        onPressed: () => context.push('/sign-in'),
+                      ),
                     ),
-                  ),
-                )
-              else
-                Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: IconButton(
-                    tooltip: 'Sign In',
-                    icon: Icon(
-                      Icons.account_circle_outlined,
-                      color: isDark ? Colors.white70 : AppColors.lightTextSecondary,
-                      size: 24,
-                    ),
-                    onPressed: () => context.push('/sign-in'),
-                  ),
-                ),
-            ],
+                ],
+              ),
+            ),
           ),
         ),
       ),

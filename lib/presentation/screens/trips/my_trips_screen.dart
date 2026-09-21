@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../state/app_providers.dart';
 import '../../state/auth_provider.dart';
 import '../../state/trips_provider.dart';
 import '../../widgets/custom_button.dart';
@@ -24,9 +23,9 @@ class MyTripsScreen extends ConsumerWidget {
 
     if (!authState.isAuthenticated) {
       return Scaffold(
-        backgroundColor: context.themeBackground,
+        backgroundColor: Colors.transparent,
         appBar: AppBar(
-          backgroundColor: context.themeBackground,
+          backgroundColor: Colors.transparent,
           elevation: 0,
           title: Text('My Trips', style: TextStyle(fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
         ),
@@ -63,31 +62,16 @@ class MyTripsScreen extends ConsumerWidget {
 
     final tripsState = ref.watch(tripsProvider);
     final tripsNotifier = ref.read(tripsProvider.notifier);
-    final isDark = context.isDarkMode;
 
     return Scaffold(
-      backgroundColor: context.themeBackground,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: context.themeBackground,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
           'My Trips',
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: context.themeTextPrimary),
         ),
-        actions: [
-          IconButton(
-            tooltip: isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
-            icon: Icon(
-              isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-              color: isDark ? Colors.amber : AppColors.primary,
-              size: 22,
-            ),
-            onPressed: () {
-              ref.read(themeModeProvider.notifier).toggleTheme();
-            },
-          ),
-          const SizedBox(width: 8),
-        ],
       ),
       body: RefreshIndicator(
         color: AppColors.primary,

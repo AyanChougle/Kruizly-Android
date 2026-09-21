@@ -16,14 +16,46 @@ class VehicleSpecGrid extends ConsumerWidget {
     final isDark = themeMode == ThemeMode.dark;
 
     final specs = [
-      {'label': 'Transmission', 'val': vehicle.transmission, 'icon': Icons.settings_outlined},
-      {'label': 'Fuel Type', 'val': vehicle.fuel, 'icon': Icons.local_gas_station_outlined},
-      {'label': 'Seating', 'val': '${vehicle.seats} Passengers', 'icon': Icons.event_seat_outlined},
-      {'label': 'Luggage', 'val': '${vehicle.bags} Bags', 'icon': Icons.luggage_outlined},
-      {'label': 'Free KM Limit', 'val': '${vehicle.freeKm} km / day', 'icon': Icons.speed_outlined},
-      {'label': 'Extra KM Fee', 'val': '₹${vehicle.extraKm.toInt()} / km', 'icon': Icons.add_road_outlined},
-      {'label': 'Year', 'val': vehicle.year.toString(), 'icon': Icons.calendar_today_outlined},
-      {'label': 'Location', 'val': 'Ghansoli Hub', 'icon': Icons.location_on_outlined},
+      {
+        'label': 'Transmission',
+        'val': vehicle.transmission,
+        'icon': Icons.settings_outlined,
+      },
+      {
+        'label': 'Fuel Type',
+        'val': vehicle.fuel,
+        'icon': Icons.local_gas_station_outlined,
+      },
+      {
+        'label': 'Seating',
+        'val': '${vehicle.seats} Passengers',
+        'icon': Icons.event_seat_outlined,
+      },
+      {
+        'label': 'Luggage',
+        'val': '${vehicle.bags} Bags',
+        'icon': Icons.luggage_outlined,
+      },
+      {
+        'label': 'Free KM Limit',
+        'val': '${vehicle.freeKm} km / day',
+        'icon': Icons.speed_outlined,
+      },
+      {
+        'label': 'Extra KM Fee',
+        'val': '₹${vehicle.extraKm.toInt()} / km',
+        'icon': Icons.add_road_outlined,
+      },
+      {
+        'label': 'Year',
+        'val': vehicle.year.toString(),
+        'icon': Icons.calendar_today_outlined,
+      },
+      {
+        'label': 'Location',
+        'val': 'Ghansoli Hub',
+        'icon': Icons.location_on_outlined,
+      },
     ];
 
     return GlassCard(
@@ -36,7 +68,9 @@ class VehicleSpecGrid extends ConsumerWidget {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
-              color: isDark ? AppColors.textPrimary : AppColors.lightTextPrimary,
+              color: isDark
+                  ? AppColors.textPrimary
+                  : AppColors.lightTextPrimary,
             ),
           ),
           const SizedBox(height: 14),
@@ -53,12 +87,19 @@ class VehicleSpecGrid extends ConsumerWidget {
             itemBuilder: (context, index) {
               final s = specs[index];
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
-                  color: isDark ? AppColors.surfaceElevated : AppColors.lightSurfaceElevated,
+                  color: isDark
+                      ? AppColors.surfaceElevated
+                      : AppColors.lightSurfaceElevated,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: isDark ? AppColors.borderLight : AppColors.lightBorder,
+                    color: isDark
+                        ? AppColors.borderLight
+                        : AppColors.lightBorder,
                   ),
                 ),
                 child: Row(
@@ -66,7 +107,7 @@ class VehicleSpecGrid extends ConsumerWidget {
                     Icon(
                       s['icon'] as IconData,
                       size: 18,
-                      color: isDark ? AppColors.primaryLight : AppColors.primary,
+                      color: isDark ? AppColors.primary : AppColors.primary,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -78,7 +119,9 @@ class VehicleSpecGrid extends ConsumerWidget {
                             s['label'] as String,
                             style: TextStyle(
                               fontSize: 10,
-                              color: isDark ? AppColors.textSecondary : AppColors.lightTextSecondary,
+                              color: isDark
+                                  ? AppColors.textSecondary
+                                  : AppColors.lightTextSecondary,
                             ),
                           ),
                           Text(
@@ -86,7 +129,9 @@ class VehicleSpecGrid extends ConsumerWidget {
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: isDark ? AppColors.textPrimary : AppColors.lightTextPrimary,
+                              color: isDark
+                                  ? AppColors.textPrimary
+                                  : AppColors.lightTextPrimary,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,

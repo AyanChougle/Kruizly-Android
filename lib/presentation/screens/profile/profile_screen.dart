@@ -97,13 +97,9 @@ class ProfileScreen extends ConsumerWidget {
 
     if (!authState.isAuthenticated) {
       return Scaffold(
-        backgroundColor: isDark
-            ? AppColors.background
-            : AppColors.lightBackground,
+        backgroundColor: Colors.transparent,
         appBar: AppBar(
-          backgroundColor: isDark
-              ? AppColors.background
-              : AppColors.lightBackground,
+          backgroundColor: Colors.transparent,
           elevation: 0,
           title: Text(
             'Profile',
@@ -190,13 +186,9 @@ class ProfileScreen extends ConsumerWidget {
     final kycStatus = profileState.kyc?.overallStatus ?? 'pending';
 
     return Scaffold(
-      backgroundColor: isDark
-          ? AppColors.background
-          : AppColors.lightBackground,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: isDark
-            ? AppColors.background
-            : AppColors.lightBackground,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
           'My Profile',

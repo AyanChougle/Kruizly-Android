@@ -2,9 +2,9 @@ import '''package:flutter/material.dart''';
 
 class AppColors {
   static const Color primary = Color(0xFF0071E3);
-  static const Color primaryLight = Color(0xFF3898EC);
-  static const Color primaryDark = Color(0xFF0051A8);
-  static const Color accent = Color(0xFF0A84FF);
+  static const Color primaryLight = Color(0xFF0071E3);
+  static const Color primaryDark = Color(0xFF0071E3);
+  static const Color accent = Color(0xFF0071E3);
 
   static const Color background = Color(0xFF080B10);
   static const Color surface = Color(0xFF121721);
@@ -34,10 +34,10 @@ class AppColors {
   static const Color success = Color(0xFF10B981);
   static const Color warning = Color(0xFFF59E0B);
   static const Color error = Color(0xFFEF4444);
-  static const Color info = Color(0xFF3B82F6);
+  static const Color info = Color(0xFF0071E3);
 
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [Color(0xFF0071E3), Color(0xFF0A84FF)],
+    colors: [Color(0xFF0071E3), Color(0xFF0071E3)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -57,13 +57,22 @@ class AppColors {
 
 extension AppThemeContext on BuildContext {
   bool get isDarkMode => Theme.of(this).brightness == Brightness.dark;
-  Color get themeBackground => isDarkMode ? AppColors.background : AppColors.lightBackground;
-  Color get themeSurface => isDarkMode ? AppColors.surface : AppColors.lightSurface;
-  Color get themeSurfaceElevated => isDarkMode ? AppColors.surfaceElevated : AppColors.lightSurfaceElevated;
-  Color get themeBorder => isDarkMode ? AppColors.border : AppColors.lightBorder;
-  Color get themeBorderLight => isDarkMode ? AppColors.borderLight : AppColors.lightBorderLight;
-  Color get themeTextPrimary => isDarkMode ? AppColors.textPrimary : AppColors.lightTextPrimary;
-  Color get themeTextSecondary => isDarkMode ? AppColors.textSecondary : AppColors.lightTextSecondary;
-  Color get themeTextMuted => isDarkMode ? AppColors.textMuted : AppColors.lightTextMuted;
-  LinearGradient get themeCardGradient => isDarkMode ? AppColors.cardGradient : AppColors.lightCardGradient;
+  Color get themeBackground =>
+      isDarkMode ? AppColors.background : AppColors.lightBackground;
+  Color get themeSurface =>
+      isDarkMode ? AppColors.surface : AppColors.lightSurface;
+  Color get themeSurfaceElevated =>
+      isDarkMode ? AppColors.surfaceElevated : AppColors.lightSurfaceElevated;
+  Color get themeBorder =>
+      isDarkMode ? AppColors.border : AppColors.lightBorder;
+  Color get themeBorderLight =>
+      isDarkMode ? AppColors.borderLight : AppColors.lightBorderLight;
+  Color get themeTextPrimary =>
+      isDarkMode ? AppColors.textPrimary : AppColors.lightTextPrimary;
+  Color get themeTextSecondary =>
+      isDarkMode ? AppColors.textSecondary : AppColors.lightTextSecondary;
+  Color get themeTextMuted =>
+      isDarkMode ? AppColors.textMuted : AppColors.lightTextMuted;
+  LinearGradient get themeCardGradient =>
+      isDarkMode ? AppColors.cardGradient : AppColors.lightCardGradient;
 }

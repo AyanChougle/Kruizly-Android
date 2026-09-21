@@ -23,6 +23,7 @@ import '../screens/trips/trip_detail_screen.dart';
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _homeNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'homeNav');
 final _fleetNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'fleetNav');
+final _hostNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'hostNav');
 final _tripsNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'tripsNav');
 final _profileNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'profileNav');
 
@@ -65,6 +66,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/fleet',
                 builder: (context, state) => const FleetCatalogScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            navigatorKey: _hostNavigatorKey,
+            routes: [
+              GoRoute(
+                path: '/host',
+                builder: (context, state) => const HostCarScreen(),
               ),
             ],
           ),
@@ -132,8 +142,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/host-car',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const HostCarScreen(),
+        redirect: (context, state) => '/host',
       ),
       GoRoute(
         path: '/contact',

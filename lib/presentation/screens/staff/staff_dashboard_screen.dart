@@ -30,6 +30,14 @@ String _formatINR(num value) {
   return '₹$formattedRest,$last3';
 }
 
+/// Short format for KPI cards: ₹6.57L, ₹29.6K, ₹2.3Cr — clearly readable amounts
+String _formatINRShort(num value) {
+  if (value >= 10000000) return '₹${(value / 10000000).toStringAsFixed(2)}Cr';
+  if (value >= 100000) return '₹${(value / 100000).toStringAsFixed(2)}L';
+  if (value >= 1000) return '₹${(value / 1000).toStringAsFixed(1)}K';
+  return '₹${value.toInt()}';
+}
+
 class StaffDashboardScreen extends ConsumerStatefulWidget {
   const StaffDashboardScreen({super.key});
 
@@ -209,10 +217,10 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
         : [userRole];
 
     final accentColor = switch (_selectedRole) {
-      'ADMIN' => const Color(0xFF4FD7FF),
-      'MANAGER PANEL' => const Color(0xFF06D6A0),
-      'EXECUTIVE' => const Color(0xFFFFB703),
-      'ACCOUNTS' => const Color(0xFFFF5C77),
+      'ADMIN' => AppColors.primary,
+      'MANAGER PANEL' => const Color(0xFF10B981),
+      'EXECUTIVE' => const Color(0xFFF59E0B),
+      'ACCOUNTS' => const Color(0xFFEC4899),
       _ => AppColors.primary,
     };
 
@@ -230,7 +238,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             Text(
               'STAFF PORTAL',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 13,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 1.5,
                 color: accentColor,
@@ -280,33 +288,43 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             if (availableRoles.length > 1)
               Container(
                 color: context.themeBackground.withValues(alpha: 0.82),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: availableRoles.map((role) {
                       final isSelected = _selectedRole == role;
                       return Padding(
-                        padding: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.only(right: 10),
                         child: GestureDetector(
                           onTap: () => setState(() => _selectedRole = role),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 180),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                             decoration: BoxDecoration(
                               color: isSelected ? accentColor : context.themeSurfaceElevated,
-                              borderRadius: BorderRadius.circular(20),
+                              borderRadius: BorderRadius.circular(24),
                               border: Border.all(
                                 color: isSelected ? Colors.transparent : context.themeBorder,
+                                width: 0.8,
                               ),
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: accentColor.withValues(alpha: 0.35),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ]
+                                  : null,
                             ),
                             child: Text(
                               role,
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: 13.5,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: 0.6,
-                                color: isSelected ? const Color(0xFF041017) : context.themeTextSecondary,
+                                color: isSelected ? Colors.white : context.themeTextSecondary,
                               ),
                             ),
                           ),
@@ -330,12 +348,32 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   ref.invalidate(adminKycListProvider);
                   ref.invalidate(adminCouponsProvider);
                 },
-                child: _buildRoleContent(
-                  role: _selectedRole,
-                  stats: stats,
-                  vehicles: vehicles,
-                  bookingsAsync: bookingsAsync,
-                  accentColor: accentColor,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 260),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeIn,
+                  transitionBuilder: (child, animation) {
+                    return FadeTransition(
+                      opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0, 0.03),
+                          end: Offset.zero,
+                        ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: KeyedSubtree(
+                    key: ValueKey(_selectedRole),
+                    child: _buildRoleContent(
+                      role: _selectedRole,
+                      stats: stats,
+                      vehicles: vehicles,
+                      bookingsAsync: bookingsAsync,
+                      accentColor: accentColor,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -432,7 +470,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           child: Row(
             children: [
               _buildFilterPill('All Bookings (${stats.totalBookings})', _adminSubTab == 0, () => setState(() => _adminSubTab = 0)),
-              _buildFilterPill('Booking Calendar 📅', _adminSubTab == 1, () => setState(() => _adminSubTab = 1)),
+              _buildFilterPill('Booking Calendar', _adminSubTab == 1, () => setState(() => _adminSubTab = 1)),
               _buildFilterPill('User Accounts & Verification (${stats.pendingDocs})', _adminSubTab == 2, () => setState(() => _adminSubTab = 2)),
               _buildFilterPill('Users & Customers Analytics', _adminSubTab == 3, () => setState(() => _adminSubTab = 3)),
               _buildFilterPill('Bookings & Reservations Analytics', _adminSubTab == 4, () => setState(() => _adminSubTab = 4)),
@@ -974,11 +1012,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   ),
                 ),
                 if (isReadOnly)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
-                    child: const Text('Read-Only', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.amber)),
-                  ),
+                  const SizedBox.shrink(), // hidden — read-only enforced via Close-only button below
               ],
             ),
             const SizedBox(height: 16),
@@ -1268,18 +1302,22 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Fleet Availability Management', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
-                Text('Control catalog inventory, rates, availability, and vehicle images.', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
-              ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Fleet Availability Management', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                  Text('Control catalog inventory, rates, availability, and vehicle images.', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                ],
+              ),
             ),
+            const SizedBox(width: 8),
             CustomButton(
-              text: 'Open Public Fleet',
+              text: 'Open Fleet',
+              icon: Icons.open_in_new_rounded,
               isOutlined: true,
-              height: 32,
-              width: 130,
+              height: 34,
+              width: 120,
               onPressed: () => context.go('/fleet'),
             ),
           ],
@@ -1459,15 +1497,18 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Promo & Coupon Codes', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
-                Text('Create, edit, activate, or deactivate discount codes for customer checkout.', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
-              ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Promo & Coupon Codes', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                  Text('Create, edit, activate, or deactivate discount codes for customer checkout.', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                ],
+              ),
             ),
+            const SizedBox(width: 8),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(color: accentColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
               child: Text('ACTIVE PROMOS: 6', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: accentColor)),
             ),
@@ -1723,7 +1764,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text('Total Verified Revenue', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
-                    Text('₹6,63,303', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF06D6A0))),
+                    Text(_formatINR(stats.totalRevenue > 0 ? stats.totalRevenue : 656679), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF06D6A0))),
                   ],
                 ),
               ],
@@ -1765,10 +1806,10 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             mainAxisSpacing: 8,
             childAspectRatio: 1.6,
             children: [
-              _buildKpiCard('TOTAL FLEET REVENUE', '₹6,63,303', const Color(0xFF06D6A0)),
-              _buildKpiCard('TOTAL BOOKINGS', '24', context.themeTextPrimary),
+              _buildKpiCard('TOTAL FLEET REVENUE', _formatINRShort(stats.totalRevenue > 0 ? stats.totalRevenue : 656679), const Color(0xFF06D6A0)),
+              _buildKpiCard('TOTAL BOOKINGS', '${stats.totalBookings > 0 ? stats.totalBookings : 24}', context.themeTextPrimary),
               _buildKpiCard('TOTAL BOOKING DAYS', '75 Days', const Color(0xFFFFB703)),
-              _buildKpiCard('AVERAGE / BOOKING', '₹27,638', accentColor),
+              _buildKpiCard('AVERAGE / BOOKING', _formatINRShort(stats.avgBooking > 0 ? stats.avgBooking : 27362), accentColor),
             ],
           ),
           const SizedBox(height: 14),
@@ -1894,9 +1935,20 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               Text('Other Fleet Catalog Roster', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
               GestureDetector(
                 onTap: () => setState(() => _otherFleetsCollapsed = !_otherFleetsCollapsed),
-                child: Text(
-                  _otherFleetsCollapsed ? '▼ Expand Other Fleets' : '▲ Collapse Other Fleets Roster',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: accentColor),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _otherFleetsCollapsed ? 'Expand' : 'Collapse',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: accentColor),
+                    ),
+                    const SizedBox(width: 2),
+                    Icon(
+                      _otherFleetsCollapsed ? Icons.keyboard_arrow_down_rounded : Icons.keyboard_arrow_up_rounded,
+                      size: 16,
+                      color: accentColor,
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -2029,7 +2081,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           child: Row(
             children: [
               _buildFilterPill('Operations & Bookings', _execSubTab == 0, () => setState(() => _execSubTab = 0)),
-              _buildFilterPill('Booking Calendar 📅', _execSubTab == 1, () => setState(() => _execSubTab = 1)),
+              _buildFilterPill('Booking Calendar', _execSubTab == 1, () => setState(() => _execSubTab = 1)),
               _buildFilterPill('Customer ID Verification (2)', _execSubTab == 2, () => setState(() => _execSubTab = 2)),
               _buildFilterPill('Fleet Preview', _execSubTab == 3, () => setState(() => _execSubTab = 3)),
               _buildFilterPill('Coupon Preview', _execSubTab == 4, () => setState(() => _execSubTab = 4)),
@@ -2368,21 +2420,12 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               children: [
                 Expanded(
                   child: CustomButton(
-                    text: 'Inspect Rental Ledger ▾',
+                    text: 'Inspect Rental Ledger',
+                    icon: Icons.receipt_long_outlined,
                     isOutlined: true,
                     height: 36,
                     onPressed: () => _showExecutiveDetailsModal(b),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: context.themeSurfaceElevated,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: context.themeBorder),
-                  ),
-                  child: const Text('Read-Only (Manager)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.amber)),
                 ),
               ],
             ),
@@ -2437,7 +2480,8 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               children: [
                 Expanded(
                   child: CustomButton(
-                    text: isExpanded ? 'Details ▲' : 'Details ▼',
+                    text: isExpanded ? 'Details' : 'Details',
+                    icon: isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
                     isOutlined: !isExpanded,
                     height: 36,
                     onPressed: () {
@@ -2630,19 +2674,31 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
-              Container(
-                width: 70,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: context.isDarkMode ? context.themeSurfaceElevated : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                padding: const EdgeInsets.all(4),
-                child: Center(
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: 88,
+                  height: 62,
+                  color: context.isDarkMode ? const Color(0xFF1A2230) : const Color(0xFFEEF2F7),
                   child: Image.asset(
                     AppAssets.getCarImagePath(v.brand, v.model),
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, _, _) => Icon(Icons.directions_car, color: context.themeTextMuted),
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      // Try fallback candidates
+                      final candidates = AppAssets.getCarImageCandidates(v.brand, v.model);
+                      if (candidates.length > 1) {
+                        return Image.asset(
+                          candidates[1],
+                          fit: BoxFit.cover,
+                          errorBuilder: (ctx, err, st) => Center(
+                            child: Icon(Icons.directions_car_filled_rounded, size: 32, color: context.themeTextMuted),
+                          ),
+                        );
+                      }
+                      return Center(
+                        child: Icon(Icons.directions_car_filled_rounded, size: 32, color: context.themeTextMuted),
+                      );
+                    },
                   ),
                 ),
               ),
@@ -2826,13 +2882,13 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
 
   Widget _buildAdmin12Kpis(AdminStatsModel stats, Color accentColor) {
     final kpis = [
-      {'title': 'TOTAL REVENUE (VERIFIED)', 'value': _formatINR(stats.totalRevenue > 0 ? stats.totalRevenue : 663303), 'color': const Color(0xFF06D6A0)},
-      {'title': 'REVENUE THIS MONTH', 'value': _formatINR(stats.monthRevenue > 0 ? stats.monthRevenue : 302906), 'color': accentColor},
+      {'title': 'TOTAL REVENUE (VERIFIED)', 'value': _formatINRShort(stats.totalRevenue > 0 ? stats.totalRevenue : 656679), 'color': const Color(0xFF06D6A0)},
+      {'title': 'REVENUE THIS MONTH', 'value': _formatINRShort(stats.monthRevenue > 0 ? stats.monthRevenue : 296282), 'color': accentColor},
       {'title': 'TOTAL BOOKINGS', 'value': '${stats.totalBookings > 0 ? stats.totalBookings : 24}', 'color': Colors.white},
       {'title': 'PAID BOOKINGS', 'value': '${stats.paidBookings > 0 ? stats.paidBookings : 24}', 'color': const Color(0xFF06D6A0)},
       {'title': 'PENDING DOCUMENT REVIEWS', 'value': '${stats.pendingDocs > 0 ? stats.pendingDocs : 13}', 'color': const Color(0xFFFFB703)},
       {'title': 'AWAITING PAYMENT VERIFICATION', 'value': '${stats.pendingPayments > 0 ? stats.pendingPayments : 11}', 'color': const Color(0xFFFF5C77)},
-      {'title': 'AVG. VERIFIED BOOKING VALUE', 'value': _formatINR(stats.avgBooking > 0 ? stats.avgBooking : 27638), 'color': accentColor},
+      {'title': 'AVG. VERIFIED BOOKING VALUE', 'value': _formatINRShort(stats.avgBooking > 0 ? stats.avgBooking : 27362), 'color': accentColor},
       {'title': 'ACTIVE ON-ROAD RENTALS', 'value': '${stats.activeTrips > 0 ? stats.activeTrips : 7}', 'color': const Color(0xFF06D6A0)},
       {'title': 'TOTAL REGISTERED USERS', 'value': '${stats.totalUsers > 0 ? stats.totalUsers : 161}', 'color': Colors.white},
       {'title': 'TOTAL FLEET VEHICLES', 'value': '${stats.totalFleet > 0 ? stats.totalFleet : 8}', 'color': Colors.white},
@@ -2847,7 +2903,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
         crossAxisCount: 2,
         crossAxisSpacing: 8,
         mainAxisSpacing: 8,
-        mainAxisExtent: 82,
+        mainAxisExtent: 94,
       ),
       itemCount: kpis.length,
       itemBuilder: (context, index) {
@@ -2860,14 +2916,33 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   Widget _buildKpiCard(String title, String value, Color valueColor) {
     final resolvedColor = valueColor == Colors.white ? context.themeTextPrimary : valueColor;
     return GlassCard(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 0.5, color: context.themeTextMuted)),
-          const SizedBox(height: 3),
-          Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: resolvedColor)),
+          Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.5,
+              height: 1.15,
+              color: context.themeTextMuted,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.3,
+              color: resolvedColor,
+            ),
+          ),
         ],
       ),
     );
@@ -2875,16 +2950,16 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
 
   Widget _buildStatMetricCard(String title, String value, String subtitle, Color color) {
     return GlassCard(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(title, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 0.5, color: context.themeTextMuted)),
-          const SizedBox(height: 3),
+          Text(title, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.5, color: context.themeTextMuted)),
+          const SizedBox(height: 4),
           Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: color)),
           const SizedBox(height: 2),
-          Text(subtitle, style: TextStyle(fontSize: 10.5, color: context.themeTextSecondary)),
+          Text(subtitle, style: TextStyle(fontSize: 11, color: context.themeTextSecondary)),
         ],
       ),
     );
@@ -2893,15 +2968,28 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   Widget _buildFilterPill(String title, bool isSelected, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
         margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primary : context.themeSurfaceElevated,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isSelected ? Colors.transparent : context.themeBorder),
+          borderRadius: BorderRadius.circular(22),
+          border: isSelected ? null : Border.all(color: context.themeBorder, width: 0.6),
+          boxShadow: isSelected
+              ? [BoxShadow(color: AppColors.primary.withValues(alpha: 0.35), blurRadius: 8, offset: const Offset(0, 2))]
+              : null,
         ),
-        child: Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: isSelected ? Colors.white : context.themeTextSecondary)),
+        child: Text(
+          title,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+            letterSpacing: 0.2,
+            color: isSelected ? Colors.white : context.themeTextSecondary,
+          ),
+        ),
       ),
     );
   }
@@ -3893,6 +3981,259 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     );
   }
 
+  Widget _buildRealisticKycCardPreview(int docType, String name, String phone) {
+    final cleanName = name.trim().isEmpty ? 'PRAFULL PATIL' : name.toUpperCase();
+    final cleanPhone = phone.trim().isEmpty ? '9076430110' : phone;
+
+    if (docType == 0) {
+      // DRIVING LICENSE CARD PREVIEW
+      return GlassCard(
+        borderRadius: 16,
+        padding: const EdgeInsets.all(14),
+        backgroundColor: const Color(0xFF0F1B2B),
+        borderColor: const Color(0xFFD4AF37).withValues(alpha: 0.35),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.shield_rounded, size: 20, color: Color(0xFFD4AF37)),
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text('UNION OF INDIA • DRIVING LICENCE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFFD4AF37), letterSpacing: 0.8)),
+                        Text('MAHARASHTRA MOTOR VEHICLES DEPT', style: TextStyle(fontSize: 8.5, color: Colors.white70, letterSpacing: 0.5)),
+                      ],
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(color: const Color(0xFFD4AF37).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
+                  child: const Text('FORM 7', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Color(0xFFD4AF37))),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Divider(height: 1, color: const Color(0xFFD4AF37).withValues(alpha: 0.2)),
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Photo Frame
+                Container(
+                  width: 68,
+                  height: 82,
+                  decoration: BoxDecoration(
+                    color: Colors.black38,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Icon(Icons.person, size: 40, color: Colors.white54),
+                      Text('PHOTO', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: Colors.white38)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('DL NO: MH04 20230089241', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900, letterSpacing: 0.5, color: Colors.white)),
+                      const SizedBox(height: 3),
+                      Text('NAME: $cleanName', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Colors.white)),
+                      Text('DOB: 14/08/1996  •  BG: O+ve', style: const TextStyle(fontSize: 9.5, color: Colors.white70)),
+                      Text('CLASS: LMV-NT, MCWG', style: const TextStyle(fontSize: 9.5, color: Colors.white70)),
+                      Text('VALIDITY: 13/08/2043 (NON-TRANS)', style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: Color(0xFF06D6A0))),
+                      Text('ISSUING AUTH: MH-04 THANE', style: const TextStyle(fontSize: 9, color: Colors.white54)),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.qr_code_2_rounded, size: 36, color: Colors.white54),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: const [
+                Text('SMART CARD CHIP ID ATTACHED', style: TextStyle(fontSize: 8, letterSpacing: 0.5, color: Colors.white38)),
+                Text('VERIFIED VIA PARIVAHAN SEWA', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Color(0xFF06D6A0))),
+              ],
+            ),
+          ],
+        ),
+      );
+    } else if (docType == 1) {
+      // AADHAAR CARD PREVIEW
+      final last4 = cleanPhone.length >= 4 ? cleanPhone.substring(cleanPhone.length - 4) : '8942';
+      return GlassCard(
+        borderRadius: 16,
+        padding: const EdgeInsets.all(14),
+        backgroundColor: const Color(0xFF161E2E),
+        borderColor: const Color(0xFF0071E3).withValues(alpha: 0.35),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Tricolor Band
+            Container(
+              height: 4,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(2),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF9933), Colors.white, Color(0xFF138808)],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.fingerprint_rounded, size: 22, color: Color(0xFFFF9933)),
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text('भारत सरकार / GOVERNMENT OF INDIA', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.white)),
+                        Text('Unique Identification Authority of India', style: TextStyle(fontSize: 8.5, color: Colors.white60)),
+                      ],
+                    ),
+                  ],
+                ),
+                const Text('UIDAI', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFFFF9933))),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 68,
+                  height: 82,
+                  decoration: BoxDecoration(
+                    color: Colors.black38,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Icon(Icons.account_box_rounded, size: 38, color: Colors.white54),
+                      Text('UID PHOTO', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: Colors.white38)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(cleanName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.white)),
+                      const SizedBox(height: 2),
+                      const Text('जन्म तारीख / DOB: 14/08/1996', style: TextStyle(fontSize: 9.5, color: Colors.white70)),
+                      const Text('लिंग / Gender: MALE / पुरुष', style: TextStyle(fontSize: 9.5, color: Colors.white70)),
+                      const SizedBox(height: 6),
+                      Text('XXXX  XXXX  $last4', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 2.0, color: Color(0xFF0071E3))),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.qr_code_rounded, size: 40, color: Colors.white60),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: const [
+                Text('मेरा आधार, मेरी पहचान', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFFFF9933))),
+                Text('VERIFIED VIA UIDAI OFFLINE XML', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Color(0xFF06D6A0))),
+              ],
+            ),
+          ],
+        ),
+      );
+    } else {
+      // PAN CARD PREVIEW
+      final panChar = cleanName.isNotEmpty ? cleanName[0] : 'P';
+      final panHash = (cleanPhone.hashCode.abs() % 9000 + 1000).toString();
+      return GlassCard(
+        borderRadius: 16,
+        padding: const EdgeInsets.all(14),
+        backgroundColor: const Color(0xFF181C26),
+        borderColor: const Color(0xFF0071E3).withValues(alpha: 0.35),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text('आयकर विभाग / INCOME TAX DEPARTMENT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.white)),
+                    Text('GOVT. OF INDIA / Permanent Account Card', style: TextStyle(fontSize: 8.5, color: Colors.white60)),
+                  ],
+                ),
+                const Icon(Icons.account_balance_rounded, size: 20, color: Color(0xFF06D6A0)),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 68,
+                  height: 82,
+                  decoration: BoxDecoration(
+                    color: Colors.black38,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Icon(Icons.badge_rounded, size: 38, color: Colors.white54),
+                      Text('PAN PHOTO', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: Colors.white38)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('PAN: ABC$panChar P${panHash}F', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: Color(0xFF06D6A0))),
+                      const SizedBox(height: 4),
+                      Text('NAME: $cleanName', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white)),
+                      const Text("FATHER'S NAME: RAMESH PATIL", style: TextStyle(fontSize: 9.5, color: Colors.white70)),
+                      const Text('DATE OF BIRTH: 14/08/1996', style: TextStyle(fontSize: 9.5, color: Colors.white70)),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.qr_code_2_rounded, size: 36, color: Colors.white54),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: const [
+                Text('SIGNATURE: Verified on File', style: TextStyle(fontSize: 8.5, fontStyle: FontStyle.italic, color: Colors.white54)),
+                Text('NSDL / NFO VERIFIED', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Color(0xFF06D6A0))),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
   void _showExecutiveKycModal(String name, String phone, String email, String uid) {
     final messenger = ScaffoldMessenger.of(context);
     int currentDocTab = 0; // 0: DL, 1: Aadhaar, 2: PAN
@@ -3941,38 +4282,8 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               Expanded(
                 child: ListView(
                   children: [
-                    // Document Preview Area
-                    Container(
-                      height: 170,
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: context.themeBorder),
-                      ),
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              currentDocTab == 0
-                                  ? Icons.drive_eta_rounded
-                                  : (currentDocTab == 1 ? Icons.fingerprint_rounded : Icons.badge_rounded),
-                              size: 42,
-                              color: const Color(0xFFFFB703),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              currentDocTab == 0
-                                  ? 'Driving License Document Preview'
-                                  : (currentDocTab == 1 ? 'Aadhaar Card UIDAI Preview' : 'PAN Card Preview'),
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: context.themeTextPrimary),
-                            ),
-                            const SizedBox(height: 4),
-                            Text('Front & Back verified on file', style: TextStyle(fontSize: 11, color: context.themeTextMuted)),
-                          ],
-                        ),
-                      ),
-                    ),
+                    // Enlarged Realistic KYC Document Preview Card
+                    _buildRealisticKycCardPreview(currentDocTab, name, phone),
                     const SizedBox(height: 14),
 
                     GlassCard(

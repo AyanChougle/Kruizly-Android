@@ -152,18 +152,20 @@ class _HostCarScreenState extends ConsumerState<HostCarScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: context.themeBackground,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios_new,
-            color: context.themeTextPrimary,
-            size: 20,
-          ),
-          onPressed: () => context.pop(),
-        ),
+        leading: context.canPop()
+            ? IconButton(
+                icon: Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  size: 20,
+                  color: context.themeTextPrimary,
+                ),
+                onPressed: () => context.pop(),
+              )
+            : null,
         title: Text(
           'Host Your Car',
           style: TextStyle(fontWeight: FontWeight.w700, color: context.themeTextPrimary),
