@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import '../../../../core/utils/media_permission_helper.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../widgets/glass_card.dart';
 
@@ -19,65 +19,12 @@ class PaymentProofUploader extends StatefulWidget {
 }
 
 class _PaymentProofUploaderState extends State<PaymentProofUploader> {
-  final _picker = ImagePicker();
-
-  Future<void> _pickImage(ImageSource source) async {
-    try {
-      final picked = await _picker.pickImage(source: source, imageQuality: 85);
-      if (picked != null) {
-        widget.onFilePicked(File(picked.path));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to select image: $e')),
-        );
-      }
-    }
-  }
 
   void _showPickerModal() {
-    showModalBottomSheet(
+    MediaPermissionHelper.showMediaSourceSheet(
       context: context,
-      backgroundColor: context.themeSurface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Upload Payment Screenshot',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: context.themeTextPrimary,
-                ),
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                leading: const Icon(Icons.photo_library_outlined, color: AppColors.primaryLight),
-                title: Text('Choose from Gallery', style: TextStyle(color: context.themeTextPrimary)),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickImage(ImageSource.gallery);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.camera_alt_outlined, color: AppColors.primaryLight),
-                title: Text('Take a Photo', style: TextStyle(color: context.themeTextPrimary)),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickImage(ImageSource.camera);
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
+      title: 'Upload Payment Screenshot',
+      onImageSelected: widget.onFilePicked,
     );
   }
 

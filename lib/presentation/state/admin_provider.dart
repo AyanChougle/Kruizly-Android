@@ -89,6 +89,126 @@ class AdminBookingsNotifier extends StateNotifier<AsyncValue<List<BookingModel>>
     return success;
   }
 
+  Future<bool> updateOdometer({
+    required String bookingId,
+    String? startOdometer,
+    String? endOdometer,
+  }) async {
+    final repo = _ref.read(adminRepositoryProvider);
+    final success = await repo.updateBookingOdometer(
+      bookingId: bookingId,
+      startOdometer: startOdometer != null ? double.tryParse(startOdometer) : null,
+      endOdometer: endOdometer != null ? double.tryParse(endOdometer) : null,
+    );
+    state.whenData((bookings) {
+      final updated = bookings.map((b) {
+        if (b.bookingId == bookingId || b.id.toString() == bookingId || b.bookingNumber == bookingId) {
+          return BookingModel(
+            id: b.id,
+            bookingId: b.bookingId,
+            bookingNumber: b.bookingNumber,
+            firebaseUid: b.firebaseUid,
+            userName: b.userName,
+            userEmail: b.userEmail,
+            userPhone: b.userPhone,
+            vehicleReg: b.vehicleReg,
+            vehicleName: b.vehicleName,
+            vehicleCategory: b.vehicleCategory,
+            pickupDate: b.pickupDate,
+            dropDate: b.dropDate,
+            duration: b.duration,
+            days: b.days,
+            hours: b.hours,
+            withDriver: b.withDriver,
+            baseAmount: b.baseAmount,
+            totalAmount: b.totalAmount,
+            finalAmount: b.finalAmount,
+            advanceAmount: b.advanceAmount,
+            remainingBalance: b.remainingBalance,
+            securityDeposit: b.securityDeposit,
+            couponCode: b.couponCode,
+            couponDiscount: b.couponDiscount,
+            paymentPlan: b.paymentPlan,
+            paymentStatus: b.paymentStatus,
+            status: b.status,
+            paymentRef: b.paymentRef,
+            paymentScreenshotUrl: b.paymentScreenshotUrl,
+            location: b.location,
+            startOdometer: (startOdometer != null && startOdometer.isNotEmpty) ? startOdometer : b.startOdometer,
+            endOdometer: (endOdometer != null && endOdometer.isNotEmpty) ? endOdometer : b.endOdometer,
+            startFastag: b.startFastag,
+            returnFastag: b.returnFastag,
+            pickupStatus: b.pickupStatus,
+            createdAt: b.createdAt,
+          );
+        }
+        return b;
+      }).toList();
+      state = AsyncValue.data(updated);
+    });
+    return success;
+  }
+
+  Future<bool> updateFastag({
+    required String bookingId,
+    String? startFastag,
+    String? returnFastag,
+  }) async {
+    final repo = _ref.read(adminRepositoryProvider);
+    final success = await repo.updateBookingFastag(
+      bookingId: bookingId,
+      startFastag: startFastag != null ? double.tryParse(startFastag) : null,
+      returnFastag: returnFastag != null ? double.tryParse(returnFastag) : null,
+    );
+    state.whenData((bookings) {
+      final updated = bookings.map((b) {
+        if (b.bookingId == bookingId || b.id.toString() == bookingId || b.bookingNumber == bookingId) {
+          return BookingModel(
+            id: b.id,
+            bookingId: b.bookingId,
+            bookingNumber: b.bookingNumber,
+            firebaseUid: b.firebaseUid,
+            userName: b.userName,
+            userEmail: b.userEmail,
+            userPhone: b.userPhone,
+            vehicleReg: b.vehicleReg,
+            vehicleName: b.vehicleName,
+            vehicleCategory: b.vehicleCategory,
+            pickupDate: b.pickupDate,
+            dropDate: b.dropDate,
+            duration: b.duration,
+            days: b.days,
+            hours: b.hours,
+            withDriver: b.withDriver,
+            baseAmount: b.baseAmount,
+            totalAmount: b.totalAmount,
+            finalAmount: b.finalAmount,
+            advanceAmount: b.advanceAmount,
+            remainingBalance: b.remainingBalance,
+            securityDeposit: b.securityDeposit,
+            couponCode: b.couponCode,
+            couponDiscount: b.couponDiscount,
+            paymentPlan: b.paymentPlan,
+            paymentStatus: b.paymentStatus,
+            status: b.status,
+            paymentRef: b.paymentRef,
+            paymentScreenshotUrl: b.paymentScreenshotUrl,
+            location: b.location,
+            startOdometer: b.startOdometer,
+            endOdometer: b.endOdometer,
+            startFastag: (startFastag != null && startFastag.isNotEmpty) ? startFastag : b.startFastag,
+            returnFastag: (returnFastag != null && returnFastag.isNotEmpty) ? returnFastag : b.returnFastag,
+            pickupStatus: b.pickupStatus,
+            createdAt: b.createdAt,
+          );
+        }
+        return b;
+      }).toList();
+      state = AsyncValue.data(updated);
+    });
+    return success;
+  }
+
   Future<bool> verifyPayment({
     required String bookingOrPaymentId,
     required String action,
@@ -122,6 +242,14 @@ class AdminBookingsNotifier extends StateNotifier<AsyncValue<List<BookingModel>>
       status: status,
       reason: reason,
     );
+  }
+
+  Future<bool> updateRole({
+    required String uid,
+    required String role,
+  }) async {
+    final repo = _ref.read(adminRepositoryProvider);
+    return await repo.updateUserRole(uid: uid, role: role);
   }
 }
 

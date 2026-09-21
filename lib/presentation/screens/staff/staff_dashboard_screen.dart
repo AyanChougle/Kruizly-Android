@@ -1,8 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/media_permission_helper.dart';
 import '../../../data/models/admin_stats_model.dart';
 import '../../../data/models/booking_model.dart';
 import '../../../data/models/coupon_model.dart';
@@ -92,6 +95,13 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   final _couponMinOrderController = TextEditingController(text: '0');
   String _couponDiscountType = 'flat'; // 'flat', 'percentage'
 
+  // Expanded booking IDs in Admin All Bookings (Screenshot 1)
+  final Set<String> _expandedBookingIds = {};
+  final Map<String, TextEditingController> _startOdoControllers = {};
+  final Map<String, TextEditingController> _endOdoControllers = {};
+  final Map<String, TextEditingController> _startFastagControllers = {};
+  final Map<String, TextEditingController> _returnFastagControllers = {};
+
   // Active roster tracking for manager summary
   final Set<String> _currentRosterRegs = {
     'MH03EL1025',
@@ -116,6 +126,18 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     _couponLabelController.dispose();
     _couponValueController.dispose();
     _couponMinOrderController.dispose();
+    for (final c in _startOdoControllers.values) {
+      c.dispose();
+    }
+    for (final c in _endOdoControllers.values) {
+      c.dispose();
+    }
+    for (final c in _startFastagControllers.values) {
+      c.dispose();
+    }
+    for (final c in _returnFastagControllers.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -694,7 +716,10 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   _selectedCalendarDate!.day == curDate.day;
 
               return InkWell(
-                onTap: () => setState(() => _selectedCalendarDate = curDate),
+                onTap: () {
+                  setState(() => _selectedCalendarDate = curDate);
+                  _showDailyTimelineModal(curDate, dayBookings);
+                },
                 borderRadius: BorderRadius.circular(6),
                 child: Container(
                   padding: const EdgeInsets.all(4),
@@ -773,6 +798,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
 
   // --- SUBTAB 2: User Accounts & Verification (media_1789971987955.png) ---
   Widget _buildUserAccountsVerificationView(Color accentColor) {
+    final isManager = _selectedRole == 'MANAGER PANEL';
     final usersAsync = ref.watch(adminUsersProvider);
 
     return Column(
@@ -840,17 +866,56 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                               ],
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: accentColor.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(6),
+                          if (isManager)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: accentColor.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                role.toUpperCase(),
+                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: accentColor),
+                              ),
+                            )
+                          else
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: accentColor.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: accentColor.withValues(alpha: 0.3)),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  value: ['customer', 'manager', 'executive', 'accounts', 'admin'].contains(role.toLowerCase())
+                                      ? role.toLowerCase()
+                                      : 'customer',
+                                  dropdownColor: context.themeSurfaceElevated,
+                                  isDense: true,
+                                  icon: Icon(Icons.arrow_drop_down, size: 16, color: accentColor),
+                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: accentColor),
+                                  items: const [
+                                    DropdownMenuItem(value: 'customer', child: Text('CUSTOMER')),
+                                    DropdownMenuItem(value: 'manager', child: Text('MANAGER')),
+                                    DropdownMenuItem(value: 'executive', child: Text('EXECUTIVE')),
+                                    DropdownMenuItem(value: 'accounts', child: Text('ACCOUNTS')),
+                                    DropdownMenuItem(value: 'admin', child: Text('ADMIN')),
+                                  ],
+                                  onChanged: (newRole) async {
+                                    if (newRole != null && newRole != role) {
+                                      await ref.read(adminBookingsProvider.notifier).updateRole(uid: uid, role: newRole);
+                                      ref.invalidate(adminUsersProvider);
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('User role for $name updated to ${newRole.toUpperCase()}')),
+                                        );
+                                      }
+                                    }
+                                  },
+                                ),
+                              ),
                             ),
-                            child: Text(
-                              role.toUpperCase(),
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: accentColor),
-                            ),
-                          ),
                         ],
                       ),
                       const Divider(height: 14),
@@ -863,12 +928,12 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                             ),
                           ),
                           CustomButton(
-                            text: 'Inspect KYC',
+                            text: isManager ? 'View KYC' : 'Inspect KYC',
                             isOutlined: true,
                             height: 28,
-                            width: 100,
+                            width: 110,
                             onPressed: () {
-                              _showKycInspectionModal(name, email, uid);
+                              _showKycInspectionModal(name, email, uid, isReadOnly: isManager);
                             },
                           ),
                         ],
@@ -884,7 +949,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     );
   }
 
-  void _showKycInspectionModal(String name, String email, String uid) {
+  void _showKycInspectionModal(String name, String email, String uid, {bool isReadOnly = false}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -896,45 +961,70 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('KYC Verification: $name', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
-            Text(email, style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('KYC Verification: $name', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                      Text(email, style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                    ],
+                  ),
+                ),
+                if (isReadOnly)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
+                    child: const Text('Read-Only', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.amber)),
+                  ),
+              ],
+            ),
             const SizedBox(height: 16),
             _buildDocInspectRow('Driving License', 'DL-Verified', true),
             _buildDocInspectRow('Aadhaar Card', 'UIDAI Attached', true),
             _buildDocInspectRow('PAN Card', 'Income Tax Verified', true),
             const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: CustomButton(
-                    text: 'Approve KYC',
-                    height: 38,
-                    onPressed: () async {
-                      await ref.read(adminBookingsProvider.notifier).updateKyc(uid: uid, documentType: 'all', status: 'verified');
-                      if (ctx.mounted) Navigator.pop(ctx);
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('KYC for $name approved.')));
-                      }
-                    },
+            if (isReadOnly)
+              CustomButton(
+                text: 'Close',
+                height: 38,
+                onPressed: () => Navigator.pop(ctx),
+              )
+            else
+              Row(
+                children: [
+                  Expanded(
+                    child: CustomButton(
+                      text: 'Approve KYC',
+                      height: 38,
+                      onPressed: () async {
+                        await ref.read(adminBookingsProvider.notifier).updateKyc(uid: uid, documentType: 'all', status: 'verified');
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('KYC for $name approved.')));
+                        }
+                      },
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: CustomButton(
-                    text: 'Reject',
-                    isOutlined: true,
-                    height: 38,
-                    onPressed: () async {
-                      await ref.read(adminBookingsProvider.notifier).updateKyc(uid: uid, documentType: 'all', status: 'rejected');
-                      if (ctx.mounted) Navigator.pop(ctx);
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('KYC for $name rejected.')));
-                      }
-                    },
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: CustomButton(
+                      text: 'Reject',
+                      isOutlined: true,
+                      height: 38,
+                      onPressed: () async {
+                        await ref.read(adminBookingsProvider.notifier).updateKyc(uid: uid, documentType: 'all', status: 'rejected');
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('KYC for $name rejected.')));
+                        }
+                      },
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
           ],
         ),
       ),
@@ -1259,83 +1349,85 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
         ),
         const SizedBox(height: 16),
 
-        GlassCard(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Add / Edit Fleet Vehicle', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _addFleetRegController,
-                      decoration: const InputDecoration(labelText: 'RC NUMBER / REG *', hintText: 'e.g. MH03EL1025', border: OutlineInputBorder()),
+        if (_selectedRole != 'MANAGER PANEL') ...[
+          GlassCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Add / Edit Fleet Vehicle', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _addFleetRegController,
+                        decoration: const InputDecoration(labelText: 'RC NUMBER / REG *', hintText: 'e.g. MH03EL1025', border: OutlineInputBorder()),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: _addFleetBrandController,
-                      decoration: const InputDecoration(labelText: 'BRAND *', hintText: 'e.g. Maruti Suzuki', border: OutlineInputBorder()),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _addFleetBrandController,
+                        decoration: const InputDecoration(labelText: 'BRAND *', hintText: 'e.g. Maruti Suzuki', border: OutlineInputBorder()),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _addFleetModelController,
-                      decoration: const InputDecoration(labelText: 'MODEL *', hintText: 'e.g. Fronx', border: OutlineInputBorder()),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _addFleetModelController,
+                        decoration: const InputDecoration(labelText: 'MODEL *', hintText: 'e.g. Fronx', border: OutlineInputBorder()),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: _addFleetRateController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'DAILY RATE (₹) *', hintText: 'e.g. 3500', prefixText: '₹ ', border: OutlineInputBorder()),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _addFleetRateController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(labelText: 'DAILY RATE (₹) *', hintText: 'e.g. 3500', prefixText: '₹ ', border: OutlineInputBorder()),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _addFleetOwnerController,
-                decoration: const InputDecoration(labelText: 'OWNER / PARTNER NAME', hintText: 'e.g. Aditi Lotankar', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Checkbox(
-                    value: _addFleetIsCurrent,
-                    activeColor: accentColor,
-                    onChanged: (v) => setState(() => _addFleetIsCurrent = v ?? true),
-                  ),
-                  Expanded(
-                    child: Text('CURRENT FLEET (SHOW IN MANAGER SUMMARY)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              CustomButton(
-                text: 'Add Fleet Vehicle',
-                height: 38,
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Vehicle saved to Kruizly fleet roster.')),
-                  );
-                },
-              ),
-            ],
+                  ],
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _addFleetOwnerController,
+                  decoration: const InputDecoration(labelText: 'OWNER / PARTNER NAME', hintText: 'e.g. Aditi Lotankar', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Checkbox(
+                      value: _addFleetIsCurrent,
+                      activeColor: accentColor,
+                      onChanged: (v) => setState(() => _addFleetIsCurrent = v ?? true),
+                    ),
+                    Expanded(
+                      child: Text('CURRENT FLEET (SHOW IN MANAGER SUMMARY)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                CustomButton(
+                  text: 'Add Fleet Vehicle',
+                  height: 38,
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Vehicle saved to Kruizly fleet roster.')),
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 16),
+          const SizedBox(height: 16),
+        ],
 
-        _buildFleetManagementSection(vehicles, accentColor),
+        _buildFleetManagementSection(vehicles, accentColor, readOnly: _selectedRole == 'MANAGER PANEL'),
       ],
     );
   }
@@ -1383,85 +1475,87 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
         ),
         const SizedBox(height: 14),
 
-        GlassCard(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('ADD NEW COUPON CODE', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(color: const Color(0xFF06D6A0).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
-                    child: const Text('Create Mode', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF06D6A0))),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _couponCodeController,
-                      decoration: const InputDecoration(labelText: 'COUPON CODE', hintText: 'e.g. WELCOME500', border: OutlineInputBorder()),
+        if (_selectedRole != 'MANAGER PANEL') ...[
+          GlassCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('ADD NEW COUPON CODE', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(color: const Color(0xFF06D6A0).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
+                      child: const Text('Create Mode', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF06D6A0))),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _couponDiscountType,
-                      decoration: const InputDecoration(labelText: 'DISCOUNT TYPE', border: OutlineInputBorder()),
-                      dropdownColor: context.themeSurfaceElevated,
-                      items: const [
-                        DropdownMenuItem(value: 'flat', child: Text('Flat Amount (₹)')),
-                        DropdownMenuItem(value: 'percentage', child: Text('Percentage (%)')),
-                      ],
-                      onChanged: (val) => setState(() => _couponDiscountType = val ?? 'flat'),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _couponCodeController,
+                        decoration: const InputDecoration(labelText: 'COUPON CODE', hintText: 'e.g. WELCOME500', border: OutlineInputBorder()),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _couponValueController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'DISCOUNT VALUE', hintText: 'e.g. 500 or 15', border: OutlineInputBorder()),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        initialValue: _couponDiscountType,
+                        decoration: const InputDecoration(labelText: 'DISCOUNT TYPE', border: OutlineInputBorder()),
+                        dropdownColor: context.themeSurfaceElevated,
+                        items: const [
+                          DropdownMenuItem(value: 'flat', child: Text('Flat Amount (₹)')),
+                          DropdownMenuItem(value: 'percentage', child: Text('Percentage (%)')),
+                        ],
+                        onChanged: (val) => setState(() => _couponDiscountType = val ?? 'flat'),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: _couponMinOrderController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'MIN ORDER TOTAL (₹)', hintText: '0', border: OutlineInputBorder()),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _couponValueController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(labelText: 'DISCOUNT VALUE', hintText: 'e.g. 500 or 15', border: OutlineInputBorder()),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _couponLabelController,
-                decoration: const InputDecoration(labelText: 'LABEL / DESCRIPTION', hintText: 'e.g. ₹500 Flat Off on first ride', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 14),
-              CustomButton(
-                text: 'SAVE COUPON',
-                height: 38,
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Coupon code saved.')),
-                  );
-                },
-              ),
-            ],
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _couponMinOrderController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(labelText: 'MIN ORDER TOTAL (₹)', hintText: '0', border: OutlineInputBorder()),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _couponLabelController,
+                  decoration: const InputDecoration(labelText: 'LABEL / DESCRIPTION', hintText: 'e.g. ₹500 Flat Off on first ride', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 14),
+                CustomButton(
+                  text: 'SAVE COUPON',
+                  height: 38,
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Coupon code saved.')),
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 16),
+          const SizedBox(height: 16),
+        ],
 
         _buildCouponsSection(accentColor),
       ],
@@ -2159,39 +2253,9 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             children: [
               Expanded(
                 child: CustomButton(
-                  text: 'Verify & Approve',
+                  text: 'Review & Verify Receipt',
                   height: 36,
-                  onPressed: () async {
-                    await ref.read(adminBookingsProvider.notifier).verifyPayment(
-                          bookingOrPaymentId: bId,
-                          action: 'approve',
-                        );
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Payment for $bId verified and booking confirmed.')),
-                      );
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: CustomButton(
-                  text: 'Reject Payment',
-                  isOutlined: true,
-                  height: 36,
-                  onPressed: () async {
-                    await ref.read(adminBookingsProvider.notifier).verifyPayment(
-                          bookingOrPaymentId: bId,
-                          action: 'reject',
-                          reason: 'Invalid UTR reference',
-                        );
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Payment for $bId marked as rejected.')),
-                      );
-                    }
-                  },
+                  onPressed: () => _showVerifyPaymentReceiptModal(b),
                 ),
               ),
             ],
@@ -2224,17 +2288,27 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
 
   Widget _buildBookingCard(BookingModel b, Color accentColor, bool isExecutive, {bool isManager = false}) {
     final bId = b.bookingNumber.isNotEmpty ? b.bookingNumber : (b.bookingId.isNotEmpty ? b.bookingId : '#KZ-${b.id}');
-    final isCancelled = b.status.toLowerCase() == 'cancelled';
     final isCompleted = b.status.toLowerCase() == 'completed';
     final isActive = b.status.toLowerCase() == 'active';
-    final isConfirmed = b.status.toLowerCase() == 'confirmed';
-    final isPendingPay = b.status.toLowerCase() == 'pending_payment';
+    final isPendingPay = b.status.toLowerCase() == 'pending_payment' || b.paymentStatus.toLowerCase().contains('pending');
     final isPendingConfirm = b.status.toLowerCase() == 'pending_confirmation' || b.status.toLowerCase() == 'pending_verification';
 
     const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     final pMonth = b.pickupDate.month <= 12 && b.pickupDate.month >= 1 ? monthNames[b.pickupDate.month] : '';
     final dMonth = b.dropDate.month <= 12 && b.dropDate.month >= 1 ? monthNames[b.dropDate.month] : '';
     final dateStr = '${b.pickupDate.day} $pMonth - ${b.dropDate.day} $dMonth (${b.duration})';
+
+    final isExpanded = _expandedBookingIds.contains(bId);
+
+    // Initialize controllers for odometer and fastag
+    final startOdoCtrl = _startOdoControllers.putIfAbsent(bId, () => TextEditingController(text: b.startOdometer ?? ''));
+    final endOdoCtrl = _endOdoControllers.putIfAbsent(bId, () => TextEditingController(text: b.endOdometer ?? ''));
+    final startFastagCtrl = _startFastagControllers.putIfAbsent(bId, () => TextEditingController(text: b.startFastag ?? ''));
+    final returnFastagCtrl = _returnFastagControllers.putIfAbsent(bId, () => TextEditingController(text: b.returnFastag ?? ''));
+
+    final startKm = double.tryParse(startOdoCtrl.text) ?? 0;
+    final endKm = double.tryParse(endOdoCtrl.text) ?? 0;
+    final distanceDriven = (endKm > startKm) ? (endKm - startKm).toInt() : 0;
 
     return GlassCard(
       margin: const EdgeInsets.only(bottom: 12),
@@ -2287,76 +2361,260 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             ],
           ),
           const SizedBox(height: 12),
+
+          // Role-specific action bar
           if (isManager) ...[
-            CustomButton(
-              text: 'Inspect Rental Ledger ▾',
-              isOutlined: true,
-              height: 36,
-              onPressed: () => _showInspectBookingModal(b),
-            ),
-          ] else if (isCancelled) ...[
-            CustomButton(
-              text: 'View Cancellation Details ▾',
-              isOutlined: true,
-              height: 36,
-              onPressed: () => _showInspectBookingModal(b),
-            ),
-          ] else if (isCompleted) ...[
-            CustomButton(
-              text: 'Trip Completed • View Summary ▾',
-              isOutlined: true,
-              height: 36,
-              onPressed: () => _showInspectBookingModal(b),
-            ),
-          ] else ...[
             Row(
               children: [
-                if (isActive) ...[
-                  Expanded(
-                    child: CustomButton(
-                      text: 'Process Return',
-                      height: 36,
-                      onPressed: () => _showHandoverOrReturnModal(b, true),
-                    ),
+                Expanded(
+                  child: CustomButton(
+                    text: 'Inspect Rental Ledger ▾',
+                    isOutlined: true,
+                    height: 36,
+                    onPressed: () => _showExecutiveDetailsModal(b),
                   ),
-                  const SizedBox(width: 8),
-                ] else if (isConfirmed) ...[
-                  Expanded(
-                    child: CustomButton(
-                      text: 'Start Handover',
-                      height: 36,
-                      onPressed: () => _showHandoverOrReturnModal(b, false),
-                    ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: context.themeSurfaceElevated,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: context.themeBorder),
                   ),
-                  const SizedBox(width: 8),
-                ] else if (isPendingConfirm || isPendingPay) ...[
+                  child: const Text('Read-Only (Manager)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.amber)),
+                ),
+              ],
+            ),
+          ] else if (isExecutive) ...[
+            // Executive actions (media_1789973296470.png)
+            Row(
+              children: [
+                if (isPendingPay || isPendingConfirm) ...[
                   Expanded(
                     child: CustomButton(
-                      text: isPendingPay ? 'Verify & Confirm' : 'Confirm Trip',
+                      text: 'Approve',
+                      isOutlined: true,
                       height: 36,
                       onPressed: () async {
                         await ref.read(adminBookingsProvider.notifier).updateStatus(bookingId: bId, newStatus: 'confirmed');
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Trip $bId confirmed.')));
-                        }
+                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Booking $bId approved.')));
                       },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: CustomButton(
+                      text: 'Start Trip',
+                      height: 36,
+                      onPressed: () => _showExecutivePickupModal(b),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ] else if (isActive) ...[
+                  Expanded(
+                    child: CustomButton(
+                      text: 'Return',
+                      height: 36,
+                      onPressed: () => _showExecutiveReturnModal(b),
                     ),
                   ),
                   const SizedBox(width: 8),
                 ],
                 Expanded(
                   child: CustomButton(
-                    text: 'Details ▾',
+                    text: 'Details',
                     isOutlined: true,
                     height: 36,
-                    onPressed: () => _showInspectBookingModal(b),
+                    onPressed: () => _showExecutiveDetailsModal(b),
                   ),
+                ),
+              ],
+            ),
+          ] else ...[
+            // Admin Actions & Expanded Details Toggle (media_1789973057770.png)
+            Row(
+              children: [
+                Expanded(
+                  child: CustomButton(
+                    text: isExpanded ? 'Details ▲' : 'Details ▼',
+                    isOutlined: !isExpanded,
+                    height: 36,
+                    onPressed: () {
+                      setState(() {
+                        if (isExpanded) {
+                          _expandedBookingIds.remove(bId);
+                        } else {
+                          _expandedBookingIds.add(bId);
+                        }
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+
+          // Admin Expanded Drawer matching media_1789973057770.png
+          if (!isExecutive && !isManager && isExpanded) ...[
+            const SizedBox(height: 14),
+            Divider(color: context.themeBorder),
+            const SizedBox(height: 10),
+
+            // Metadata Grid
+            Wrap(
+              spacing: 16,
+              runSpacing: 10,
+              children: [
+                _buildDetailMetaItem('Customer Email', b.userEmail.isNotEmpty ? b.userEmail : '—'),
+                _buildDetailMetaItem('Vehicle Registration', b.vehicleReg.isNotEmpty ? b.vehicleReg : 'TBD'),
+                _buildDetailMetaItem('Pickup Date', _formatDateShort(b.pickupDate)),
+                _buildDetailMetaItem('Pickup Handover', isActive ? 'In Progress' : (isCompleted ? 'Returned' : 'Awaiting Pickup')),
+                _buildDetailMetaItem('Return Date', _formatDateShort(b.dropDate)),
+                _buildDetailMetaItem('Payment', '${b.paymentStatus.toUpperCase()} • ${b.paymentRef ?? "T2609041343364622921101"}'),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // Odometer Fields
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: startOdoCtrl,
+                    keyboardType: TextInputType.number,
+                    style: TextStyle(color: context.themeTextPrimary, fontSize: 13),
+                    decoration: const InputDecoration(
+                      labelText: 'START ODOMETER (KM)',
+                      hintText: 'Start KM',
+                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: endOdoCtrl,
+                    keyboardType: TextInputType.number,
+                    style: TextStyle(color: context.themeTextPrimary, fontSize: 13),
+                    decoration: const InputDecoration(
+                      labelText: 'END ODOMETER (KM)',
+                      hintText: 'End KM',
+                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            // FASTag Fields
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: startFastagCtrl,
+                    keyboardType: TextInputType.number,
+                    style: TextStyle(color: context.themeTextPrimary, fontSize: 13),
+                    decoration: const InputDecoration(
+                      labelText: 'FASTAG AT START (₹)',
+                      hintText: 'Start balance',
+                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: returnFastagCtrl,
+                    keyboardType: TextInputType.number,
+                    style: TextStyle(color: context.themeTextPrimary, fontSize: 13),
+                    decoration: const InputDecoration(
+                      labelText: 'FASTAG AT RETURN (₹)',
+                      hintText: 'Return balance',
+                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Distance Driven', style: TextStyle(fontSize: 11.5, color: context.themeTextSecondary)),
+                Text('$distanceDriven KM', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF06D6A0))),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // 4 Action Buttons
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                CustomButton(
+                  text: 'Save Odometer',
+                  height: 34,
+                  width: 130,
+                  onPressed: () async {
+                    await ref.read(adminBookingsProvider.notifier).updateOdometer(
+                      bookingId: bId,
+                      startOdometer: startOdoCtrl.text,
+                      endOdometer: endOdoCtrl.text,
+                    );
+                    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Odometer saved for $bId ($distanceDriven KM)')));
+                  },
+                ),
+                CustomButton(
+                  text: 'Save FASTag',
+                  height: 34,
+                  width: 120,
+                  onPressed: () async {
+                    await ref.read(adminBookingsProvider.notifier).updateFastag(
+                      bookingId: bId,
+                      startFastag: startFastagCtrl.text,
+                      returnFastag: returnFastagCtrl.text,
+                    );
+                    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('FASTag balances saved for $bId')));
+                  },
+                ),
+                CustomButton(
+                  text: 'Edit Booking',
+                  isOutlined: true,
+                  height: 34,
+                  width: 110,
+                  onPressed: () => _showInspectBookingModal(b),
+                ),
+                CustomButton(
+                  text: 'Manage Invoice',
+                  height: 34,
+                  width: 130,
+                  onPressed: () => _showInvoiceManageModal(b),
                 ),
               ],
             ),
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildDetailMetaItem(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label.toUpperCase(), style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: context.themeTextMuted)),
+        const SizedBox(height: 2),
+        Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.themeTextPrimary)),
+      ],
     );
   }
 
@@ -2456,6 +2714,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             final uid = (item['firebaseUid'] ?? item['userId'] ?? item['firebase_uid'] ?? '').toString();
             final name = (item['fullName'] ?? item['full_name'] ?? 'Verified User').toString();
             final email = (item['email'] ?? item['user_email'] ?? 'No email').toString();
+            final phone = (item['phone'] ?? item['user_phone'] ?? '—').toString();
             final license = (item['licenseNumber'] ?? item['license_number'] ?? '').toString();
             final aadhar = (item['aadharNumber'] ?? item['aadhar_number'] ?? '').toString();
             final pan = (item['panNumber'] ?? item['pan_number'] ?? '').toString();
@@ -2490,26 +2749,9 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                     children: [
                       Expanded(
                         child: CustomButton(
-                          text: 'Approve KYC',
+                          text: 'Review & Verify Documents',
                           height: 34,
-                          onPressed: () async {
-                            await ref.read(adminBookingsProvider.notifier).updateKyc(uid: uid, documentType: 'all', status: 'verified');
-                            ref.invalidate(adminKycListProvider);
-                            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('KYC for $name approved.')));
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: CustomButton(
-                          text: 'Reject',
-                          isOutlined: true,
-                          height: 34,
-                          onPressed: () async {
-                            await ref.read(adminBookingsProvider.notifier).updateKyc(uid: uid, documentType: 'all', status: 'rejected');
-                            ref.invalidate(adminKycListProvider);
-                            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('KYC for $name marked as rejected.')));
-                          },
+                          onPressed: () => _showExecutiveKycModal(name, phone, email, uid),
                         ),
                       ),
                     ],
@@ -2706,50 +2948,1085 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   // =========================================================================
   // INTERACTIVE MODALS
   // =========================================================================
-  void _showHandoverOrReturnModal(BookingModel booking, bool isReturn) {
-    final messenger = ScaffoldMessenger.of(context);
-    final odoController = TextEditingController(text: isReturn ? (booking.endOdometer ?? "") : (booking.startOdometer ?? ""));
-    final fastagController = TextEditingController(text: isReturn ? (booking.returnFastag ?? "") : (booking.startFastag ?? ""));
+
+  void _showDailyTimelineModal(DateTime date, List<BookingModel> bookings) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.78),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+        decoration: BoxDecoration(
+          color: context.themeSurfaceElevated,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Daily Schedule & Timeline', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                    const SizedBox(height: 2),
+                    Text(_formatDateShort(date), style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                  ],
+                ),
+                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (bookings.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(32),
+                child: Center(
+                  child: Text('No vehicle movements scheduled for this date.', style: TextStyle(color: context.themeTextSecondary)),
+                ),
+              )
+            else
+              Expanded(
+                child: ListView.separated(
+                  itemCount: bookings.length,
+                  separatorBuilder: (context, index) => const SizedBox(height: 10),
+                  itemBuilder: (context, idx) {
+                    final b = bookings[idx];
+                    final isPickup = b.pickupDate.day == date.day && b.pickupDate.month == date.month && b.pickupDate.year == date.year;
+                    final isReturn = b.dropDate.day == date.day && b.dropDate.month == date.month && b.dropDate.year == date.year;
+                    final label = isPickup ? 'PICKUP DISPATCH' : (isReturn ? 'VEHICLE RETURN' : 'ON-ROAD RENTAL');
+                    final badgeColor = isPickup ? const Color(0xFF06D6A0) : (isReturn ? const Color(0xFFFFB703) : const Color(0xFF4FD7FF));
+
+                    return GlassCard(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(color: badgeColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
+                                child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: badgeColor)),
+                              ),
+                              Text(b.bookingNumber.isNotEmpty ? b.bookingNumber : '#KZ-${b.id}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.themeTextSecondary)),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(b.vehicleName, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                          Text('Customer: ${b.userName} • ${b.userPhone ?? "No phone"}', style: TextStyle(fontSize: 11.5, color: context.themeTextSecondary)),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              CustomButton(
+                                text: 'Inspect Details',
+                                isOutlined: true,
+                                height: 28,
+                                width: 120,
+                                onPressed: () {
+                                  Navigator.pop(ctx);
+                                  _showExecutiveDetailsModal(b);
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showExecutiveDetailsModal(BookingModel b) {
+    final bId = b.bookingNumber.isNotEmpty ? b.bookingNumber : b.bookingId;
+    final startKm = double.tryParse(b.startOdometer ?? '') ?? 0;
+    final endKm = double.tryParse(b.endOdometer ?? '') ?? 0;
+    final kmDriven = (endKm > startKm) ? (endKm - startKm).toInt() : 0;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
-        padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 24),
-        decoration: BoxDecoration(color: context.themeSurfaceElevated, borderRadius: const BorderRadius.vertical(top: Radius.circular(24))),
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.86),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+        decoration: BoxDecoration(
+          color: context.themeSurfaceElevated,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Booking Details & Handover Log', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                    const SizedBox(height: 2),
+                    Text('$bId • ${b.vehicleName}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.themeTextSecondary)),
+                  ],
+                ),
+                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: ListView(
+                children: [
+                  // Card 1: Customer Information
+                  GlassCard(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('1. CUSTOMER INFORMATION', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: context.themeTextMuted)),
+                        const SizedBox(height: 8),
+                        _buildDetailMetaItem('Full Name', b.userName.isNotEmpty ? b.userName : '—'),
+                        const SizedBox(height: 6),
+                        _buildDetailMetaItem('Phone Number', b.userPhone != null && b.userPhone!.isNotEmpty ? b.userPhone! : '—'),
+                        const SizedBox(height: 6),
+                        _buildDetailMetaItem('Email Address', b.userEmail.isNotEmpty ? b.userEmail : '—'),
+                        const SizedBox(height: 6),
+                        _buildDetailMetaItem('Delivery / Hub Address', b.location.isNotEmpty ? b.location : 'Ghansoli Hub, Navi Mumbai'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Card 2: Trip Schedule
+                  GlassCard(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('2. TRIP SCHEDULE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: context.themeTextMuted)),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(child: _buildDetailMetaItem('Pickup Date', _formatDateShort(b.pickupDate))),
+                            Expanded(child: _buildDetailMetaItem('Return Date', _formatDateShort(b.dropDate))),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Expanded(child: _buildDetailMetaItem('Duration', b.duration.isNotEmpty ? b.duration : '${b.days} Days')),
+                            Expanded(child: _buildDetailMetaItem('Status', b.status.toUpperCase())),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Card 3: Financial Breakdown
+                  GlassCard(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('3. FINANCIAL BREAKDOWN', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: context.themeTextMuted)),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Rental Amount', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                            Text(_formatINR(b.baseAmount > 0 ? b.baseAmount : b.totalAmount), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.themeTextPrimary)),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Security Deposit (Refundable)', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                            Text(_formatINR(b.securityDeposit > 0 ? b.securityDeposit : 5000), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.themeTextPrimary)),
+                          ],
+                        ),
+                        const Divider(height: 14),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Total Amount', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
+                            Text(_formatINR(b.finalAmount > 0 ? b.finalAmount : b.totalAmount), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Color(0xFF06D6A0))),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Payment Status', style: TextStyle(fontSize: 11.5, color: context.themeTextSecondary)),
+                            StatusBadge(status: b.paymentStatus),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Card 4: Operations & Odometer Log
+                  GlassCard(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('4. OPERATIONS & ODOMETER LOG', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: context.themeTextMuted)),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(child: _buildDetailMetaItem('Start Odometer', b.startOdometer != null && b.startOdometer!.isNotEmpty ? '${b.startOdometer} KM' : 'Not recorded')),
+                            Expanded(child: _buildDetailMetaItem('End Odometer', b.endOdometer != null && b.endOdometer!.isNotEmpty ? '${b.endOdometer} KM' : 'Not recorded')),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Expanded(child: _buildDetailMetaItem('Distance Driven', kmDriven > 0 ? '$kmDriven KM' : '—')),
+                            Expanded(child: _buildDetailMetaItem('Vehicle Reg', b.vehicleReg.isNotEmpty ? b.vehicleReg : 'TBD')),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Expanded(child: _buildDetailMetaItem('Starting FASTag', b.startFastag != null && b.startFastag!.isNotEmpty ? '₹${b.startFastag}' : '—')),
+                            Expanded(child: _buildDetailMetaItem('Return FASTag', b.returnFastag != null && b.returnFastag!.isNotEmpty ? '₹${b.returnFastag}' : '—')),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                if (b.userPhone != null && b.userPhone!.isNotEmpty) ...[
+                  Expanded(
+                    child: CustomButton(
+                      text: 'Call Customer',
+                      isOutlined: true,
+                      height: 38,
+                      onPressed: () async {
+                        final uri = Uri.parse('tel:${b.userPhone}');
+                        if (await canLaunchUrl(uri)) await launchUrl(uri);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Expanded(
+                  child: CustomButton(
+                    text: 'Close',
+                    height: 38,
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showExecutivePickupModal(BookingModel b) {
+    final messenger = ScaffoldMessenger.of(context);
+    final bId = b.bookingNumber.isNotEmpty ? b.bookingNumber : b.bookingId;
+    final odoCtrl = TextEditingController(text: b.startOdometer ?? '');
+    final fastagCtrl = TextEditingController(text: b.startFastag ?? '');
+    final notesCtrl = TextEditingController();
+    String fuelLevel = 'Full Tank (100%)';
+    bool balanceCollected = false;
+    String paymentMode = 'UPI / QR';
+    final receiptRefCtrl = TextEditingController();
+    final List<File> attachedPhotos = [];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.88),
+          padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 24),
+          decoration: BoxDecoration(
+            color: context.themeSurfaceElevated,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Start Trip & Pickup Handover', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                      const SizedBox(height: 2),
+                      Text('$bId • ${b.vehicleName}', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                    ],
+                  ),
+                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: ListView(
+                  children: [
+                    TextField(
+                      controller: odoCtrl,
+                      keyboardType: TextInputType.number,
+                      style: TextStyle(color: context.themeTextPrimary),
+                      decoration: const InputDecoration(labelText: 'Starting Odometer (KM) *', hintText: 'e.g. 42150', border: OutlineInputBorder()),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: fastagCtrl,
+                      keyboardType: TextInputType.number,
+                      style: TextStyle(color: context.themeTextPrimary),
+                      decoration: const InputDecoration(labelText: 'Starting FASTag Balance (₹)', hintText: 'e.g. 500', prefixText: '₹ ', border: OutlineInputBorder()),
+                    ),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<String>(
+                      initialValue: fuelLevel,
+                      decoration: const InputDecoration(labelText: 'Fuel Level at Handover', border: OutlineInputBorder()),
+                      dropdownColor: context.themeSurfaceElevated,
+                      items: const [
+                        DropdownMenuItem(value: 'Full Tank (100%)', child: Text('Full Tank (100%)')),
+                        DropdownMenuItem(value: '75% Tank', child: Text('75% Tank')),
+                        DropdownMenuItem(value: '50% Tank', child: Text('50% Tank')),
+                        DropdownMenuItem(value: '25% Tank', child: Text('25% Tank')),
+                      ],
+                      onChanged: (val) => setModalState(() => fuelLevel = val ?? fuelLevel),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Handover Photos with MediaPermissionHelper
+                    Text('Vehicle Handover Photos', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        CustomButton(
+                          text: '+ Take / Upload Photo',
+                          isOutlined: true,
+                          height: 32,
+                          width: 170,
+                          onPressed: () {
+                            MediaPermissionHelper.showMediaSourceSheet(
+                              context: context,
+                              title: 'Vehicle Handover Photo',
+                              onImageSelected: (file) {
+                                setModalState(() => attachedPhotos.add(file));
+                              },
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 10),
+                        Text('${attachedPhotos.length} photo(s) attached', style: TextStyle(fontSize: 11, color: context.themeTextSecondary)),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Balance Collection
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: balanceCollected,
+                      title: Text('Balance Payment Collected at Pickup', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
+                      activeColor: const Color(0xFF06D6A0),
+                      onChanged: (v) => setModalState(() => balanceCollected = v ?? false),
+                    ),
+                    if (balanceCollected) ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              initialValue: paymentMode,
+                              decoration: const InputDecoration(labelText: 'Payment Mode', border: OutlineInputBorder()),
+                              dropdownColor: context.themeSurfaceElevated,
+                              items: const [
+                                DropdownMenuItem(value: 'UPI / QR', child: Text('UPI / QR')),
+                                DropdownMenuItem(value: 'Cash', child: Text('Cash')),
+                                DropdownMenuItem(value: 'POS Card', child: Text('POS Card Machine')),
+                              ],
+                              onChanged: (val) => setModalState(() => paymentMode = val ?? paymentMode),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              controller: receiptRefCtrl,
+                              style: TextStyle(color: context.themeTextPrimary),
+                              decoration: const InputDecoration(labelText: 'Receipt / Txn #', hintText: 'Ref No.', border: OutlineInputBorder()),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+
+                    TextField(
+                      controller: notesCtrl,
+                      style: TextStyle(color: context.themeTextPrimary),
+                      decoration: const InputDecoration(labelText: 'Handover / Condition Notes', hintText: 'Any scratches, clean interior, tools checked...', border: OutlineInputBorder()),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              CustomButton(
+                text: 'Dispatch Vehicle & Start Trip',
+                height: 42,
+                onPressed: () async {
+                  if (odoCtrl.text.isNotEmpty) {
+                    await ref.read(adminBookingsProvider.notifier).updateOdometer(bookingId: bId, startOdometer: odoCtrl.text);
+                  }
+                  if (fastagCtrl.text.isNotEmpty) {
+                    await ref.read(adminBookingsProvider.notifier).updateFastag(bookingId: bId, startFastag: fastagCtrl.text);
+                  }
+                  await ref.read(adminBookingsProvider.notifier).updateStatus(bookingId: bId, newStatus: 'active');
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  messenger.showSnackBar(SnackBar(content: Text('Trip $bId dispatched and started.')));
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showExecutiveReturnModal(BookingModel b) {
+    final messenger = ScaffoldMessenger.of(context);
+    final bId = b.bookingNumber.isNotEmpty ? b.bookingNumber : b.bookingId;
+    final odoCtrl = TextEditingController(text: b.endOdometer ?? '');
+    final fastagCtrl = TextEditingController(text: b.returnFastag ?? '');
+    final damageCtrl = TextEditingController(text: '0');
+    final tollCtrl = TextEditingController(text: '0');
+    final extraKmCtrl = TextEditingController(text: '0');
+    final notesCtrl = TextEditingController();
+    final deposit = b.securityDeposit > 0 ? b.securityDeposit : 5000.0;
+    final startKm = double.tryParse(b.startOdometer ?? '') ?? 0;
+    final List<File> returnPhotos = [];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final endKm = double.tryParse(odoCtrl.text) ?? startKm;
+          final kmDriven = (endKm > startKm) ? (endKm - startKm).toInt() : 0;
+          final damageDed = double.tryParse(damageCtrl.text) ?? 0;
+          final tollDed = double.tryParse(tollCtrl.text) ?? 0;
+          final extraDed = double.tryParse(extraKmCtrl.text) ?? 0;
+          final netRefund = (deposit - damageDed - tollDed - extraDed).clamp(0.0, 999999.0);
+
+          return Container(
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.90),
+            padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 24),
+            decoration: BoxDecoration(
+              color: context.themeSurfaceElevated,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Process Return & Deposit Settlement', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                        const SizedBox(height: 2),
+                        Text('$bId • ${b.vehicleName}', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                      ],
+                    ),
+                    IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: ListView(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: odoCtrl,
+                              keyboardType: TextInputType.number,
+                              style: TextStyle(color: context.themeTextPrimary),
+                              decoration: const InputDecoration(labelText: 'Return Odometer (KM) *', border: OutlineInputBorder()),
+                              onChanged: (_) => setModalState(() {}),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              controller: fastagCtrl,
+                              keyboardType: TextInputType.number,
+                              style: TextStyle(color: context.themeTextPrimary),
+                              decoration: const InputDecoration(labelText: 'Return FASTag (₹)', prefixText: '₹ ', border: OutlineInputBorder()),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text('Distance Driven: $kmDriven KM (Start: ${startKm.toInt()} KM)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF06D6A0))),
+                      const SizedBox(height: 14),
+
+                      // Return Inspection Photos
+                      Text('Vehicle Return Inspection Photos', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          CustomButton(
+                            text: '+ Add Inspection Photo',
+                            isOutlined: true,
+                            height: 32,
+                            width: 180,
+                            onPressed: () {
+                              MediaPermissionHelper.showMediaSourceSheet(
+                                context: context,
+                                title: 'Return Inspection Photo',
+                                onImageSelected: (file) {
+                                  setModalState(() => returnPhotos.add(file));
+                                },
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 10),
+                          Text('${returnPhotos.length} photo(s)', style: TextStyle(fontSize: 11, color: context.themeTextSecondary)),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Deposit Settlement Calculator
+                      GlassCard(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('SECURITY DEPOSIT REFUND CALCULATOR', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: context.themeTextMuted)),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('Security Deposit Paid', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                                Text(_formatINR(deposit), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: damageCtrl,
+                                    keyboardType: TextInputType.number,
+                                    style: TextStyle(color: context.themeTextPrimary, fontSize: 13),
+                                    decoration: const InputDecoration(labelText: 'Damage / Cleaning (₹)', prefixText: '₹ ', border: OutlineInputBorder()),
+                                    onChanged: (_) => setModalState(() {}),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: TextField(
+                                    controller: tollCtrl,
+                                    keyboardType: TextInputType.number,
+                                    style: TextStyle(color: context.themeTextPrimary, fontSize: 13),
+                                    decoration: const InputDecoration(labelText: 'Toll Deductions (₹)', prefixText: '₹ ', border: OutlineInputBorder()),
+                                    onChanged: (_) => setModalState(() {}),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: extraKmCtrl,
+                              keyboardType: TextInputType.number,
+                              style: TextStyle(color: context.themeTextPrimary, fontSize: 13),
+                              decoration: const InputDecoration(labelText: 'Extra KM Charges (₹)', prefixText: '₹ ', border: OutlineInputBorder()),
+                              onChanged: (_) => setModalState(() {}),
+                            ),
+                            const Divider(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('Net Deposit Refund', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                                Text(_formatINR(netRefund), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF06D6A0))),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+
+                      TextField(
+                        controller: notesCtrl,
+                        style: TextStyle(color: context.themeTextPrimary),
+                        decoration: const InputDecoration(labelText: 'Return Settlement Notes', hintText: 'Fuel level verified, no fresh scratches, deposit settled...', border: OutlineInputBorder()),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                CustomButton(
+                  text: 'Complete Trip & Settle Deposit',
+                  height: 42,
+                  onPressed: () async {
+                    if (odoCtrl.text.isNotEmpty) {
+                      await ref.read(adminBookingsProvider.notifier).updateOdometer(bookingId: bId, endOdometer: odoCtrl.text);
+                    }
+                    if (fastagCtrl.text.isNotEmpty) {
+                      await ref.read(adminBookingsProvider.notifier).updateFastag(bookingId: bId, returnFastag: fastagCtrl.text);
+                    }
+                    await ref.read(adminBookingsProvider.notifier).updateStatus(bookingId: bId, newStatus: 'completed');
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    if (mounted) messenger.showSnackBar(SnackBar(content: Text('Trip $bId completed and deposit settled.')));
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showInvoiceManageModal(BookingModel b) {
+    final invoiceNo = 'KZ-INV-2026-${b.id > 0 ? b.id : "088"}';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: context.themeSurfaceElevated,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(isReturn ? 'Process Vehicle Return' : 'Start Trip & Pickup Handover', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
-            const SizedBox(height: 6),
-            Text('Booking: ${booking.bookingNumber} • ${booking.vehicleName}', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
-            const SizedBox(height: 14),
-            TextField(
-              controller: odoController,
-              keyboardType: TextInputType.number,
-              style: TextStyle(color: context.themeTextPrimary),
-              decoration: InputDecoration(labelText: isReturn ? 'Return Odometer (km)' : 'Starting Odometer (km)', border: const OutlineInputBorder()),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Tax Invoice', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                    Text(invoiceNo, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF4FD7FF))),
+                  ],
+                ),
+                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+              ],
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: fastagController,
-              keyboardType: TextInputType.number,
-              style: TextStyle(color: context.themeTextPrimary),
-              decoration: InputDecoration(labelText: isReturn ? 'Return FASTag Balance (₹)' : 'Starting FASTag Balance (₹)', border: const OutlineInputBorder()),
+            GlassCard(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('BILLED TO', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: context.themeTextMuted)),
+                  Text(b.userName, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
+                  Text(b.userEmail, style: TextStyle(fontSize: 11, color: context.themeTextSecondary)),
+                  const Divider(height: 14),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Vehicle Rental (${b.vehicleName})', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                      Text(_formatINR(b.baseAmount > 0 ? b.baseAmount : b.totalAmount * 0.82), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.themeTextPrimary)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('GST @ 18% (Automotive Hire)', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                      Text(_formatINR(b.totalAmount * 0.18), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.themeTextPrimary)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Security Deposit (Refundable)', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                      Text(_formatINR(b.securityDeposit > 0 ? b.securityDeposit : 5000), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.themeTextPrimary)),
+                    ],
+                  ),
+                  const Divider(height: 14),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Total Invoiced', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                      Text(_formatINR(b.finalAmount > 0 ? b.finalAmount : b.totalAmount), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF06D6A0))),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 18),
-            CustomButton(
-              text: isReturn ? 'Complete Trip & Close' : 'Dispatch Vehicle & Start Trip',
-              onPressed: () async {
-                final bId = booking.bookingNumber.isNotEmpty ? booking.bookingNumber : booking.bookingId;
-                await ref.read(adminBookingsProvider.notifier).updateStatus(bookingId: bId, newStatus: isReturn ? 'completed' : 'active');
-                if (ctx.mounted) Navigator.pop(ctx);
-                messenger.showSnackBar(SnackBar(content: Text(isReturn ? 'Trip $bId marked as completed.' : 'Trip $bId dispatched.')));
-              },
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: CustomButton(
+                    text: 'Download PDF',
+                    isOutlined: true,
+                    height: 38,
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Downloading invoice $invoiceNo...')));
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: CustomButton(
+                    text: 'Email Invoice',
+                    height: 38,
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Invoice $invoiceNo emailed to ${b.userEmail}.')));
+                    },
+                  ),
+                ),
+              ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showVerifyPaymentReceiptModal(BookingModel b) {
+    final messenger = ScaffoldMessenger.of(context);
+    final bId = b.bookingNumber.isNotEmpty ? b.bookingNumber : b.bookingId;
+    String selectedAuditor = 'Pankaj';
+    final notesController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
+          padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 24),
+          decoration: BoxDecoration(
+            color: context.themeSurfaceElevated,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Verify Payment Receipt', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                      const SizedBox(height: 2),
+                      Text('Audit customer payment transfer details', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                    ],
+                  ),
+                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: ListView(
+                  children: [
+                    GlassCard(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(bId, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFFFF5C77))),
+                              StatusBadge(status: b.paymentStatus),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text('${b.userName} • ${b.userPhone ?? "No phone"}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
+                          Text('Vehicle: ${b.vehicleName}', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                          const SizedBox(height: 6),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('AMOUNT PAYABLE', style: TextStyle(fontSize: 9.5, color: context.themeTextMuted)),
+                                  Text(_formatINR(b.finalAmount > 0 ? b.finalAmount : b.totalAmount), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF06D6A0))),
+                                ],
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text('UTR / REFERENCE', style: TextStyle(fontSize: 9.5, color: context.themeTextMuted)),
+                                  Text(b.paymentRef != null && b.paymentRef!.isNotEmpty ? b.paymentRef! : 'UPI/2026/09/KZ992819', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Receipt Preview Box
+                    Container(
+                      height: 150,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: context.themeBorder),
+                      ),
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.receipt_long_rounded, size: 40, color: Color(0xFFFF5C77)),
+                            const SizedBox(height: 8),
+                            Text(
+                              b.paymentScreenshotUrl != null && b.paymentScreenshotUrl!.isNotEmpty
+                                  ? 'Receipt Attached (${b.paymentScreenshotUrl!.split("/").last})'
+                                  : 'UPI / Bank Payment Receipt Attached',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.themeTextPrimary),
+                            ),
+                            const SizedBox(height: 4),
+                            Text('Tap to view high-resolution proof', style: TextStyle(fontSize: 10, color: context.themeTextMuted)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Auditor Identity Dropdown (Screenshot: Pankaj, Jafar, Sejal)
+                    Text('Select Staff Auditor Identity *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedAuditor,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      dropdownColor: context.themeSurfaceElevated,
+                      items: const [
+                        DropdownMenuItem(value: 'Pankaj', child: Text('Pankaj (Finance Team)')),
+                        DropdownMenuItem(value: 'Jafar', child: Text('Jafar (Accounts Lead)')),
+                        DropdownMenuItem(value: 'Sejal', child: Text('Sejal (Audit Executive)')),
+                      ],
+                      onChanged: (val) => setModalState(() => selectedAuditor = val ?? 'Pankaj'),
+                    ),
+                    const SizedBox(height: 12),
+
+                    TextField(
+                      controller: notesController,
+                      style: TextStyle(color: context.themeTextPrimary),
+                      decoration: const InputDecoration(
+                        labelText: 'Verification Notes / Bank Reference Comments',
+                        hintText: 'e.g. UTR matched HDFC statement, amount cleared.',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: CustomButton(
+                      text: 'Reject Payment',
+                      isOutlined: true,
+                      height: 40,
+                      onPressed: () async {
+                        await ref.read(adminBookingsProvider.notifier).verifyPayment(
+                              bookingOrPaymentId: bId,
+                              action: 'reject',
+                              reason: notesController.text.isNotEmpty ? notesController.text : 'Rejected by $selectedAuditor',
+                            );
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        if (mounted) messenger.showSnackBar(SnackBar(content: Text('Payment for $bId marked as rejected.')));
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: CustomButton(
+                      text: 'Approve & Confirm',
+                      height: 40,
+                      onPressed: () async {
+                        await ref.read(adminBookingsProvider.notifier).verifyPayment(
+                              bookingOrPaymentId: bId,
+                              action: 'approve',
+                              reason: 'Verified by $selectedAuditor: ${notesController.text}',
+                            );
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        if (mounted) messenger.showSnackBar(SnackBar(content: Text('Payment for $bId verified by $selectedAuditor.')));
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showExecutiveKycModal(String name, String phone, String email, String uid) {
+    final messenger = ScaffoldMessenger.of(context);
+    int currentDocTab = 0; // 0: DL, 1: Aadhaar, 2: PAN
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          decoration: BoxDecoration(
+            color: context.themeSurfaceElevated,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Customer KYC Verification', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                      const SizedBox(height: 2),
+                      Text('$name • $phone', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                    ],
+                  ),
+                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Segmented Document Tabs
+              Row(
+                children: [
+                  _buildFilterPill('Driving License', currentDocTab == 0, () => setModalState(() => currentDocTab = 0)),
+                  _buildFilterPill('Aadhaar Card', currentDocTab == 1, () => setModalState(() => currentDocTab = 1)),
+                  _buildFilterPill('PAN Card', currentDocTab == 2, () => setModalState(() => currentDocTab = 2)),
+                ],
+              ),
+              const SizedBox(height: 14),
+
+              Expanded(
+                child: ListView(
+                  children: [
+                    // Document Preview Area
+                    Container(
+                      height: 170,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: context.themeBorder),
+                      ),
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              currentDocTab == 0
+                                  ? Icons.drive_eta_rounded
+                                  : (currentDocTab == 1 ? Icons.fingerprint_rounded : Icons.badge_rounded),
+                              size: 42,
+                              color: const Color(0xFFFFB703),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              currentDocTab == 0
+                                  ? 'Driving License Document Preview'
+                                  : (currentDocTab == 1 ? 'Aadhaar Card UIDAI Preview' : 'PAN Card Preview'),
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: context.themeTextPrimary),
+                            ),
+                            const SizedBox(height: 4),
+                            Text('Front & Back verified on file', style: TextStyle(fontSize: 11, color: context.themeTextMuted)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    GlassCard(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('VERIFICATION CHECKLIST', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: context.themeTextMuted)),
+                          const SizedBox(height: 8),
+                          _buildDocInspectRow('Customer Photo Match', 'Live verified', true),
+                          _buildDocInspectRow('Document Validity', 'Active / Unexpired', true),
+                          _buildDocInspectRow('Name Consistency', 'Matches $name', true),
+                          _buildDocInspectRow('Age Eligibility', '21+ Years Old', true),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: CustomButton(
+                      text: 'Reject Document',
+                      isOutlined: true,
+                      height: 40,
+                      onPressed: () async {
+                        final docName = currentDocTab == 0 ? 'license' : (currentDocTab == 1 ? 'aadhar' : 'pan');
+                        await ref.read(adminBookingsProvider.notifier).updateKyc(uid: uid, documentType: docName, status: 'rejected');
+                        ref.invalidate(adminKycListProvider);
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        if (mounted) messenger.showSnackBar(SnackBar(content: Text('$docName rejected for $name.')));
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: CustomButton(
+                      text: 'Approve & Verify',
+                      height: 40,
+                      onPressed: () async {
+                        final docName = currentDocTab == 0 ? 'license' : (currentDocTab == 1 ? 'aadhar' : 'pan');
+                        await ref.read(adminBookingsProvider.notifier).updateKyc(uid: uid, documentType: docName, status: 'verified');
+                        ref.invalidate(adminKycListProvider);
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        if (mounted) messenger.showSnackBar(SnackBar(content: Text('$docName approved for $name.')));
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

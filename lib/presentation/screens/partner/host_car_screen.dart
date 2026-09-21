@@ -2,8 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/media_permission_helper.dart';
 import '../../state/app_providers.dart';
 import '../../state/auth_provider.dart';
 import '../../widgets/custom_button.dart';
@@ -41,15 +41,14 @@ class _HostCarScreenState extends ConsumerState<HostCarScreen> {
     super.dispose();
   }
 
-  Future<void> _pickPhoto() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 85,
+  void _pickPhoto() {
+    MediaPermissionHelper.showMediaSourceSheet(
+      context: context,
+      title: 'Vehicle Condition Photo',
+      onImageSelected: (file) {
+        setState(() => _localPhotos.add(file));
+      },
     );
-    if (picked != null) {
-      setState(() => _localPhotos.add(File(picked.path)));
-    }
   }
 
   Future<void> _submitCar() async {

@@ -10,6 +10,7 @@ import '../screens/fleet/fleet_catalog_screen.dart';
 import '../screens/fleet/vehicle_detail_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/partner/host_car_screen.dart';
+import '../screens/contact/contact_screen.dart';
 import '../screens/profile/kyc_verification_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/shell/main_shell.dart';
@@ -133,6 +134,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/host-car',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const HostCarScreen(),
+      ),
+      GoRoute(
+        path: '/contact',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const ContactScreen(),
       ),
       GoRoute(
         path: '/staff-portal',

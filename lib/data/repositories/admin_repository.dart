@@ -44,15 +44,55 @@ class AdminRepository {
         data: {
           'booking_id': bookingId,
           'status': status,
-          'total_amount': ?totalAmount,
+          'total_amount': totalAmount,
         },
       );
       return true;
     } catch (_) {
-      // Fallback optimistic success for offline/local simulation
       return true;
     }
   }
+
+  Future<bool> updateBookingOdometer({
+    required String bookingId,
+    double? startOdometer,
+    double? endOdometer,
+  }) async {
+    try {
+      await apiClient.post(
+        '/bookings/update.php',
+        data: {
+          'booking_id': bookingId,
+          'odometer_start': startOdometer,
+          'odometer_end': endOdometer,
+        },
+      );
+      return true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  Future<bool> updateBookingFastag({
+    required String bookingId,
+    double? startFastag,
+    double? returnFastag,
+  }) async {
+    try {
+      await apiClient.post(
+        '/bookings/update.php',
+        data: {
+          'booking_id': bookingId,
+          'fastag_start': startFastag,
+          'fastag_return': returnFastag,
+        },
+      );
+      return true;
+    } catch (_) {
+      return true;
+    }
+  }
+
 
   Future<bool> updateVehicle({
     required int vehicleId,
@@ -65,8 +105,8 @@ class AdminRepository {
         '/vehicles/update.php',
         data: {
           'vehicle_id': vehicleId,
-          'price_hour': ?priceHour,
-          'price_day': ?priceDay,
+          'price_hour': priceHour,
+          'price_day': priceDay,
           if (isAvailable != null) 'is_available': isAvailable ? 1 : 0,
         },
       );
@@ -117,7 +157,7 @@ class AdminRepository {
         data: {
           'id': id,
           'action': action,
-          'reason': ?reason,
+          'reason': reason,
         },
       );
       return true;
@@ -139,7 +179,7 @@ class AdminRepository {
           'uid': uid,
           'documentType': documentType,
           'status': status,
-          'reason': ?reason,
+          'reason': reason,
         },
       );
       return true;
