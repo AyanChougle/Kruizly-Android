@@ -23,7 +23,7 @@ class MainShell extends ConsumerWidget {
       extendBody: true,
       body: BackgroundVideoWidget(
         isEnabled: true,
-        overlayOpacity: isDark ? 0.45 : 0.65,
+        overlayOpacity: isDark ? 0.45 : 0.75,
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 260),
           switchInCurve: Curves.easeOutCubic,

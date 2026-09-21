@@ -62,10 +62,7 @@ class PriceBreakdownCard extends StatelessWidget {
             'Base Rental (${breakdown.durationHours} hrs)',
             '₹${breakdown.rentalTotal.toInt()}',
           ),
-          if (withDriver) ...[
-            const SizedBox(height: 10),
-            _buildRow(context, 'Chauffeur Service', '₹${breakdown.driverTotal.toInt()}'),
-          ],
+
           if (breakdown.securityDeposit > 0) ...[
             const SizedBox(height: 10),
             _buildRow(

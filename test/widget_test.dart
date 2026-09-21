@@ -5,7 +5,6 @@ import 'package:kruizly/data/models/coupon_model.dart';
 import 'package:kruizly/data/models/user_model.dart';
 import 'package:kruizly/data/models/vehicle_model.dart';
 import 'package:kruizly/core/theme/app_theme.dart';
-import 'package:kruizly/presentation/screens/booking/components/driver_option_toggle.dart';
 import 'package:kruizly/presentation/screens/booking/components/payment_plan_selector.dart';
 import 'package:kruizly/presentation/state/booking_provider.dart';
 import 'package:kruizly/presentation/widgets/background_video_widget.dart';
@@ -407,36 +406,6 @@ void main() {
       expect(find.text('₹8000'), findsOneWidget);
     });
 
-    testWidgets('DriverOptionToggle renders correctly and triggers onToggle', (tester) async {
-      bool driverValue = false;
-
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.darkTheme,
-          home: Scaffold(
-            body: StatefulBuilder(
-              builder: (context, setState) {
-                return DriverOptionToggle(
-                  withDriver: driverValue,
-                  driverPrice: 1500.0,
-                  onToggle: (val) {
-                    setState(() => driverValue = val);
-                  },
-                );
-              },
-            ),
-          ),
-        ),
-      );
-
-      expect(find.text('Add Chauffeur / Driver'), findsOneWidget);
-      expect(find.text('Self-drive rental (Zero driver charges)'), findsOneWidget);
-
-      await tester.tap(find.byType(Switch));
-      await tester.pumpAndSettle();
-
-      expect(driverValue, true);
-    });
 
     testWidgets('VehicleCard renders available tag, hourly rate, specifications, and action buttons', (tester) async {
       const cardVehicle = VehicleModel(

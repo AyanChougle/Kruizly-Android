@@ -102,8 +102,7 @@ class TripDetailScreen extends ConsumerWidget {
                       _buildInfoRow(context, 'Drop-off Time', dateFormat.format(booking.dropDate)),
                       const SizedBox(height: 10),
                       _buildInfoRow(context, 'Duration', booking.duration),
-                      const SizedBox(height: 10),
-                      _buildInfoRow(context, 'Chauffeur', booking.withDriver ? 'Included' : 'Self-Drive'),
+
                       const SizedBox(height: 10),
                       _buildInfoRow(context, 'Payment Plan', booking.paymentPlan.toUpperCase()),
                     ],

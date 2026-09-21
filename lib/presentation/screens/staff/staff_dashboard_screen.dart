@@ -1745,11 +1745,11 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             mainAxisSpacing: 8,
             childAspectRatio: 1.65,
             children: [
-              _buildKpiCard('PERIOD REVENUE', _formatINR(periodRevenue), const Color(0xFF06D6A0)),
+              _buildKpiCard('PERIOD REVENUE', _formatINRShort(periodRevenue), const Color(0xFF06D6A0)),
               _buildKpiCard('ACTIVE TRIPS', '$periodActiveTrips', accentColor),
               _buildKpiCard('COMPLETED TRIPS', '$periodCompletedTrips', context.themeTextPrimary),
               _buildKpiCard('TOTAL BOOKINGS', '$periodTotalBookings', context.themeTextPrimary),
-              _buildKpiCard('AVG. BOOKING VALUE', _formatINR(periodAvgBooking), accentColor),
+              _buildKpiCard('AVG. BOOKING VALUE', _formatINRShort(periodAvgBooking), accentColor),
               _buildKpiCard('FLEET UTILIZATION', '${stats.fleetUtilization > 0 ? stats.fleetUtilization : 88}%', const Color(0xFF06D6A0)),
             ],
           ),

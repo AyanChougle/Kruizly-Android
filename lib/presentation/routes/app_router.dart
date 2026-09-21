@@ -27,6 +27,36 @@ final _hostNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'hostNav');
 final _tripsNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'tripsNav');
 final _profileNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'profileNav');
 
+/// Smooth fade-slide page transition for all routes
+CustomTransitionPage<void> _buildTransitionPage({
+  required GoRouterState state,
+  required Widget child,
+}) {
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: const Duration(milliseconds: 350),
+    reverseTransitionDuration: const Duration(milliseconds: 280),
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+      return FadeTransition(
+        opacity: curved,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0.04, 0),
+            end: Offset.zero,
+          ).animate(curved),
+          child: child,
+        ),
+      );
+    },
+  );
+}
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
@@ -39,12 +69,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/sign-in',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const SignInScreen(),
+        pageBuilder: (context, state) => _buildTransitionPage(
+          state: state,
+          child: const SignInScreen(),
+        ),
       ),
       GoRoute(
         path: '/sign-up',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const SignUpScreen(),
+        pageBuilder: (context, state) => _buildTransitionPage(
+          state: state,
+          child: const SignUpScreen(),
+        ),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
@@ -101,44 +137,62 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/fleet/:id',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
-          return VehicleDetailScreen(vehicleId: id);
+          return _buildTransitionPage(
+            state: state,
+            child: VehicleDetailScreen(vehicleId: id),
+          );
         },
       ),
       GoRoute(
         path: '/booking',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const BookingConfigScreen(),
+        pageBuilder: (context, state) => _buildTransitionPage(
+          state: state,
+          child: const BookingConfigScreen(),
+        ),
       ),
       GoRoute(
         path: '/checkout/:id',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
-          return CheckoutScreen(bookingId: id);
+          return _buildTransitionPage(
+            state: state,
+            child: CheckoutScreen(bookingId: id),
+          );
         },
       ),
       GoRoute(
         path: '/trips/:id',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
-          return TripDetailScreen(bookingId: id);
+          return _buildTransitionPage(
+            state: state,
+            child: TripDetailScreen(bookingId: id),
+          );
         },
       ),
       GoRoute(
         path: '/invoice/:id',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
-          return InvoiceViewerScreen(bookingId: id);
+          return _buildTransitionPage(
+            state: state,
+            child: InvoiceViewerScreen(bookingId: id),
+          );
         },
       ),
       GoRoute(
         path: '/kyc',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const KycVerificationScreen(),
+        pageBuilder: (context, state) => _buildTransitionPage(
+          state: state,
+          child: const KycVerificationScreen(),
+        ),
       ),
       GoRoute(
         path: '/host-car',
@@ -147,12 +201,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/contact',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const ContactScreen(),
+        pageBuilder: (context, state) => _buildTransitionPage(
+          state: state,
+          child: const ContactScreen(),
+        ),
       ),
       GoRoute(
         path: '/staff-portal',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const StaffDashboardScreen(),
+        pageBuilder: (context, state) => _buildTransitionPage(
+          state: state,
+          child: const StaffDashboardScreen(),
+        ),
       ),
     ],
   );

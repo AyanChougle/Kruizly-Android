@@ -127,7 +127,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Join KRUIZLY to rent self-drive & chauffeur cars',
+                          'Join KRUIZLY to rent self-drive cars',
                           style: TextStyle(fontSize: 13, color: context.themeTextSecondary),
                         ),
                         const SizedBox(height: 20),

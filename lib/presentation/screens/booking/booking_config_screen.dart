@@ -10,7 +10,6 @@ import '../../widgets/glass_card.dart';
 import '../../widgets/price_breakdown_card.dart';
 import 'components/coupon_input_card.dart';
 import 'components/date_time_picker_card.dart';
-import 'components/driver_option_toggle.dart';
 import 'components/payment_plan_selector.dart';
 
 class BookingConfigScreen extends ConsumerStatefulWidget {
@@ -241,12 +240,7 @@ class _BookingConfigScreenState extends ConsumerState<BookingConfigScreen> {
               onDatesChanged: bookingNotifier.setDates,
             ),
             const SizedBox(height: 16),
-            DriverOptionToggle(
-              withDriver: draft.withDriver,
-              driverPrice: vehicle.driverPrice,
-              onToggle: bookingNotifier.toggleDriver,
-            ),
-            const SizedBox(height: 16),
+
             CouponInputCard(
               appliedCoupon: draft.appliedCoupon,
               isValidating: draft.isValidatingCoupon,
@@ -265,7 +259,7 @@ class _BookingConfigScreenState extends ConsumerState<BookingConfigScreen> {
             PriceBreakdownCard(
               breakdown: bk,
               paymentPlan: draft.paymentPlan,
-              withDriver: draft.withDriver,
+              withDriver: false,
             ),
             if (draft.submissionError != null) ...[
               const SizedBox(height: 12),

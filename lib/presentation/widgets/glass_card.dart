@@ -41,7 +41,7 @@ class GlassCard extends StatelessWidget {
         color: backgroundColor ??
             (isDark
                 ? Colors.black.withValues(alpha: 0.38)
-                : Colors.white.withValues(alpha: 0.82)),
+                : Colors.white.withValues(alpha: 0.94)),
         borderRadius: BorderRadius.circular(borderRadius),
         // Liquid glass gradient with subtle colored accent sheen
         gradient: isDark
@@ -59,9 +59,9 @@ class GlassCard extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Colors.white.withValues(alpha: 0.90),
-                  effectiveAccent.withValues(alpha: 0.06),
-                  Colors.white.withValues(alpha: 0.75),
+                  Colors.white.withValues(alpha: 0.96),
+                  effectiveAccent.withValues(alpha: 0.04),
+                  Colors.white.withValues(alpha: 0.93),
                 ],
                 stops: const [0.0, 0.5, 1.0],
               ),
