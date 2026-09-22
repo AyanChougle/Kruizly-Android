@@ -25,9 +25,11 @@ final _homeNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'homeNav');
 final _fleetNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'fleetNav');
 final _hostNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'hostNav');
 final _tripsNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'tripsNav');
-final _profileNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'profileNav');
+final _profileNavigatorKey = GlobalKey<NavigatorState>(
+  debugLabel: 'profileNav',
+);
 
-/// Smooth fade-slide page transition for all routes
+/// Butter-smooth, GPU-accelerated iOS/Cupertino style slide & parallax page transition
 CustomTransitionPage<void> _buildTransitionPage({
   required GoRouterState state,
   required Widget child,
@@ -35,22 +37,37 @@ CustomTransitionPage<void> _buildTransitionPage({
   return CustomTransitionPage<void>(
     key: state.pageKey,
     child: child,
-    transitionDuration: const Duration(milliseconds: 350),
+    transitionDuration: const Duration(milliseconds: 320),
     reverseTransitionDuration: const Duration(milliseconds: 280),
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      final curved = CurvedAnimation(
+      final forwardCurved = CurvedAnimation(
         parent: animation,
         curve: Curves.easeOutCubic,
         reverseCurve: Curves.easeInCubic,
       );
-      return FadeTransition(
-        opacity: curved,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0.04, 0),
-            end: Offset.zero,
-          ).animate(curved),
-          child: child,
+      final secondaryCurved = CurvedAnimation(
+        parent: secondaryAnimation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+
+      return SlideTransition(
+        position: Tween<Offset>(
+          begin: Offset.zero,
+          end: const Offset(-0.20, 0),
+        ).animate(secondaryCurved),
+        child: FadeTransition(
+          opacity: Tween<double>(
+            begin: 1.0,
+            end: 0.85,
+          ).animate(secondaryCurved),
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(1.0, 0),
+              end: Offset.zero,
+            ).animate(forwardCurved),
+            child: child,
+          ),
         ),
       );
     },
@@ -62,25 +79,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     navigatorKey: _rootNavigatorKey,
     initialLocation: '/',
     routes: [
-      GoRoute(
-        path: '/',
-        builder: (context, state) => const SplashScreen(),
-      ),
+      GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
       GoRoute(
         path: '/sign-in',
         parentNavigatorKey: _rootNavigatorKey,
-        pageBuilder: (context, state) => _buildTransitionPage(
-          state: state,
-          child: const SignInScreen(),
-        ),
+        pageBuilder: (context, state) =>
+            _buildTransitionPage(state: state, child: const SignInScreen()),
       ),
       GoRoute(
         path: '/sign-up',
         parentNavigatorKey: _rootNavigatorKey,
-        pageBuilder: (context, state) => _buildTransitionPage(
-          state: state,
-          child: const SignUpScreen(),
-        ),
+        pageBuilder: (context, state) =>
+            _buildTransitionPage(state: state, child: const SignUpScreen()),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
@@ -194,17 +204,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           child: const KycVerificationScreen(),
         ),
       ),
-      GoRoute(
-        path: '/host-car',
-        redirect: (context, state) => '/host',
-      ),
+      GoRoute(path: '/host-car', redirect: (context, state) => '/host'),
       GoRoute(
         path: '/contact',
         parentNavigatorKey: _rootNavigatorKey,
-        pageBuilder: (context, state) => _buildTransitionPage(
-          state: state,
-          child: const ContactScreen(),
-        ),
+        pageBuilder: (context, state) =>
+            _buildTransitionPage(state: state, child: const ContactScreen()),
       ),
       GoRoute(
         path: '/staff-portal',

@@ -5,9 +5,13 @@ import '''../models/vehicle_model.dart''';
 class FleetRepository {
   final ApiClient _apiClient;
 
-  FleetRepository({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
+  FleetRepository({ApiClient? apiClient})
+    : _apiClient = apiClient ?? ApiClient();
 
-  Future<List<VehicleModel>> getVehicles({String? category, bool? availableOnly}) async {
+  Future<List<VehicleModel>> getVehicles({
+    String? category,
+    bool? availableOnly,
+  }) async {
     final Map<String, dynamic> params = {};
     if (category != null && category != '''all''') {
       params['''category'''] = category;
@@ -187,7 +191,7 @@ class FleetRepository {
     {
       'id': 7,
       'carId': 'CPR-007',
-      'regNo': 'CPR-007',
+      'regNo': '24BH3375A',
       'brand': 'Maruti Suzuki',
       'model': 'Baleno',
       'year': 2024,
@@ -236,7 +240,10 @@ class FleetRepository {
       if (response is Map<String, dynamic> && response['activeFleet'] is List) {
         final list = (response['activeFleet'] as List)
             .map((v) => VehicleModel.fromJson(v as Map<String, dynamic>))
-            .where((v) => !v.regNo.toUpperCase().contains('ZIP') && v.regNo.isNotEmpty)
+            .where(
+              (v) =>
+                  !v.regNo.toUpperCase().contains('ZIP') && v.regNo.isNotEmpty,
+            )
             .toList();
         if (list.isNotEmpty) return list;
       }
@@ -251,7 +258,9 @@ class FleetRepository {
     );
 
     if (response is Map<String, dynamic> && response['''vehicle'''] != null) {
-      return VehicleModel.fromJson(response['''vehicle'''] as Map<String, dynamic>);
+      return VehicleModel.fromJson(
+        response['''vehicle'''] as Map<String, dynamic>,
+      );
     }
     return null;
   }

@@ -24,22 +24,8 @@ class MainShell extends ConsumerWidget {
       body: BackgroundVideoWidget(
         isEnabled: true,
         isDark: isDark,
-        overlayOpacity: isDark ? 0.45 : 0.85,
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 260),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
-          transitionBuilder: (child, animation) {
-            return FadeTransition(
-              opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
-              child: child,
-            );
-          },
-          child: KeyedSubtree(
-            key: ValueKey(currentIndex),
-            child: navigationShell,
-          ),
-        ),
+        overlayOpacity: isDark ? 0.68 : 0.85,
+        child: navigationShell,
       ),
       bottomNavigationBar: _AppleNavBar(
         currentIndex: currentIndex,
@@ -69,10 +55,26 @@ class _AppleNavBar extends StatelessWidget {
 
   static const _items = [
     (icon: Icons.home_outlined, activeIcon: Icons.home_rounded, label: 'Home'),
-    (icon: Icons.directions_car_outlined, activeIcon: Icons.directions_car_filled_rounded, label: 'Fleet'),
-    (icon: Icons.add_business_outlined, activeIcon: Icons.add_business_rounded, label: 'Host'),
-    (icon: Icons.luggage_outlined, activeIcon: Icons.luggage_rounded, label: 'Trips'),
-    (icon: Icons.person_outline_rounded, activeIcon: Icons.person_rounded, label: 'Profile'),
+    (
+      icon: Icons.directions_car_outlined,
+      activeIcon: Icons.directions_car_filled_rounded,
+      label: 'Fleet',
+    ),
+    (
+      icon: Icons.add_business_outlined,
+      activeIcon: Icons.add_business_rounded,
+      label: 'Host',
+    ),
+    (
+      icon: Icons.luggage_outlined,
+      activeIcon: Icons.luggage_rounded,
+      label: 'Trips',
+    ),
+    (
+      icon: Icons.person_outline_rounded,
+      activeIcon: Icons.person_rounded,
+      label: 'Profile',
+    ),
   ];
 
   @override
@@ -173,8 +175,8 @@ class _NavItem extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected
               ? (isDark
-                  ? AppColors.primary.withValues(alpha: 0.18)
-                  : AppColors.primary.withValues(alpha: 0.12))
+                    ? AppColors.primary.withValues(alpha: 0.18)
+                    : AppColors.primary.withValues(alpha: 0.12))
               : Colors.transparent,
           borderRadius: BorderRadius.circular(18),
         ),

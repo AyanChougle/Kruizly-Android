@@ -39,15 +39,15 @@ class FleetFilterBar extends StatefulWidget {
 class _FleetFilterBarState extends State<FleetFilterBar> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _expandAnimation;
-  bool _filtersExpanded = true;
+  bool _filtersExpanded = false;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 320),
-      value: 1.0,
+      duration: const Duration(milliseconds: 300),
+      value: 0.0,
     );
     _expandAnimation = CurvedAnimation(
       parent: _controller,

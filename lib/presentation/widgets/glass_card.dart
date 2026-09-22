@@ -38,26 +38,28 @@ class GlassCard extends StatelessWidget {
     Widget content = Container(
       padding: padding ?? EdgeInsets.zero,
       decoration: BoxDecoration(
-        color: backgroundColor ??
+        color:
+            backgroundColor ??
             (isDark
-                ? Colors.black.withValues(alpha: 0.38)
+                ? Colors.black.withValues(alpha: 0.86)
                 : Colors.white.withValues(alpha: 0.95)),
         borderRadius: BorderRadius.circular(borderRadius),
-        // Dark mode keeps liquid glass gradient with subtle colored accent sheen; light mode uses clean frosted surface
+        // A dark, opaque gradient keeps text legible over the ambient video.
         gradient: isDark
             ? LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  effectiveAccent.withValues(alpha: 0.12),
-                  Colors.white.withValues(alpha: 0.04),
-                  Colors.black.withValues(alpha: 0.25),
+                  const Color(0xFF0E1A28).withValues(alpha: 0.82),
+                  const Color(0xFF0B121C).withValues(alpha: 0.86),
+                  Colors.black.withValues(alpha: 0.90),
                 ],
                 stops: const [0.0, 0.45, 1.0],
               )
             : null,
         border: Border.all(
-          color: borderColor ??
+          color:
+              borderColor ??
               (isDark
                   ? effectiveAccent.withValues(alpha: 0.22)
                   : const Color(0xFFE2E8F0)),

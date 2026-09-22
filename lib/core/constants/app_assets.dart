@@ -5,7 +5,7 @@ class AppAssets {
   static const String logo = '''assets/images/logo.png''';
 
   // Fallback vehicle photos
-  static const String carPlaceholder = '''assets/fleet/BMW.png''';
+  static const String carPlaceholder = 'assets/images/logo-original.png';
 
   static String getCarImagePath(String brand, String model) {
     final b = brand.trim();
@@ -18,7 +18,9 @@ class AppAssets {
     final m = model.trim();
     return [
       'assets/fleet/$b $m.png',
+      'assets/fleet/$b $m.jpg',
       'assets/fleet/$m.png',
+      'assets/fleet/$m.jpg',
       'assets/fleet/$b.png',
       'assets/fleet/${b.replaceAll(' ', '')} $m.png',
       carPlaceholder,
