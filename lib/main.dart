@@ -28,11 +28,7 @@ void main() async {
     debugPrint('Firebase initialization notice: $e');
   }
 
-  runApp(
-    const ProviderScope(
-      child: KruizlyApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: KruizlyApp()));
 }
 
 class KruizlyApp extends ConsumerWidget {
@@ -44,7 +40,7 @@ class KruizlyApp extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp.router(
-      title: 'KRUIZLY - Luxury & Drive on Demand',
+      title: 'Kruizly - Luxury & Drive on Demand',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,

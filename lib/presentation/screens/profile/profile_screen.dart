@@ -379,7 +379,7 @@ class ProfileScreen extends ConsumerWidget {
                   ),
                   _buildMenuTile(
                     icon: Icons.directions_car_outlined,
-                    title: 'Host Your Car with KRUIZLY',
+                    title: 'Host Your Car with Kruizly',
                     subtitle:
                         'Earn monthly passive income by partnering your vehicle',
                     isDark: isDark,

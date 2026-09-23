@@ -9,7 +9,8 @@ import '../models/invoice_model.dart';
 class InvoiceRepository {
   final ApiClient _apiClient;
 
-  InvoiceRepository({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
+  InvoiceRepository({ApiClient? apiClient})
+    : _apiClient = apiClient ?? ApiClient();
 
   Future<InvoiceModel> getInvoice(String bookingId) async {
     final response = await _apiClient.get(
@@ -26,7 +27,7 @@ class InvoiceRepository {
   Future<File> downloadInvoicePdf(String bookingId) async {
     try {
       final dir = await getApplicationDocumentsDirectory();
-      final savePath = '${dir.path}/KRUIZLY_Invoice_$bookingId.pdf';
+      final savePath = '${dir.path}/Kruizly_Invoice_$bookingId.pdf';
 
       final response = await _apiClient.dio.get<List<int>>(
         ApiEndpoints.pdfInvoice,

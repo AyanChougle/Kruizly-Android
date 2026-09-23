@@ -1,4 +1,4 @@
-package com.example.kruizly
+package com.example.Kruizly
 
 import io.flutter.embedding.android.FlutterActivity
 

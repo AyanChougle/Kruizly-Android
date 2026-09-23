@@ -3,24 +3,24 @@
 [![Flutter](https://img.shields.io/badge/Flutter-3.35.7-02569B?logo=flutter)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-3.9.2-0175C2?logo=dart)](https://dart.dev)
 [![State](https://img.shields.io/badge/State-Flutter%20Riverpod%202.6-purple)](https://riverpod.dev)
-[![Database](https://img.shields.io/badge/Database-Hostinger%20MySQL%20(Live)-orange)](https://kruizly.com)
+[![Database](https://img.shields.io/badge/Database-Hostinger%20MySQL%20(Live)-orange)](https://Kruizly.com)
 [![License](https://img.shields.io/badge/License-Proprietary-red)](#)
 
-> Modern, high-performance Flutter mobile application for **KRUIZLY Self-Drive & Chauffeur Car Rentals** in Mumbai & Navi Mumbai. Fully synchronized with live Hostinger production MySQL backend (`u303154098_carRentpe`), real-time booking calculations, glassmorphism aesthetics, background ambient video playback, and complete staff role command centers.
+> Modern, high-performance Flutter mobile application for **Kruizly Self-Drive & Chauffeur Car Rentals** in Mumbai & Navi Mumbai. Fully synchronized with live Hostinger production MySQL backend (`u303154098_carRentpe`), real-time booking calculations, glassmorphism aesthetics, background ambient video playback, and complete staff role command centers.
 
 ---
 
 ## ✨ Features Overview
 
 ### 1. 🌐 Live Hostinger MySQL Synchronized Engine
-- **Direct Live Synchronization**: Communicates with production Hostinger REST APIs (`https://kruizly.com/api`).
+- **Direct Live Synchronization**: Communicates with production Hostinger REST APIs (`https://Kruizly.com/api`).
 - **Live 39 Catalog Vehicles**: Real-time vehicle metadata, pricing (hourly and daily), transmission, fuel, seats, bags, deposit, and availability status.
 - **Authentic 9 Active Fleets**: Synchronized directly with `/api/vehicles/active-fleet.php` featuring partner owners (Aditi Lotankar, Viren Gupta, Ajay Vishwakarma, Kundan Singh, Tai Phad, Amol Gole, Saif Feroz Shaikh, Kruizly Fleet Host, Anil Kumar Gupta).
 - **Live Bookings & Customers**: Audited ledger with live bookings, customer KYC verification, and dynamic monthly revenue metrics.
 - **Zero Demo/Mock Data**: Completely clean, zeroed fallbacks when offline; all dynamic metrics recalculate from live data.
 
 ### 2. 🔐 Role-Based Command Centers & Portals
-Kruizly features purpose-built staff and administrative portals mirroring the web platform (`kruizly.com`):
+Kruizly features purpose-built staff and administrative portals mirroring the web platform (`Kruizly.com`):
 
 #### 👑 Admin Panel (8 Specialized Subtabs)
 1. **All Bookings**: Comprehensive booking management with status filters (`All`, `Confirmed`, `Pending`, `Cancelled`), date range picker, and collapsible customer & trip details.

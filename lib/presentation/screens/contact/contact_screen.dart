@@ -38,7 +38,9 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
 
     if (name.isEmpty || email.isEmpty || msg.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in Name, Email, and Message.')),
+        const SnackBar(
+          content: Text('Please fill in Name, Email, and Message.'),
+        ),
       );
       return;
     }
@@ -57,7 +59,9 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           backgroundColor: Color(0xFF06D6A0),
-          content: Text('Thank you! Your message has been sent to Kruizly Concierge.'),
+          content: Text(
+            'Thank you! Your message has been sent to Kruizly Concierge.',
+          ),
         ),
       );
     }
@@ -79,9 +83,21 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
         elevation: 0,
         title: Row(
           children: [
-            Image.asset(AppAssets.logo, height: 26, errorBuilder: (_, _, _) => const Text('KRUIZLY')),
+            Image.asset(
+              AppAssets.logo,
+              height: 26,
+              errorBuilder: (_, _, _) => const Text('Kruizly'),
+            ),
             const SizedBox(width: 8),
-            const Text('CONTACT US', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: Color(0xFF4FD7FF))),
+            const Text(
+              'CONTACT US',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.5,
+                color: Color(0xFF4FD7FF),
+              ),
+            ),
           ],
         ),
       ),
@@ -96,12 +112,23 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
               // Hero Banner matching media_1789973395982.png
               Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF4FD7FF).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Text('• CONTACT US', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF4FD7FF), letterSpacing: 1.2)),
+                  child: const Text(
+                    '• CONTACT US',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF4FD7FF),
+                      letterSpacing: 1.2,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 10),
@@ -109,7 +136,12 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
                 child: Text(
                   'Plan your ride with a team that responds fast.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: context.themeTextPrimary, height: 1.2),
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: context.themeTextPrimary,
+                    height: 1.2,
+                  ),
                 ),
               ),
               const SizedBox(height: 6),
@@ -117,7 +149,11 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
                 child: Text(
                   'Need support, a customized booking, or fleet information? Reach out and we\'ll get you behind the wheel quickly.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12, color: context.themeTextSecondary, height: 1.4),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: context.themeTextSecondary,
+                    height: 1.4,
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -129,63 +165,137 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF4FD7FF).withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Text('• GET IN TOUCH', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: Color(0xFF4FD7FF))),
+                      child: const Text(
+                        '• GET IN TOUCH',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF4FD7FF),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 8),
-                    Text('Send us a message', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                    Text(
+                      'Send us a message',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: context.themeTextPrimary,
+                      ),
+                    ),
                     const SizedBox(height: 2),
-                    Text('Fill out the form below and our concierge team will get back to you shortly.', style: TextStyle(fontSize: 11.5, color: context.themeTextSecondary)),
+                    Text(
+                      'Fill out the form below and our concierge team will get back to you shortly.',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: context.themeTextSecondary,
+                      ),
+                    ),
                     const SizedBox(height: 14),
 
                     TextField(
                       controller: _nameController,
-                      style: TextStyle(color: context.themeTextPrimary, fontSize: 13),
-                      decoration: const InputDecoration(labelText: 'FULL NAME *', hintText: 'Your full name', border: OutlineInputBorder()),
+                      style: TextStyle(
+                        color: context.themeTextPrimary,
+                        fontSize: 13,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'FULL NAME *',
+                        hintText: 'Your full name',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
                     const SizedBox(height: 10),
 
                     TextField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
-                      style: TextStyle(color: context.themeTextPrimary, fontSize: 13),
-                      decoration: const InputDecoration(labelText: 'EMAIL ADDRESS *', hintText: 'name@example.com', border: OutlineInputBorder()),
+                      style: TextStyle(
+                        color: context.themeTextPrimary,
+                        fontSize: 13,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'EMAIL ADDRESS *',
+                        hintText: 'name@example.com',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
                     const SizedBox(height: 10),
 
                     TextField(
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
-                      style: TextStyle(color: context.themeTextPrimary, fontSize: 13),
-                      decoration: const InputDecoration(labelText: 'PHONE NUMBER', hintText: '+91 98765 43210', border: OutlineInputBorder()),
+                      style: TextStyle(
+                        color: context.themeTextPrimary,
+                        fontSize: 13,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'PHONE NUMBER',
+                        hintText: '+91 98765 43210',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
                     const SizedBox(height: 10),
 
                     DropdownButtonFormField<String>(
                       initialValue: _subject,
-                      style: TextStyle(color: context.themeTextPrimary, fontSize: 13),
+                      style: TextStyle(
+                        color: context.themeTextPrimary,
+                        fontSize: 13,
+                      ),
                       dropdownColor: context.themeSurfaceElevated,
-                      decoration: const InputDecoration(labelText: 'INQUIRY SUBJECT', border: OutlineInputBorder()),
+                      decoration: const InputDecoration(
+                        labelText: 'INQUIRY SUBJECT',
+                        border: OutlineInputBorder(),
+                      ),
                       items: const [
-                        DropdownMenuItem(value: 'General Inquiry', child: Text('General Inquiry')),
-                        DropdownMenuItem(value: 'Booking Assistance', child: Text('Booking Assistance')),
-                        DropdownMenuItem(value: 'Fleet Partnership', child: Text('Fleet Partnership')),
-                        DropdownMenuItem(value: 'Corporate Rental', child: Text('Corporate Rental')),
-                        DropdownMenuItem(value: 'Customer Feedback', child: Text('Customer Feedback')),
+                        DropdownMenuItem(
+                          value: 'General Inquiry',
+                          child: Text('General Inquiry'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Booking Assistance',
+                          child: Text('Booking Assistance'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Fleet Partnership',
+                          child: Text('Fleet Partnership'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Corporate Rental',
+                          child: Text('Corporate Rental'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Customer Feedback',
+                          child: Text('Customer Feedback'),
+                        ),
                       ],
-                      onChanged: (val) => setState(() => _subject = val ?? 'General Inquiry'),
+                      onChanged: (val) =>
+                          setState(() => _subject = val ?? 'General Inquiry'),
                     ),
                     const SizedBox(height: 10),
 
                     TextField(
                       controller: _messageController,
                       maxLines: 4,
-                      style: TextStyle(color: context.themeTextPrimary, fontSize: 13),
-                      decoration: const InputDecoration(labelText: 'YOUR MESSAGE *', hintText: 'Tell us how we can help with your journey...', border: OutlineInputBorder()),
+                      style: TextStyle(
+                        color: context.themeTextPrimary,
+                        fontSize: 13,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'YOUR MESSAGE *',
+                        hintText:
+                            'Tell us how we can help with your journey...',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
                     const SizedBox(height: 16),
 
@@ -206,17 +316,40 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF06D6A0).withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Text('• DIRECT CHANNELS', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: Color(0xFF06D6A0))),
+                      child: const Text(
+                        '• DIRECT CHANNELS',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF06D6A0),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 8),
-                    Text('Contact Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                    Text(
+                      'Contact Details',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: context.themeTextPrimary,
+                      ),
+                    ),
                     const SizedBox(height: 2),
-                    Text('Direct lines to our Mumbai operations and road concierge.', style: TextStyle(fontSize: 11.5, color: context.themeTextSecondary)),
+                    Text(
+                      'Direct lines to our Mumbai operations and road concierge.',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: context.themeTextSecondary,
+                      ),
+                    ),
                     const SizedBox(height: 14),
 
                     // Office Address
@@ -224,7 +357,9 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
                       icon: Icons.location_on_outlined,
                       label: 'OFFICE ADDRESS',
                       value: 'Gavson Business Park, Navi Mumbai, India',
-                      onTap: () => _launchUrlStr('https://maps.google.com/?q=Gavson+Business+Park+Ghansoli'),
+                      onTap: () => _launchUrlStr(
+                        'https://maps.google.com/?q=Gavson+Business+Park+Ghansoli',
+                      ),
                     ),
                     const SizedBox(height: 10),
 
@@ -242,9 +377,9 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
                     _buildChannelTile(
                       icon: Icons.mail_outline_rounded,
                       label: 'DIRECT EMAIL',
-                      value: 'support@kruizly.com',
+                      value: 'support@Kruizly.com',
                       valueColor: const Color(0xFF4FD7FF),
-                      onTap: () => _launchUrlStr('mailto:support@kruizly.com'),
+                      onTap: () => _launchUrlStr('mailto:support@Kruizly.com'),
                     ),
                     const SizedBox(height: 16),
 
@@ -252,15 +387,28 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
                     Row(
                       children: [
                         Expanded(
-                          child: _buildSocialPill('Instagram', Icons.camera_alt_outlined, () => _launchUrlStr('https://instagram.com/kruizly')),
+                          child: _buildSocialPill(
+                            'Instagram',
+                            Icons.camera_alt_outlined,
+                            () =>
+                                _launchUrlStr('https://instagram.com/Kruizly'),
+                          ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: _buildSocialPill('Facebook', Icons.facebook_rounded, () => _launchUrlStr('https://facebook.com/kruizly')),
+                          child: _buildSocialPill(
+                            'Facebook',
+                            Icons.facebook_rounded,
+                            () => _launchUrlStr('https://facebook.com/Kruizly'),
+                          ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: _buildSocialPill('WhatsApp', Icons.chat_rounded, () => _launchUrlStr('https://wa.me/919167164547')),
+                          child: _buildSocialPill(
+                            'WhatsApp',
+                            Icons.chat_rounded,
+                            () => _launchUrlStr('https://wa.me/919167164547'),
+                          ),
                         ),
                       ],
                     ),
@@ -280,10 +428,27 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.location_on, size: 36, color: Color(0xFFFF5C77)),
+                                const Icon(
+                                  Icons.location_on,
+                                  size: 36,
+                                  color: Color(0xFFFF5C77),
+                                ),
                                 const SizedBox(height: 4),
-                                const Text('Gavson Business Park', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.white)),
-                                Text('Ghansoli, Navi Mumbai', style: TextStyle(fontSize: 11, color: context.themeTextSecondary)),
+                                const Text(
+                                  'Gavson Business Park',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                Text(
+                                  'Ghansoli, Navi Mumbai',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: context.themeTextSecondary,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -291,16 +456,35 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
                             bottom: 8,
                             right: 8,
                             child: InkWell(
-                              onTap: () => _launchUrlStr('https://maps.google.com/?q=Gavson+Business+Park+Ghansoli'),
+                              onTap: () => _launchUrlStr(
+                                'https://maps.google.com/?q=Gavson+Business+Park+Ghansoli',
+                              ),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(6)),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.7),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
                                 child: const Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Text('Open Maps', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF4FD7FF))),
+                                    Text(
+                                      'Open Maps',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF4FD7FF),
+                                      ),
+                                    ),
                                     SizedBox(width: 4),
-                                    Icon(Icons.open_in_new, size: 12, color: Color(0xFF4FD7FF)),
+                                    Icon(
+                                      Icons.open_in_new,
+                                      size: 12,
+                                      color: Color(0xFF4FD7FF),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -340,7 +524,10 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
           children: [
             Container(
               padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: const Color(0xFF4FD7FF).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(
+                color: const Color(0xFF4FD7FF).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
               child: Icon(icon, size: 18, color: const Color(0xFF4FD7FF)),
             ),
             const SizedBox(width: 12),
@@ -348,9 +535,23 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: context.themeTextMuted)),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w800,
+                      color: context.themeTextMuted,
+                    ),
+                  ),
                   const SizedBox(height: 2),
-                  Text(value, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: valueColor ?? context.themeTextPrimary)),
+                  Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: valueColor ?? context.themeTextPrimary,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -376,7 +577,14 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
           children: [
             Icon(icon, size: 14, color: context.themeTextPrimary),
             const SizedBox(width: 4),
-            Text(name, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
+            Text(
+              name,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: context.themeTextPrimary,
+              ),
+            ),
           ],
         ),
       ),

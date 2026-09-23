@@ -1,5 +1,5 @@
 class AppConfig {
-  static const String appName = '''KRUIZLY''';
+  static const String appName = '''Kruizly''';
   static const String appTagline = '''Premium Self-Drive Car Rentals''';
   static const String apiBaseUrl = String.fromEnvironment(
     '''API_BASE_URL''',
@@ -11,8 +11,9 @@ class AppConfig {
   );
   static const String defaultUpiId = 'svcmerc00314092@svcbank';
   static const String upiId = defaultUpiId;
-  static const String upiName = 'KRUIZLY';
+  static const String upiName = 'Kruizly';
   static const String supportPhone = '''+91 91671 64547''';
   static const String supportEmail = '''support@kruizly.com''';
-  static const String companyAddress = '''Gavson Business Park, Ghansoli, Navi Mumbai, Maharashtra 400701''';
+  static const String companyAddress =
+      '''Gavson Business Park, Ghansoli, Navi Mumbai, Maharashtra 400701''';
 }

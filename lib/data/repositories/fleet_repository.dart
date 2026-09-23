@@ -248,7 +248,7 @@ class FleetRepository {
         if (list.isNotEmpty) return list;
       }
     } catch (_) {}
-    return defaultActive9Fleets.map((v) => VehicleModel.fromJson(v)).toList();
+    return [];
   }
 
   Future<VehicleModel?> getVehicleDetail(String regNo) async {

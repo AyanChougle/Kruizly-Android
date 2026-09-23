@@ -11,7 +11,8 @@ class SplashScreen extends ConsumerStatefulWidget {
   ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends ConsumerState<SplashScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
   late Animation<double> _scaleAnim;
@@ -86,7 +87,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
                       fit: BoxFit.contain,
                       errorBuilder: (context, error, stackTrace) {
                         return const Text(
-                          'KRUIZLY',
+                          'Kruizly',
                           style: TextStyle(
                             fontSize: 36,
                             fontWeight: FontWeight.w900,
@@ -98,7 +99,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
                     ),
                     const SizedBox(height: 20),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(20),

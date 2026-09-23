@@ -1,6 +1,6 @@
 name: kruizly
 
-description: "KRUIZLY - Premium Self-Drive Car Rentals Native Flutter App"
+description: "Kruizly - Premium Self-Drive Car Rentals Native Flutter App"
 
 publish_to: 'none'
 
@@ -52,4 +52,4 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/icons/kruizly_icon.png"
+  image_path: "assets/icons/Kruizly_icon.png"

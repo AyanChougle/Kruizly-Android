@@ -120,7 +120,7 @@ class _HostCarScreenState extends ConsumerState<HostCarScreen> {
             style: TextStyle(color: context.themeTextPrimary),
           ),
           content: Text(
-            'Your vehicle application has been submitted to the KRUIZLY fleet manager team. Our executive will contact you within 24 hours for physical verification and onboarding.',
+            'Your vehicle application has been submitted to the Kruizly fleet manager team. Our executive will contact you within 24 hours for physical verification and onboarding.',
             style: TextStyle(
               color: context.themeTextSecondary,
               fontSize: 13,
@@ -168,7 +168,10 @@ class _HostCarScreenState extends ConsumerState<HostCarScreen> {
             : null,
         title: Text(
           'Host Your Car',
-          style: TextStyle(fontWeight: FontWeight.w700, color: context.themeTextPrimary),
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            color: context.themeTextPrimary,
+          ),
         ),
       ),
       body: SingleChildScrollView(
@@ -191,7 +194,7 @@ class _HostCarScreenState extends ConsumerState<HostCarScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Partner your car with KRUIZLY. Guaranteed monthly earnings, full insurance protection, and vetted verified renters.',
+                    'Partner your car with Kruizly. Guaranteed monthly earnings, full insurance protection, and vetted verified renters.',
                     style: TextStyle(
                       fontSize: 13,
                       color: context.themeTextSecondary,

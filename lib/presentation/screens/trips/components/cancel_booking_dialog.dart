@@ -50,8 +50,12 @@ class _CancelBookingDialogState extends State<CancelBookingDialog> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Are you sure you want to cancel booking #${widget.bookingId}? Any eligible refund will be processed according to KRUIZLY cancellation terms.',
-              style: TextStyle(fontSize: 13, color: context.themeTextSecondary, height: 1.4),
+              'Are you sure you want to cancel booking #${widget.bookingId}? Any eligible refund will be processed according to Kruizly cancellation terms.',
+              style: TextStyle(
+                fontSize: 13,
+                color: context.themeTextSecondary,
+                height: 1.4,
+              ),
             ),
             const SizedBox(height: 16),
             TextField(
@@ -60,9 +64,15 @@ class _CancelBookingDialogState extends State<CancelBookingDialog> {
               maxLines: 3,
               decoration: InputDecoration(
                 labelText: 'Reason for cancellation',
-                labelStyle: TextStyle(color: context.themeTextSecondary, fontSize: 13),
+                labelStyle: TextStyle(
+                  color: context.themeTextSecondary,
+                  fontSize: 13,
+                ),
                 hintText: 'e.g. Plans changed, date adjustment...',
-                hintStyle: TextStyle(color: context.themeTextMuted, fontSize: 13),
+                hintStyle: TextStyle(
+                  color: context.themeTextMuted,
+                  fontSize: 13,
+                ),
                 filled: true,
                 fillColor: context.themeSurfaceElevated,
                 border: OutlineInputBorder(
@@ -91,7 +101,11 @@ class _CancelBookingDialogState extends State<CancelBookingDialog> {
                     height: 44,
                     onPressed: () {
                       setState(() => _isLoading = true);
-                      widget.onConfirm(_reasonController.text.trim().isNotEmpty ? _reasonController.text.trim() : 'User requested cancellation');
+                      widget.onConfirm(
+                        _reasonController.text.trim().isNotEmpty
+                            ? _reasonController.text.trim()
+                            : 'User requested cancellation',
+                      );
                       Navigator.pop(context);
                     },
                   ),

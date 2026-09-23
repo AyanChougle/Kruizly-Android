@@ -57,7 +57,9 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
     setState(() => _localError = null);
 
-    final success = await ref.read(authProvider.notifier).registerWithEmailPassword(
+    final success = await ref
+        .read(authProvider.notifier)
+        .registerWithEmailPassword(
           email,
           password,
           name,
@@ -80,7 +82,11 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new, color: context.themeTextPrimary, size: 20),
+          icon: Icon(
+            Icons.arrow_back_ios_new,
+            color: context.themeTextPrimary,
+            size: 20,
+          ),
           onPressed: () => context.pop(),
         ),
       ),
@@ -100,12 +106,14 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       fit: BoxFit.contain,
                       errorBuilder: (context, error, stackTrace) {
                         return Text(
-                          'KRUIZLY',
+                          'Kruizly',
                           style: TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 2,
-                            color: isDark ? AppColors.primaryLight : AppColors.primary,
+                            color: isDark
+                                ? AppColors.primaryLight
+                                : AppColors.primary,
                           ),
                         );
                       },
@@ -127,8 +135,11 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Join KRUIZLY to rent self-drive cars',
-                          style: TextStyle(fontSize: 13, color: context.themeTextSecondary),
+                          'Join Kruizly to rent self-drive cars',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: context.themeTextSecondary,
+                          ),
                         ),
                         const SizedBox(height: 20),
                         TextField(
@@ -136,17 +147,26 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                           style: TextStyle(color: context.themeTextPrimary),
                           decoration: InputDecoration(
                             labelText: 'Full Name *',
-                            labelStyle: TextStyle(color: context.themeTextSecondary),
-                            prefixIcon: Icon(Icons.person_outline, color: context.themeTextSecondary),
+                            labelStyle: TextStyle(
+                              color: context.themeTextSecondary,
+                            ),
+                            prefixIcon: Icon(
+                              Icons.person_outline,
+                              color: context.themeTextSecondary,
+                            ),
                             filled: true,
                             fillColor: context.themeSurfaceElevated,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: context.themeBorder),
+                              borderSide: BorderSide(
+                                color: context.themeBorder,
+                              ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: context.themeBorder),
+                              borderSide: BorderSide(
+                                color: context.themeBorder,
+                              ),
                             ),
                           ),
                         ),
@@ -157,17 +177,26 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                           style: TextStyle(color: context.themeTextPrimary),
                           decoration: InputDecoration(
                             labelText: 'Email Address *',
-                            labelStyle: TextStyle(color: context.themeTextSecondary),
-                            prefixIcon: Icon(Icons.email_outlined, color: context.themeTextSecondary),
+                            labelStyle: TextStyle(
+                              color: context.themeTextSecondary,
+                            ),
+                            prefixIcon: Icon(
+                              Icons.email_outlined,
+                              color: context.themeTextSecondary,
+                            ),
                             filled: true,
                             fillColor: context.themeSurfaceElevated,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: context.themeBorder),
+                              borderSide: BorderSide(
+                                color: context.themeBorder,
+                              ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: context.themeBorder),
+                              borderSide: BorderSide(
+                                color: context.themeBorder,
+                              ),
                             ),
                           ),
                         ),
@@ -178,17 +207,26 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                           style: TextStyle(color: context.themeTextPrimary),
                           decoration: InputDecoration(
                             labelText: 'Phone Number (Optional)',
-                            labelStyle: TextStyle(color: context.themeTextSecondary),
-                            prefixIcon: Icon(Icons.phone_outlined, color: context.themeTextSecondary),
+                            labelStyle: TextStyle(
+                              color: context.themeTextSecondary,
+                            ),
+                            prefixIcon: Icon(
+                              Icons.phone_outlined,
+                              color: context.themeTextSecondary,
+                            ),
                             filled: true,
                             fillColor: context.themeSurfaceElevated,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: context.themeBorder),
+                              borderSide: BorderSide(
+                                color: context.themeBorder,
+                              ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: context.themeBorder),
+                              borderSide: BorderSide(
+                                color: context.themeBorder,
+                              ),
                             ),
                           ),
                         ),
@@ -199,24 +237,37 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                           style: TextStyle(color: context.themeTextPrimary),
                           decoration: InputDecoration(
                             labelText: 'Password *',
-                            labelStyle: TextStyle(color: context.themeTextSecondary),
-                            prefixIcon: Icon(Icons.lock_outline, color: context.themeTextSecondary),
+                            labelStyle: TextStyle(
+                              color: context.themeTextSecondary,
+                            ),
+                            prefixIcon: Icon(
+                              Icons.lock_outline,
+                              color: context.themeTextSecondary,
+                            ),
                             suffixIcon: IconButton(
                               icon: Icon(
-                                _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                                _obscurePassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
                                 color: context.themeTextSecondary,
                               ),
-                              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                              onPressed: () => setState(
+                                () => _obscurePassword = !_obscurePassword,
+                              ),
                             ),
                             filled: true,
                             fillColor: context.themeSurfaceElevated,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: context.themeBorder),
+                              borderSide: BorderSide(
+                                color: context.themeBorder,
+                              ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: context.themeBorder),
+                              borderSide: BorderSide(
+                                color: context.themeBorder,
+                              ),
                             ),
                           ),
                         ),
@@ -227,27 +278,48 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                           style: TextStyle(color: context.themeTextPrimary),
                           decoration: InputDecoration(
                             labelText: 'Confirm Password *',
-                            labelStyle: TextStyle(color: context.themeTextSecondary),
-                            prefixIcon: Icon(Icons.lock_outline, color: context.themeTextSecondary),
+                            labelStyle: TextStyle(
+                              color: context.themeTextSecondary,
+                            ),
+                            prefixIcon: Icon(
+                              Icons.lock_outline,
+                              color: context.themeTextSecondary,
+                            ),
                             filled: true,
                             fillColor: context.themeSurfaceElevated,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: context.themeBorder),
+                              borderSide: BorderSide(
+                                color: context.themeBorder,
+                              ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: context.themeBorder),
+                              borderSide: BorderSide(
+                                color: context.themeBorder,
+                              ),
                             ),
                           ),
                         ),
                         if (_localError != null) ...[
                           const SizedBox(height: 12),
-                          Text(_localError!, style: const TextStyle(color: AppColors.error, fontSize: 13)),
+                          Text(
+                            _localError!,
+                            style: const TextStyle(
+                              color: AppColors.error,
+                              fontSize: 13,
+                            ),
+                          ),
                         ],
                         if (authState.errorMessage != null) ...[
                           const SizedBox(height: 12),
-                          Text(authState.errorMessage!, style: const TextStyle(color: AppColors.error, fontSize: 13)),
+                          Text(
+                            authState.errorMessage!,
+                            style: const TextStyle(
+                              color: AppColors.error,
+                              fontSize: 13,
+                            ),
+                          ),
                         ],
                         const SizedBox(height: 20),
                         CustomButton(
@@ -264,14 +336,19 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     children: [
                       Text(
                         'Already have an account? ',
-                        style: TextStyle(color: context.themeTextSecondary, fontSize: 14),
+                        style: TextStyle(
+                          color: context.themeTextSecondary,
+                          fontSize: 14,
+                        ),
                       ),
                       GestureDetector(
                         onTap: () => context.pop(),
                         child: Text(
                           'Sign In',
                           style: TextStyle(
-                            color: isDark ? AppColors.primaryLight : AppColors.primary,
+                            color: isDark
+                                ? AppColors.primaryLight
+                                : AppColors.primary,
                             fontWeight: FontWeight.w700,
                             fontSize: 14,
                           ),

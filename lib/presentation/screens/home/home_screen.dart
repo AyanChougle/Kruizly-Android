@@ -85,12 +85,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   height: 36,
                   fit: BoxFit.contain,
                   errorBuilder: (_, _, _) => Text(
-                    'KRUIZLY',
+                    'Kruizly',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 1.8,
-                      color: isDark ? AppColors.primaryLight : AppColors.primary,
+                      color: isDark
+                          ? AppColors.primaryLight
+                          : AppColors.primary,
                     ),
                   ),
                 ),
@@ -104,7 +106,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           radius: 15,
                           backgroundColor: AppColors.primary,
                           child: Text(
-                            (authState.user?.name ?? 'U').substring(0, 1).toUpperCase(),
+                            (authState.user?.name ?? 'U')
+                                .substring(0, 1)
+                                .toUpperCase(),
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w700,
@@ -121,7 +125,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         tooltip: 'Sign In',
                         icon: Icon(
                           Icons.account_circle_outlined,
-                          color: isDark ? Colors.white54 : AppColors.lightTextSecondary,
+                          color: isDark
+                              ? Colors.white54
+                              : AppColors.lightTextSecondary,
                           size: 23,
                         ),
                         onPressed: () => context.push('/sign-in'),
@@ -154,7 +160,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
-                  color: isDark ? AppColors.textPrimary : AppColors.lightTextPrimary,
+                  color: isDark
+                      ? AppColors.textPrimary
+                      : AppColors.lightTextPrimary,
                 ),
               ),
               const SizedBox(height: 12),

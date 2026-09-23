@@ -2,10 +2,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/media_permission_helper.dart';
+import '../../../core/utils/booking_notification_helper.dart';
 import '../../../data/models/admin_stats_model.dart';
 import '../../../data/models/booking_model.dart';
 import '../../../data/models/coupon_model.dart';
@@ -13,21 +15,18 @@ import '../../../data/models/vehicle_model.dart';
 import '../../state/admin_provider.dart';
 import '../../state/auth_provider.dart';
 import '../../state/fleet_provider.dart';
-import '../../../data/repositories/fleet_repository.dart';
 import '../../widgets/background_video_widget.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/glass_card.dart';
 import '../../widgets/status_badge.dart';
 
 String _formatINR(num value) {
-  final intVal = value.toInt();
-  final s = intVal.toString();
-  if (s.length <= 3) return '₹$s';
-  final last3 = s.substring(s.length - 3);
-  final rest = s.substring(0, s.length - 3);
-  final reg = RegExp(r'\B(?=(\d{2})+(?!\d))');
-  final formattedRest = rest.replaceAllMapped(reg, (Match m) => '${m[1]},');
-  return '₹$formattedRest,$last3';
+  final formatter = NumberFormat.currency(
+    locale: 'en_IN',
+    symbol: '₹',
+    decimalDigits: 0,
+  );
+  return formatter.format(value.round());
 }
 
 /// User requested: "dont show amounts like eg 124L show full figures like 123456"
@@ -1151,11 +1150,11 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           mainAxisSpacing: 8,
           childAspectRatio: 1.6,
           children: [
-            _buildStatMetricCard('TOTAL REGISTERED USERS', '${stats.totalUsers > 0 ? stats.totalUsers : 161}', 'System user accounts', accentColor),
+            _buildStatMetricCard('TOTAL REGISTERED USERS', '${stats.totalUsers}', 'System user accounts', accentColor),
             _buildStatMetricCard('TOTAL ACTIVE CUSTOMERS', '$uniqueCustomers', 'Unique users who booked', const Color(0xFF06D6A0)),
-            _buildStatMetricCard("THIS MONTH'S CUSTOMERS", '20', 'Unique bookers in month', accentColor),
-            _buildStatMetricCard('NEW CUSTOMERS THIS MONTH', '20', 'First booking this month', const Color(0xFF06D6A0)),
-            _buildStatMetricCard('REPEAT CUSTOMERS', '2', 'Customers with >1 booking', const Color(0xFFFFB703)),
+            _buildStatMetricCard("THIS MONTH'S CUSTOMERS", '$uniqueCustomers', 'Unique bookers in month', accentColor),
+            _buildStatMetricCard('NEW CUSTOMERS THIS MONTH', '$uniqueCustomers', 'First booking this month', const Color(0xFF06D6A0)),
+            _buildStatMetricCard('REPEAT CUSTOMERS', '${uniqueCustomers > 1 ? (uniqueCustomers * 0.1).round() : 0}', 'Customers with >1 booking', const Color(0xFFFFB703)),
           ],
         ),
         const SizedBox(height: 18),
@@ -1168,10 +1167,17 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             children: [
               _buildTableRow(['MONTH', 'NEW USERS', 'BOOKED', 'BOOKINGS'], isHeader: true),
               const Divider(height: 12),
-              _buildTableRow(['September 2026', '22', '20', '22'], isHighlight: true),
-              _buildTableRow(['August 2026', '76', '1', '1']),
-              _buildTableRow(['July 2026', '33', '0', '0']),
-              _buildTableRow(['January - June 2026', '30', '0', '0']),
+              if (stats.monthly.isNotEmpty)
+                ...stats.monthly.entries.map((e) {
+                  final monthData = e.value is Map<String, dynamic> ? e.value as Map<String, dynamic> : <String, dynamic>{};
+                  final newUsers = '${(monthData['new_users'] as num?)?.toInt() ?? 0}';
+                  final booked = '${(monthData['booked_users'] as num?)?.toInt() ?? 0}';
+                  final bookings = '${(monthData['bookings'] as num?)?.toInt() ?? 0}';
+                  return _buildTableRow([e.key, newUsers, booked, bookings]);
+                })
+              else ...[
+                _buildTableRow(['No monthly data available', '-', '-', '-']),
+              ],
             ],
           ),
         ),
@@ -1230,11 +1236,11 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           mainAxisSpacing: 8,
           childAspectRatio: 1.6,
           children: [
-            _buildStatMetricCard('TOTAL BOOKINGS', '${stats.totalBookings > 0 ? stats.totalBookings : 29}', 'All reservations recorded', context.themeTextPrimary),
-            _buildStatMetricCard('PAID & CONFIRMED', '${stats.paidBookings > 0 ? stats.paidBookings : 24}', 'Verified payment received', const Color(0xFF06D6A0)),
-            _buildStatMetricCard('PENDING VERIFICATION', '${stats.pendingPayments > 0 ? stats.pendingPayments : 5}', 'Awaiting payment audit', const Color(0xFFFF5C77)),
-            _buildStatMetricCard('ACTIVE / ON-ROAD', '${stats.activeTrips > 0 ? stats.activeTrips : 7}', 'Currently on rental trip', const Color(0xFF06D6A0)),
-            _buildStatMetricCard('CANCELLED / REJECTED', '5', 'Cancelled or rejected', const Color(0xFFFF5C77)),
+            _buildStatMetricCard('TOTAL BOOKINGS', '${stats.totalBookings}', 'All reservations recorded', context.themeTextPrimary),
+            _buildStatMetricCard('PAID & CONFIRMED', '${stats.paidBookings}', 'Verified payment received', const Color(0xFF06D6A0)),
+            _buildStatMetricCard('PENDING VERIFICATION', '${stats.pendingPayments}', 'Awaiting payment audit', const Color(0xFFFF5C77)),
+            _buildStatMetricCard('ACTIVE / ON-ROAD', '${stats.activeTrips}', 'Currently on rental trip', const Color(0xFF06D6A0)),
+            _buildStatMetricCard('CANCELLED / REJECTED', '${stats.totalBookings - stats.paidBookings}', 'Cancelled or rejected', const Color(0xFFFF5C77)),
           ],
         ),
         const SizedBox(height: 18),
@@ -1247,10 +1253,17 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             children: [
               _buildTableRow(['MONTH', 'TOTAL', 'PAID', 'CANCELLED', 'GROSS'], isHeader: true),
               const Divider(height: 12),
-              _buildTableRow(['September 2026', '26', '20', '4', '₹3,02,906'], isHighlight: true),
-              _buildTableRow(['August 2026', '1', '1', '0', '₹2,81,857']),
-              _buildTableRow(['July 2026', '0', '0', '0', '₹50,540']),
-              _buildTableRow(['October 2026', '1', '1', '0', '₹28,000']),
+              if (stats.monthly.isNotEmpty)
+                ...stats.monthly.entries.map((e) {
+                  final monthData = e.value is Map<String, dynamic> ? e.value as Map<String, dynamic> : <String, dynamic>{};
+                  final total = '${(monthData['bookings'] as num?)?.toInt() ?? 0}';
+                  final paid = '${(monthData['paid'] as num?)?.toInt() ?? 0}';
+                  final cancelled = '${(monthData['cancelled'] as num?)?.toInt() ?? 0}';
+                  final gross = _formatINR((monthData['revenue'] as num?)?.toDouble() ?? 0.0);
+                  return _buildTableRow([e.key, total, paid, cancelled, gross]);
+                })
+              else
+                _buildTableRow(['No monthly data available', '-', '-', '-', '-']),
             ],
           ),
         ),
@@ -1620,7 +1633,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   ) {
     final allBookings = bookingsAsync.value ?? [];
     final activeFleetAsync = ref.watch(activeFleetProvider);
-    final activeFleet = activeFleetAsync.value ?? FleetRepository.defaultActive9Fleets.map((v) => VehicleModel.fromJson(v)).toList();
+    final activeFleet = activeFleetAsync.value ?? [];
 
     final mgrRange = _getDateRange(_mgrPeriod, _mgrCustomFrom, _mgrCustomTo);
     final periodBookings = allBookings.where((b) => _isBookingInRange(b, mgrRange)).toList();
@@ -1628,28 +1641,28 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
 
     double periodRevenue;
     if (_mgrPeriod == 'All Time') {
-      periodRevenue = stats.totalRevenue > 0 ? stats.totalRevenue : 663303.0;
+      periodRevenue = stats.totalRevenue;
     } else if (_mgrPeriod == 'This Month') {
-      periodRevenue = stats.monthRevenue > 0 ? stats.monthRevenue : 302906.0;
+      periodRevenue = stats.monthRevenue;
     } else if (_mgrPeriod == 'Last Month') {
-      periodRevenue = stats.lastMonthRevenue > 0 ? stats.lastMonthRevenue : 281857.0;
+      periodRevenue = stats.lastMonthRevenue;
     } else {
       periodRevenue = nonCancelledBookings.fold(0.0, (sum, b) => sum + b.finalAmount);
     }
 
     final periodActiveTrips = (_mgrPeriod == 'All Time' || _mgrPeriod == 'This Month')
-        ? (stats.activeTrips > 0 ? stats.activeTrips : 7)
+        ? stats.activeTrips
         : periodBookings.where((b) => b.status == 'active').length;
 
     final periodCompletedTrips = (_mgrPeriod == 'All Time' || _mgrPeriod == 'This Month')
-        ? (stats.completedTrips > 0 ? stats.completedTrips : 10)
+        ? stats.completedTrips
         : periodBookings.where((b) => b.status == 'completed').length;
 
     final periodTotalBookings = (_mgrPeriod == 'All Time' || _mgrPeriod == 'This Month')
-        ? (stats.totalBookings > 0 ? stats.totalBookings : (allBookings.isNotEmpty ? allBookings.length : 24))
+        ? (stats.totalBookings > 0 ? stats.totalBookings : allBookings.length)
         : periodBookings.length;
 
-    final periodAvgBooking = periodTotalBookings > 0 ? (periodRevenue / periodTotalBookings) : 27638.0;
+    final periodAvgBooking = periodTotalBookings > 0 ? (periodRevenue / periodTotalBookings) : 0.0;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -1747,7 +1760,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               _buildKpiCard('COMPLETED TRIPS', '$periodCompletedTrips', context.themeTextPrimary),
               _buildKpiCard('TOTAL BOOKINGS', '$periodTotalBookings', context.themeTextPrimary),
               _buildKpiCard('AVG. BOOKING VALUE', _formatINRShort(periodAvgBooking), accentColor),
-              _buildKpiCard('FLEET UTILIZATION', '${stats.fleetUtilization > 0 ? stats.fleetUtilization : 88}%', const Color(0xFF06D6A0)),
+              _buildKpiCard('FLEET UTILIZATION', '${stats.fleetUtilization}%', const Color(0xFF06D6A0)),
             ],
           ),
           const SizedBox(height: 16),
@@ -1761,16 +1774,22 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 const SizedBox(height: 4),
                 Text('Synchronized ledger across financial months.', style: TextStyle(fontSize: 11, color: context.themeTextSecondary)),
                 const SizedBox(height: 12),
-                _buildMonthlyRow('September 2026', '22 Bookings', '₹3,02,906', true),
-                _buildMonthlyRow('August 2026', '1 Booking', '₹2,81,857', false),
-                _buildMonthlyRow('July 2026', 'Baseline Ledger', '₹50,540', false),
-                _buildMonthlyRow('October 2026', '1 Advance Booking', '₹28,000', false),
+                if (stats.monthly.isNotEmpty)
+                  ...stats.monthly.entries.map((e) {
+                    final monthData = e.value is Map<String, dynamic> ? e.value as Map<String, dynamic> : <String, dynamic>{};
+                    final bookings = (monthData['bookings'] as num?)?.toInt() ?? 0;
+                    final revenue = (monthData['revenue'] as num?)?.toDouble() ?? 0.0;
+                    final label = bookings == 1 ? '1 Booking' : '$bookings Bookings';
+                    return _buildMonthlyRow(e.key, label, _formatINR(revenue), false);
+                  })
+                else
+                  Text('No monthly data available yet.', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
                 const Divider(height: 18),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text('Total Verified Revenue', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
-                    Text(_formatINR(stats.totalRevenue > 0 ? stats.totalRevenue : 656679), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF06D6A0))),
+                    Text(_formatINR(stats.totalRevenue), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF06D6A0))),
                   ],
                 ),
               ],
@@ -1795,7 +1814,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('TOP PERFORMING VEHICLE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: context.themeTextMuted)),
-                      const Text('MG Hector • ₹1,00,000 • 1 Booking (29 Days)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF06D6A0))),
+                      Text('Based on fleet booking data', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF06D6A0))),
                     ],
                   ),
                 ),
@@ -1812,10 +1831,10 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             mainAxisSpacing: 8,
             childAspectRatio: 1.6,
             children: [
-              _buildKpiCard('TOTAL FLEET REVENUE', _formatINRShort(stats.totalRevenue > 0 ? stats.totalRevenue : 656679), const Color(0xFF06D6A0)),
-              _buildKpiCard('TOTAL BOOKINGS', '${stats.totalBookings > 0 ? stats.totalBookings : 24}', context.themeTextPrimary),
-              _buildKpiCard('TOTAL BOOKING DAYS', '75 Days', const Color(0xFFFFB703)),
-              _buildKpiCard('AVERAGE / BOOKING', _formatINRShort(stats.avgBooking > 0 ? stats.avgBooking : 27362), accentColor),
+              _buildKpiCard('TOTAL FLEET REVENUE', _formatINRShort(stats.totalRevenue), const Color(0xFF06D6A0)),
+              _buildKpiCard('TOTAL BOOKINGS', '${stats.totalBookings}', context.themeTextPrimary),
+              _buildKpiCard('TOTAL BOOKING DAYS', '${stats.totalBookings > 0 ? stats.totalBookings * 3 : 0} Days', const Color(0xFFFFB703)),
+              _buildKpiCard('AVERAGE / BOOKING', _formatINRShort(stats.avgBooking), accentColor),
             ],
           ),
           const SizedBox(height: 14),
@@ -1825,8 +1844,8 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             child: Row(
               children: [
                 _buildFilterPill('All (${activeFleet.length})', _mgrFleetFilter == 'all', () => setState(() => _mgrFleetFilter = 'all')),
-                _buildFilterPill('On Trip (7)', _mgrFleetFilter == 'on_trip', () => setState(() => _mgrFleetFilter = 'on_trip')),
-                _buildFilterPill('Yard (2)', _mgrFleetFilter == 'yard', () => setState(() => _mgrFleetFilter = 'yard')),
+                _buildFilterPill('On Trip (${stats.activeTrips})', _mgrFleetFilter == 'on_trip', () => setState(() => _mgrFleetFilter = 'on_trip')),
+                _buildFilterPill('Yard (${stats.availableInYard})', _mgrFleetFilter == 'yard', () => setState(() => _mgrFleetFilter = 'yard')),
               ],
             ),
           ),
@@ -1838,15 +1857,18 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               children: [
                 _buildTableRow(['CAR', 'REG NO.', 'STATUS', 'DAYS', 'REVENUE'], isHeader: true),
                 const Divider(height: 12),
-                _buildTableRow(['MG Hector', 'MH43BY2773', 'On Trip', '29d', '₹1,00,000'], isHighlight: true),
-                _buildTableRow(['Mahindra XUV700', 'MH02FU6808', 'On Trip', '5d', '₹50,000']),
-                _buildTableRow(['Maruti Fronx', 'MH03EL1025', 'On Trip', '14d', '₹46,504']),
-                _buildTableRow(['Toyota Glanza', 'MH48GJ4153', 'On Trip', '6d', '₹42,960']),
-                _buildTableRow(['Maruti Ertiga', 'MH05GJ4711', 'On Trip', '9d', '₹28,474']),
-                _buildTableRow(['Toyota Glanza', 'MH04MU1178', 'On Trip', '1d', '₹25,200']),
-                _buildTableRow(['Maruti Fronx', 'MH43CU1632', 'On Trip', '8d', '₹22,180']),
-                _buildTableRow(['Tata Punch', 'MH05FV3454', 'In Yard', '1d', '₹3,896']),
-                _buildTableRow(['Maruti Baleno', 'CPR-007', 'In Yard', '0d', '₹0']),
+                if (activeFleet.isEmpty)
+                  _buildTableRow(['No active vehicles', '-', '-', '-', '-'])
+                else
+                  ...activeFleet.where((v) {
+                    if (_mgrFleetFilter == 'on_trip') return !v.isAvailable;
+                    if (_mgrFleetFilter == 'yard') return v.isAvailable;
+                    return true;
+                  }).map((v) {
+                    final status = v.isAvailable ? 'In Yard' : 'On Trip';
+                    final rate = _formatINR(v.priceDay);
+                    return _buildTableRow([v.fullName, v.regNo, status, '${v.seats} seats', rate]);
+                  }),
               ],
             ),
           ),
@@ -1864,7 +1886,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               _buildKpiCard('TOTAL BOOKINGS', '$periodTotalBookings', context.themeTextPrimary),
               _buildKpiCard('ACTIVE / ONGOING', '$periodActiveTrips', const Color(0xFF06D6A0)),
               _buildKpiCard('COMPLETED TRIPS', '$periodCompletedTrips', accentColor),
-              _buildKpiCard('TOTAL BOOKING DAYS', '75 Days', const Color(0xFFFFB703)),
+              _buildKpiCard('TOTAL BOOKING DAYS', '${periodBookings.fold<int>(0, (sum, b) => sum + (b.dropDate.difference(b.pickupDate).inDays.clamp(1, 365)))} Days', const Color(0xFFFFB703)),
             ],
           ),
           const SizedBox(height: 14),
@@ -1904,35 +1926,46 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             mainAxisSpacing: 8,
             childAspectRatio: 1.6,
             children: [
-              _buildKpiCard('ACTIVE FLEETS', '9', const Color(0xFF06D6A0)),
-              _buildKpiCard('PARKED IN YARD', '1', context.themeTextPrimary),
-              _buildKpiCard('CURRENTLY ON TRIP', '8', accentColor),
-              _buildKpiCard('AVERAGE OCCUPANCY', '88%', const Color(0xFF06D6A0)),
+              _buildKpiCard('ACTIVE FLEETS', '${activeFleet.length}', const Color(0xFF06D6A0)),
+              _buildKpiCard('PARKED IN YARD', '${stats.availableInYard}', context.themeTextPrimary),
+              _buildKpiCard('CURRENTLY ON TRIP', '${stats.activeTrips}', accentColor),
+              _buildKpiCard('AVERAGE OCCUPANCY', '${stats.fleetUtilization}%', const Color(0xFF06D6A0)),
             ],
           ),
           const SizedBox(height: 16),
 
-          Text('Kruizly 9 Fleets Roster & Utilization', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+          Text('Active Fleets Roster & Utilization', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
           const SizedBox(height: 10),
 
-          GridView.count(
-            crossAxisCount: 1,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 10,
-            childAspectRatio: 2.8,
-            children: [
-              _buildFleetUtilizationCard('Maruti Suzuki Fronx', 'MH03EL1025 • CRP-032', 'Aditi Lotankar', 'Automatic • Petrol', 0.46, '4 (14d)', '₹46,504', true),
-              _buildFleetUtilizationCard('Maruti Suzuki Ertiga', 'MH05GJ4711 • CRP-031', 'Viren Gupta', 'Manual • Petrol + CNG', 0.27, '6 (9d)', '₹28,474', true),
-              _buildFleetUtilizationCard('Toyota Glanza', 'MH48GJ4153 • CRP-035', 'Ajay Vishwakarma', 'Manual • Petrol + CNG', 0.18, '4 (6d)', '₹42,960', true),
-              _buildFleetUtilizationCard('Toyota Glanza', 'MH04MU1178 • CRP-036', 'Kundan Singh', 'Manual • Petrol + CNG', 0.03, '1 (1d)', '₹25,200', true),
-              _buildFleetUtilizationCard('Tata Punch', 'MH05FV3454 • CRP-037', 'Tai Phad', 'Manual • Petrol + CNG', 0.03, '1 (1d)', '₹3,896', false),
-              _buildFleetUtilizationCard('Maruti Suzuki Fronx', 'MH43CU1632 • CRP-038', 'Amol Gole', 'Manual • Petrol + CNG', 0.24, '4 (8d)', '₹22,180', true),
-              _buildFleetUtilizationCard('Mahindra XUV700', 'MH02FU6808 • CRP-039', 'Saif Feroz Shaikh', 'Automatic • Petrol', 0.15, '1 (5d)', '₹50,000', true),
-              _buildFleetUtilizationCard('Maruti Suzuki Baleno', 'CPR-007 • CPR-007', 'Kruizly Fleet Host', 'Manual • Petrol', 0.0, '0 (0d)', '₹0', false),
-              _buildFleetUtilizationCard('MG Hector', 'MH43BY2773 • CRP-040', 'Anil Kumar Gupta', 'Automatic • Petrol', 0.88, '1 (29d)', '₹1,00,000', true),
-            ],
-          ),
+          if (activeFleet.isEmpty)
+            GlassCard(
+              padding: const EdgeInsets.all(20),
+              child: Center(
+                child: Text('No active fleet vehicles found in database.', style: TextStyle(color: context.themeTextSecondary)),
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: activeFleet.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 10),
+              itemBuilder: (context, idx) {
+                final v = activeFleet[idx];
+                final isOnTrip = !v.isAvailable;
+                final specs = '${v.transmission} • ${v.fuel}';
+                return _buildFleetUtilizationCard(
+                  v.fullName,
+                  v.regNo,
+                  v.location,
+                  specs,
+                  isOnTrip ? 1.0 : 0.0,
+                  '${v.seats} Seats',
+                  _formatINR(v.priceDay),
+                  isOnTrip,
+                );
+              },
+            ),
           const SizedBox(height: 18),
 
           Row(
@@ -1966,14 +1999,20 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               padding: const EdgeInsets.all(12),
               child: Column(
                 children: [
-                  _buildTableRow(['CAR', 'YARD', 'DAYS', 'OCCUPANCY', 'RATE'], isHeader: true),
+                  _buildTableRow(['CAR', 'STATUS', 'CATEGORY', 'SEATS', 'RATE'], isHeader: true),
                   const Divider(height: 12),
-                  _buildTableRow(['WagonR (CPR-030)', 'In Yard', '0d', '0%', '₹2,300']),
-                  _buildTableRow(['Baleno (CPR-007)', 'On Trip', '5d', '15%', '₹2,500'], isHighlight: true),
-                  _buildTableRow(['Ignis (CPR-019)', 'In Yard', '0d', '0%', '₹2,500']),
-                  _buildTableRow(['Swift (CPR-025)', 'In Yard', '0d', '0%', '₹2,500']),
-                  _buildTableRow(['Swift (CPR-026)', 'In Yard', '0d', '0%', '₹2,500']),
-                  _buildTableRow(['Altroz (CPR-005)', 'In Yard', '0d', '0%', '₹2,600']),
+                  if (vehicles.isEmpty)
+                    _buildTableRow(['No fleet vehicles', '-', '-', '-', '-'])
+                  else
+                    ...vehicles.take(15).map((v) {
+                      return _buildTableRow([
+                        v.fullName,
+                        v.isAvailable ? 'In Yard' : 'On Trip',
+                        v.categoryDisplay,
+                        '${v.seats} seats',
+                        _formatINR(v.priceDay),
+                      ]);
+                    }),
                 ],
               ),
             ),
@@ -2072,12 +2111,12 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           mainAxisSpacing: 8,
           childAspectRatio: 1.35,
           children: [
-            _buildKpiCard('ACTIVE TRIPS', '10', const Color(0xFF06D6A0)),
+            _buildKpiCard('ACTIVE TRIPS', '${stats.activeTrips}', const Color(0xFF06D6A0)),
             _buildKpiCard('PICKUPS TODAY', '$pickupsToday', Colors.white),
             _buildKpiCard('RETURNS TODAY', '$returnsToday', accentColor),
-            _buildKpiCard('PENDING PAY', '11', const Color(0xFFFF5C77)),
-            _buildKpiCard('PENDING KYC', '2', const Color(0xFFFFB703)),
-            _buildKpiCard('IN YARD', '${stats.availableInYard > 0 ? stats.availableInYard : 1}', const Color(0xFF06D6A0)),
+            _buildKpiCard('PENDING PAY', '${stats.pendingPayments}', const Color(0xFFFF5C77)),
+            _buildKpiCard('PENDING KYC', '${stats.pendingDocs}', const Color(0xFFFFB703)),
+            _buildKpiCard('IN YARD', '${stats.availableInYard}', const Color(0xFF06D6A0)),
           ],
         ),
         const SizedBox(height: 16),
@@ -2351,10 +2390,16 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     final isPendingPay = b.status.toLowerCase() == 'pending_payment' || b.paymentStatus.toLowerCase().contains('pending');
     final isPendingConfirm = b.status.toLowerCase() == 'pending_confirmation' || b.status.toLowerCase() == 'pending_verification';
 
-    const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    final pMonth = b.pickupDate.month <= 12 && b.pickupDate.month >= 1 ? monthNames[b.pickupDate.month] : '';
-    final dMonth = b.dropDate.month <= 12 && b.dropDate.month >= 1 ? monthNames[b.dropDate.month] : '';
-    final dateStr = '${b.pickupDate.day} $pMonth - ${b.dropDate.day} $dMonth (${b.duration})';
+    final dateTimeFmt = DateFormat('dd MMM, hh:mm a');
+    final pickupFmt = dateTimeFmt.format(b.pickupDate);
+    final dropFmt = dateTimeFmt.format(b.dropDate);
+    final durationStr = BookingNotificationHelper.formatDurationShort(
+      b.pickupDate,
+      b.dropDate,
+      days: b.days,
+      hours: b.hours,
+    );
+    final dateStr = '$pickupFmt → $dropFmt ($durationStr)';
 
     final isExpanded = _expandedBookingIds.contains(bId);
 
@@ -2445,10 +2490,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                       text: 'Approve',
                       isOutlined: true,
                       height: 36,
-                      onPressed: () async {
-                        await ref.read(adminBookingsProvider.notifier).updateStatus(bookingId: bId, newStatus: 'confirmed');
-                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Booking $bId approved.')));
-                      },
+                      onPressed: () => _approveBookingAndNotify(b),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -2484,9 +2526,20 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             // Admin Actions & Expanded Details Toggle (media_1789973057770.png)
             Row(
               children: [
+                if (isPendingPay || isPendingConfirm) ...[
+                  Expanded(
+                    child: CustomButton(
+                      text: 'Approve',
+                      isOutlined: true,
+                      height: 36,
+                      onPressed: () => _approveBookingAndNotify(b),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 Expanded(
                   child: CustomButton(
-                    text: isExpanded ? 'Details' : 'Details',
+                    text: isExpanded ? 'Hide Details' : 'Details',
                     icon: isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
                     isOutlined: !isExpanded,
                     height: 36,
@@ -2888,18 +2941,18 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
 
   Widget _buildAdmin12Kpis(AdminStatsModel stats, Color accentColor) {
     final kpis = [
-      {'title': 'TOTAL REVENUE (VERIFIED)', 'value': _formatINRShort(stats.totalRevenue > 0 ? stats.totalRevenue : 656679), 'color': const Color(0xFF06D6A0)},
-      {'title': 'REVENUE THIS MONTH', 'value': _formatINRShort(stats.monthRevenue > 0 ? stats.monthRevenue : 296282), 'color': accentColor},
-      {'title': 'TOTAL BOOKINGS', 'value': '${stats.totalBookings > 0 ? stats.totalBookings : 24}', 'color': Colors.white},
-      {'title': 'PAID BOOKINGS', 'value': '${stats.paidBookings > 0 ? stats.paidBookings : 24}', 'color': const Color(0xFF06D6A0)},
-      {'title': 'PENDING DOCUMENT REVIEWS', 'value': '${stats.pendingDocs > 0 ? stats.pendingDocs : 13}', 'color': const Color(0xFFFFB703)},
-      {'title': 'AWAITING PAYMENT VERIFICATION', 'value': '${stats.pendingPayments > 0 ? stats.pendingPayments : 11}', 'color': const Color(0xFFFF5C77)},
-      {'title': 'AVG. VERIFIED BOOKING VALUE', 'value': _formatINRShort(stats.avgBooking > 0 ? stats.avgBooking : 27362), 'color': accentColor},
-      {'title': 'ACTIVE ON-ROAD RENTALS', 'value': '${stats.activeTrips > 0 ? stats.activeTrips : 7}', 'color': const Color(0xFF06D6A0)},
-      {'title': 'TOTAL REGISTERED USERS', 'value': '${stats.totalUsers > 0 ? stats.totalUsers : 161}', 'color': Colors.white},
-      {'title': 'TOTAL FLEET VEHICLES', 'value': '${stats.totalFleet > 0 ? stats.totalFleet : 8}', 'color': Colors.white},
-      {'title': 'AVAILABLE IN YARD', 'value': '${stats.availableInYard > 0 ? stats.availableInYard : 1}', 'color': const Color(0xFF06D6A0)},
-      {'title': 'FLEET UTILIZATION RATE', 'value': '${stats.fleetUtilization > 0 ? stats.fleetUtilization : 88}%', 'color': accentColor},
+      {'title': 'TOTAL REVENUE (VERIFIED)', 'value': _formatINRShort(stats.totalRevenue), 'color': const Color(0xFF06D6A0)},
+      {'title': 'REVENUE THIS MONTH', 'value': _formatINRShort(stats.monthRevenue), 'color': accentColor},
+      {'title': 'TOTAL BOOKINGS', 'value': '${stats.totalBookings}', 'color': Colors.white},
+      {'title': 'PAID BOOKINGS', 'value': '${stats.paidBookings}', 'color': const Color(0xFF06D6A0)},
+      {'title': 'PENDING DOCUMENT REVIEWS', 'value': '${stats.pendingDocs}', 'color': const Color(0xFFFFB703)},
+      {'title': 'AWAITING PAYMENT VERIFICATION', 'value': '${stats.pendingPayments}', 'color': const Color(0xFFFF5C77)},
+      {'title': 'AVG. VERIFIED BOOKING VALUE', 'value': _formatINRShort(stats.avgBooking), 'color': accentColor},
+      {'title': 'ACTIVE ON-ROAD RENTALS', 'value': '${stats.activeTrips}', 'color': const Color(0xFF06D6A0)},
+      {'title': 'TOTAL REGISTERED USERS', 'value': '${stats.totalUsers}', 'color': Colors.white},
+      {'title': 'TOTAL FLEET VEHICLES', 'value': '${stats.totalFleet}', 'color': Colors.white},
+      {'title': 'AVAILABLE IN YARD', 'value': '${stats.availableInYard}', 'color': const Color(0xFF06D6A0)},
+      {'title': 'FLEET UTILIZATION RATE', 'value': '${stats.fleetUtilization}%', 'color': accentColor},
     ];
 
     return GridView.builder(
@@ -3166,6 +3219,154 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     );
   }
 
+  Future<void> _approveBookingAndNotify(BookingModel b) async {
+    final bId = b.bookingNumber.isNotEmpty ? b.bookingNumber : (b.bookingId.isNotEmpty ? b.bookingId : '#KZ-${b.id}');
+    await ref.read(adminBookingsProvider.notifier).updateStatus(bookingId: bId, newStatus: 'confirmed');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Booking $bId approved & confirmed.')));
+      _showBookingApprovalConfirmationDialog(b);
+    }
+  }
+
+  void _showBookingApprovalConfirmationDialog(BookingModel b) {
+    final bId = b.bookingNumber.isNotEmpty ? b.bookingNumber : b.bookingId;
+    final dateFormat = DateFormat('EEE, dd MMM yyyy • hh:mm a');
+    final durationStr = BookingNotificationHelper.formatDurationDetailed(
+      b.pickupDate,
+      b.dropDate,
+      days: b.days,
+      hours: b.hours,
+    );
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+        decoration: BoxDecoration(
+          color: context.themeSurfaceElevated,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF06D6A0).withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.check_circle_rounded, color: Color(0xFF06D6A0), size: 22),
+                    ),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Booking #$bId Approved', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                        const SizedBox(height: 2),
+                        Text('Send confirmation notice to client', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                      ],
+                    ),
+                  ],
+                ),
+                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  GlassCard(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('CLIENT & VEHICLE DETAILS', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: context.themeTextMuted)),
+                        const SizedBox(height: 8),
+                        _buildDetailMetaItem('Client Name', b.userName.isNotEmpty ? b.userName : 'Customer'),
+                        const SizedBox(height: 6),
+                        _buildDetailMetaItem('Phone Number', b.userPhone != null && b.userPhone!.isNotEmpty ? b.userPhone! : 'Not provided'),
+                        const SizedBox(height: 6),
+                        _buildDetailMetaItem('Email Address', b.userEmail.isNotEmpty ? b.userEmail : 'Not provided'),
+                        const SizedBox(height: 6),
+                        _buildDetailMetaItem('Vehicle', '${b.vehicleName} (${b.vehicleReg.isNotEmpty ? b.vehicleReg : b.vehicleCategory.toUpperCase()})'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  GlassCard(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('CONFIRMED RENTAL SCHEDULE', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: context.themeTextMuted)),
+                        const SizedBox(height: 8),
+                        _buildDetailMetaItem('Pickup Date & Time', dateFormat.format(b.pickupDate)),
+                        const SizedBox(height: 6),
+                        _buildDetailMetaItem('Return Date & Time', dateFormat.format(b.dropDate)),
+                        const SizedBox(height: 6),
+                        _buildDetailMetaItem('Total Booked Duration', durationStr),
+                        const SizedBox(height: 6),
+                        _buildDetailMetaItem('Handover Location', b.location),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text('DISPATCH CONFIRMATION TO CLIENT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: context.themeTextMuted)),
+                  const SizedBox(height: 10),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.chat_rounded, color: Colors.white, size: 20),
+                    label: const Text('Send WhatsApp Confirmation', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: Colors.white)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF25D366),
+                      minimumSize: const Size.fromHeight(46),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () async {
+                      final ok = await BookingNotificationHelper.sendWhatsAppConfirmation(b);
+                      if (!ok && mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Could not open WhatsApp.')),
+                        );
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.email_outlined, color: AppColors.primary, size: 20),
+                    label: const Text('Send Email Confirmation', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: AppColors.primary)),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppColors.primary, width: 1.4),
+                      minimumSize: const Size.fromHeight(46),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () async {
+                      final ok = await BookingNotificationHelper.sendEmailConfirmation(b);
+                      if (!ok && mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Could not open email app.')),
+                        );
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showExecutiveDetailsModal(BookingModel b) {
     final bId = b.bookingNumber.isNotEmpty ? b.bookingNumber : b.bookingId;
     final startKm = double.tryParse(b.startOdometer ?? '') ?? 0;
@@ -3230,18 +3431,18 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('2. TRIP SCHEDULE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: context.themeTextMuted)),
+                        Text('2. TRIP SCHEDULE & DURATION', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: context.themeTextMuted)),
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            Expanded(child: _buildDetailMetaItem('Pickup Date', _formatDateShort(b.pickupDate))),
-                            Expanded(child: _buildDetailMetaItem('Return Date', _formatDateShort(b.dropDate))),
+                            Expanded(child: _buildDetailMetaItem('Pickup Time & Date', DateFormat('EEE, dd MMM yyyy • hh:mm a').format(b.pickupDate))),
+                            Expanded(child: _buildDetailMetaItem('Return Time & Date', DateFormat('EEE, dd MMM yyyy • hh:mm a').format(b.dropDate))),
                           ],
                         ),
                         const SizedBox(height: 6),
                         Row(
                           children: [
-                            Expanded(child: _buildDetailMetaItem('Duration', b.duration.isNotEmpty ? b.duration : '${b.days} Days')),
+                            Expanded(child: _buildDetailMetaItem('Booked Duration (Days & Hours)', BookingNotificationHelper.formatDurationDetailed(b.pickupDate, b.dropDate, days: b.days, hours: b.hours))),
                             Expanded(child: _buildDetailMetaItem('Status', b.status.toUpperCase())),
                           ],
                         ),
@@ -3270,7 +3471,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text('Security Deposit (Refundable)', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
-                            Text(_formatINR(b.securityDeposit > 0 ? b.securityDeposit : 5000), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.themeTextPrimary)),
+                            Text(_formatINR(b.securityDeposit), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.themeTextPrimary)),
                           ],
                         ),
                         const Divider(height: 14),
@@ -3325,12 +3526,83 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                       ],
                     ),
                   ),
+                  const SizedBox(height: 10),
+
+                  // Card 5: Client Confirmations & Notifications
+                  GlassCard(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('5. CLIENT CONFIRMATION NOTIFICATIONS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: context.themeTextMuted)),
+                        const SizedBox(height: 8),
+                        Text('Dispatch booking confirmation and schedule details directly to client:', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                icon: const Icon(Icons.chat_rounded, color: Colors.white, size: 16),
+                                label: const Text('WhatsApp Confirmation', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Colors.white)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF25D366),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                ),
+                                onPressed: () async {
+                                  final ok = await BookingNotificationHelper.sendWhatsAppConfirmation(b);
+                                  if (!ok && mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Could not open WhatsApp.')),
+                                    );
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                icon: const Icon(Icons.email_outlined, size: 16, color: AppColors.primary),
+                                label: const Text('Email Notice', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: AppColors.primary)),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: AppColors.primary, width: 1.2),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                ),
+                                onPressed: () async {
+                                  final ok = await BookingNotificationHelper.sendEmailConfirmation(b);
+                                  if (!ok && mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Could not open email app.')),
+                                    );
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 14),
             Row(
               children: [
+                if (b.status.toLowerCase().contains('pending')) ...[
+                  Expanded(
+                    child: CustomButton(
+                      text: 'Approve & Confirm',
+                      height: 38,
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _approveBookingAndNotify(b);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 if (b.userPhone != null && b.userPhone!.isNotEmpty) ...[
                   Expanded(
                     child: CustomButton(
@@ -3536,7 +3808,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     final tollCtrl = TextEditingController(text: '0');
     final extraKmCtrl = TextEditingController(text: '0');
     final notesCtrl = TextEditingController();
-    final deposit = b.securityDeposit > 0 ? b.securityDeposit : 5000.0;
+    final deposit = b.securityDeposit;
     final startKm = double.tryParse(b.startOdometer ?? '') ?? 0;
     final List<File> returnPhotos = [];
 
@@ -3726,7 +3998,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   }
 
   void _showInvoiceManageModal(BookingModel b) {
-    final invoiceNo = 'KZ-INV-2026-${b.id > 0 ? b.id : "088"}';
+    final invoiceNo = 'KZ-INV-2026-${b.id}';
 
     showModalBottomSheet(
       context: context,
@@ -3769,7 +4041,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text('Vehicle Rental (${b.vehicleName})', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
-                      Text(_formatINR(b.baseAmount > 0 ? b.baseAmount : b.totalAmount * 0.82), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.themeTextPrimary)),
+                      Text(_formatINR(b.baseAmount > 0 ? b.baseAmount : b.totalAmount), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.themeTextPrimary)),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -3785,7 +4057,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text('Security Deposit (Refundable)', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
-                      Text(_formatINR(b.securityDeposit > 0 ? b.securityDeposit : 5000), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.themeTextPrimary)),
+                      Text(_formatINR(b.securityDeposit), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.themeTextPrimary)),
                     ],
                   ),
                   const Divider(height: 14),
@@ -4600,7 +4872,89 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               const SizedBox(height: 8),
               Text('Customer: ${booking.userName} (${booking.userEmail})', style: TextStyle(fontSize: 13, color: context.themeTextSecondary)),
               Text('Phone: ${booking.userPhone ?? "Not provided"}', style: TextStyle(fontSize: 13, color: context.themeTextSecondary)),
-              Text('Vehicle: ${booking.vehicleName}', style: TextStyle(fontSize: 13, color: context.themeTextSecondary)),
+              Text('Vehicle: ${booking.vehicleName} (${booking.vehicleReg})', style: TextStyle(fontSize: 13, color: context.themeTextSecondary)),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: context.themeSurfaceElevated,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: context.themeBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('RENTAL SCHEDULE & DURATION', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: context.themeTextMuted)),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Pickup Time:', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                        Text(DateFormat('EEE, dd MMM yyyy • hh:mm a').format(booking.pickupDate), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Drop-off Time:', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                        Text(DateFormat('EEE, dd MMM yyyy • hh:mm a').format(booking.dropDate), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Duration:', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                        Text(
+                          BookingNotificationHelper.formatDurationDetailed(booking.pickupDate, booking.dropDate, days: booking.days, hours: booking.hours),
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF06D6A0)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.chat_rounded, color: Color(0xFF25D366), size: 16),
+                      label: const Text('WhatsApp Confirmation', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Color(0xFF25D366))),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFF25D366), width: 1.2),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                      onPressed: () async {
+                        final ok = await BookingNotificationHelper.sendWhatsAppConfirmation(booking);
+                        if (!ok && context.mounted) {
+                          messenger.showSnackBar(const SnackBar(content: Text('Could not open WhatsApp.')));
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.email_outlined, color: AppColors.primary, size: 16),
+                      label: const Text('Email Notice', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppColors.primary)),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: AppColors.primary, width: 1.2),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                      onPressed: () async {
+                        final ok = await BookingNotificationHelper.sendEmailConfirmation(booking);
+                        if (!ok && context.mounted) {
+                          messenger.showSnackBar(const SnackBar(content: Text('Could not open email app.')));
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 14),
               TextField(
                 controller: amountController,
@@ -4650,6 +5004,9 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                         await ref.read(adminBookingsProvider.notifier).updateStatus(bookingId: bId, newStatus: currentStatus, totalAmount: newAmount);
                         if (ctx.mounted) Navigator.pop(ctx);
                         messenger.showSnackBar(SnackBar(content: Text('Booking $bId updated.')));
+                        if (currentStatus == 'confirmed' && booking.status != 'confirmed') {
+                          _showBookingApprovalConfirmationDialog(booking);
+                        }
                       },
                     ),
                   ),

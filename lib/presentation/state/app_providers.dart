@@ -52,7 +52,7 @@ final adminRepositoryProvider = Provider<AdminRepository>(
 
 /// StateNotifier that manages ThemeMode and persists user choice to SharedPreferences
 class ThemeModeNotifier extends StateNotifier<ThemeMode> {
-  static const _key = 'kruizly_theme_mode';
+  static const _key = 'Kruizly_theme_mode';
 
   ThemeModeNotifier() : super(ThemeMode.dark) {
     _loadTheme();
@@ -85,7 +85,8 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
 }
 
 /// Controls Theme Mode: ThemeMode.dark vs ThemeMode.light (persisted)
-final themeModeProvider =
-    StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {
+final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>((
+  ref,
+) {
   return ThemeModeNotifier();
 });

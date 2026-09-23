@@ -54,7 +54,7 @@ class InvoiceViewerScreen extends ConsumerWidget {
             ),
             onPressed: () {
               Share.share(
-                'Check out my KRUIZLY invoice for booking #$bookingId at https://kruizly.com/invoice.html?id=$bookingId',
+                'Check out my Kruizly invoice for booking #$bookingId at https://Kruizly.com/invoice.html?id=$bookingId',
               );
             },
           ),
@@ -81,7 +81,10 @@ class InvoiceViewerScreen extends ConsumerWidget {
               const SizedBox(height: 6),
               Text(
                 'Please check back once payment verification completes.',
-                style: TextStyle(color: context.themeTextSecondary, fontSize: 13),
+                style: TextStyle(
+                  color: context.themeTextSecondary,
+                  fontSize: 13,
+                ),
               ),
               const SizedBox(height: 16),
               CustomButton(
@@ -231,7 +234,7 @@ class InvoiceViewerScreen extends ConsumerWidget {
                   icon: Icons.share,
                   onPressed: () {
                     Share.share(
-                      'View KRUIZLY Invoice: https://kruizly.com/invoice.html?id=$bookingId',
+                      'View Kruizly Invoice: https://Kruizly.com/invoice.html?id=$bookingId',
                     );
                   },
                 ),
@@ -258,7 +261,9 @@ class InvoiceViewerScreen extends ConsumerWidget {
           style: TextStyle(
             fontSize: isBold ? 15 : 13,
             fontWeight: isBold ? FontWeight.w700 : FontWeight.w400,
-            color: isBold ? context.themeTextPrimary : context.themeTextSecondary,
+            color: isBold
+                ? context.themeTextPrimary
+                : context.themeTextSecondary,
           ),
         ),
         Text(
@@ -270,7 +275,9 @@ class InvoiceViewerScreen extends ConsumerWidget {
                 : FontWeight.w500,
             color: isHighlight
                 ? AppColors.success
-                : (isBold ? context.themeTextPrimary : context.themeTextSecondary),
+                : (isBold
+                      ? context.themeTextPrimary
+                      : context.themeTextSecondary),
           ),
         ),
       ],

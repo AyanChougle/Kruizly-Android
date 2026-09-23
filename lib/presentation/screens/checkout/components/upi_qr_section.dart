@@ -20,7 +20,7 @@ class UpiQrSection extends StatelessWidget {
   String get _upiPayload {
     final upiId = AppConfig.upiId;
     final merchant = Uri.encodeComponent(AppConfig.upiName);
-    final note = Uri.encodeComponent('KRUIZLY $bookingId');
+    final note = Uri.encodeComponent('Kruizly $bookingId');
     return 'upi://pay?pa=$upiId&pn=$merchant&am=${amount.toStringAsFixed(2)}&cu=INR&tn=$note';
   }
 

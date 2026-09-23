@@ -40,7 +40,7 @@ class WhyChooseSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Why KRUIZLY?',
+          'Why Kruizly?',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w800,
@@ -76,7 +76,9 @@ class WhyChooseSection extends StatelessWidget {
                     ),
                     child: Icon(
                       f['icon'] as IconData,
-                      color: isDark ? AppColors.primaryLight : AppColors.primary,
+                      color: isDark
+                          ? AppColors.primaryLight
+                          : AppColors.primary,
                       size: 22,
                     ),
                   ),
@@ -86,7 +88,9 @@ class WhyChooseSection extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: isDark ? AppColors.textPrimary : AppColors.lightTextPrimary,
+                      color: isDark
+                          ? AppColors.textPrimary
+                          : AppColors.lightTextPrimary,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -94,7 +98,9 @@ class WhyChooseSection extends StatelessWidget {
                     f['desc'] as String,
                     style: TextStyle(
                       fontSize: 11,
-                      color: isDark ? AppColors.textSecondary : AppColors.lightTextSecondary,
+                      color: isDark
+                          ? AppColors.textSecondary
+                          : AppColors.lightTextSecondary,
                       height: 1.3,
                     ),
                     maxLines: 3,

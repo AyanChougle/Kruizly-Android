@@ -130,7 +130,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              child: const Text('View My Bookings', style: TextStyle(color: Colors.white)),
+              child: const Text(
+                'View My Bookings',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ],
         ),
@@ -150,7 +153,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
     double payableAmount = draft.breakdown.advanceAmount > 0
         ? draft.breakdown.advanceAmount
-        : (draft.breakdown.finalAmount > 0 ? draft.breakdown.finalAmount : 500.0);
+        : (draft.breakdown.finalAmount > 0
+              ? draft.breakdown.finalAmount
+              : 500.0);
 
     return Scaffold(
       backgroundColor: context.themeBackground,
@@ -193,19 +198,30 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     );
   }
 
-  Widget _buildBody(BuildContext context, double payableAmount, BookingModel? booking) {
+  Widget _buildBody(
+    BuildContext context,
+    double payableAmount,
+    BookingModel? booking,
+  ) {
     final draft = ref.watch(bookingProvider);
     final dateFormat = DateFormat('dd MMM yyyy, hh:mm a');
 
-    final vehicleName = booking?.vehicleName ?? draft.vehicle?.fullName ?? 'Vehicle Rental';
-    final vehicleCategory = booking?.vehicleCategory ?? draft.vehicle?.categoryDisplay ?? 'Self-Drive';
+    final vehicleName =
+        booking?.vehicleName ?? draft.vehicle?.fullName ?? 'Vehicle Rental';
+    final vehicleCategory =
+        booking?.vehicleCategory ??
+        draft.vehicle?.categoryDisplay ??
+        'Self-Drive';
     final vehicleReg = booking?.vehicleReg ?? draft.vehicle?.regNo ?? '';
     final pickupDate = booking?.pickupDate ?? draft.pickupDate;
     final dropDate = booking?.dropDate ?? draft.dropDate;
     final totalAmount = booking?.totalAmount ?? draft.breakdown.finalAmount;
-    final securityDeposit = booking?.securityDeposit ?? draft.breakdown.securityDeposit;
-    final couponDiscount = booking?.couponDiscount ?? draft.breakdown.couponDiscount;
-    final remainingBalance = booking?.remainingBalance ?? draft.breakdown.remainingBalance;
+    final securityDeposit =
+        booking?.securityDeposit ?? draft.breakdown.securityDeposit;
+    final couponDiscount =
+        booking?.couponDiscount ?? draft.breakdown.couponDiscount;
+    final remainingBalance =
+        booking?.remainingBalance ?? draft.breakdown.remainingBalance;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -280,7 +296,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         ],
                       ),
                     ),
-                    Icon(Icons.arrow_forward, size: 16, color: context.themeTextMuted),
+                    Icon(
+                      Icons.arrow_forward,
+                      size: 16,
+                      color: context.themeTextMuted,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Column(
@@ -313,18 +333,35 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     child: Divider(color: context.themeBorder, height: 1),
                   ),
-                  _buildSummaryRow(context, 'Total Rental Charge', '₹${totalAmount.toInt()}'),
+                  _buildSummaryRow(
+                    context,
+                    'Total Rental Charge',
+                    '₹${totalAmount.toInt()}',
+                  ),
                   if (securityDeposit > 0) ...[
                     const SizedBox(height: 6),
-                    _buildSummaryRow(context, 'Security Deposit (Refundable)', '₹${securityDeposit.toInt()}'),
+                    _buildSummaryRow(
+                      context,
+                      'Security Deposit (Refundable)',
+                      '₹${securityDeposit.toInt()}',
+                    ),
                   ],
                   if (couponDiscount > 0) ...[
                     const SizedBox(height: 6),
-                    _buildSummaryRow(context, 'Coupon Discount', '-₹${couponDiscount.toInt()}', isDiscount: true),
+                    _buildSummaryRow(
+                      context,
+                      'Coupon Discount',
+                      '-₹${couponDiscount.toInt()}',
+                      isDiscount: true,
+                    ),
                   ],
                   if (remainingBalance > 0) ...[
                     const SizedBox(height: 6),
-                    _buildSummaryRow(context, 'Balance Due on Delivery', '₹${remainingBalance.toInt()}'),
+                    _buildSummaryRow(
+                      context,
+                      'Balance Due on Delivery',
+                      '₹${remainingBalance.toInt()}',
+                    ),
                   ],
                 ],
                 const SizedBox(height: 14),
@@ -333,7 +370,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   decoration: BoxDecoration(
                     color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -352,7 +391,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            payableAmount < totalAmount ? 'Advance Token Deposit' : 'Full Payment',
+                            payableAmount < totalAmount
+                                ? 'Advance Token Deposit'
+                                : 'Full Payment',
                             style: TextStyle(
                               fontSize: 12,
                               color: context.themeTextSecondary,
@@ -394,7 +435,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   onTap: () => setState(() => _selectedPaymentMethod = 0),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: _selectedPaymentMethod == 0
                           ? AppColors.primary
@@ -411,7 +455,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         Icon(
                           Icons.qr_code_scanner,
                           size: 22,
-                          color: _selectedPaymentMethod == 0 ? Colors.white : AppColors.primaryLight,
+                          color: _selectedPaymentMethod == 0
+                              ? Colors.white
+                              : AppColors.primaryLight,
                         ),
                         const SizedBox(height: 6),
                         Text(
@@ -419,14 +465,18 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
-                            color: _selectedPaymentMethod == 0 ? Colors.white : context.themeTextPrimary,
+                            color: _selectedPaymentMethod == 0
+                                ? Colors.white
+                                : context.themeTextPrimary,
                           ),
                         ),
                         Text(
                           'GPay, PhonePe, Paytm',
                           style: TextStyle(
                             fontSize: 10,
-                            color: _selectedPaymentMethod == 0 ? Colors.white70 : context.themeTextMuted,
+                            color: _selectedPaymentMethod == 0
+                                ? Colors.white70
+                                : context.themeTextMuted,
                           ),
                         ),
                       ],
@@ -440,7 +490,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   onTap: () => setState(() => _selectedPaymentMethod = 1),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: _selectedPaymentMethod == 1
                           ? AppColors.primary
@@ -457,7 +510,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         Icon(
                           Icons.account_balance_outlined,
                           size: 22,
-                          color: _selectedPaymentMethod == 1 ? Colors.white : AppColors.primaryLight,
+                          color: _selectedPaymentMethod == 1
+                              ? Colors.white
+                              : AppColors.primaryLight,
                         ),
                         const SizedBox(height: 6),
                         Text(
@@ -465,14 +520,18 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
-                            color: _selectedPaymentMethod == 1 ? Colors.white : context.themeTextPrimary,
+                            color: _selectedPaymentMethod == 1
+                                ? Colors.white
+                                : context.themeTextPrimary,
                           ),
                         ),
                         Text(
                           'NEFT, IMPS, RTGS',
                           style: TextStyle(
                             fontSize: 10,
-                            color: _selectedPaymentMethod == 1 ? Colors.white70 : context.themeTextMuted,
+                            color: _selectedPaymentMethod == 1
+                                ? Colors.white70
+                                : context.themeTextMuted,
                           ),
                         ),
                       ],
@@ -571,16 +630,25 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               decoration: BoxDecoration(
                 color: AppColors.error.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                border: Border.all(
+                  color: AppColors.error.withValues(alpha: 0.3),
+                ),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.error_outline, color: AppColors.error, size: 20),
+                  const Icon(
+                    Icons.error_outline,
+                    color: AppColors.error,
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       _error!,
-                      style: const TextStyle(color: AppColors.error, fontSize: 13),
+                      style: const TextStyle(
+                        color: AppColors.error,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 ],
@@ -602,7 +670,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.verified_user_outlined, size: 14, color: context.themeTextMuted),
+              Icon(
+                Icons.verified_user_outlined,
+                size: 14,
+                color: context.themeTextMuted,
+              ),
               const SizedBox(width: 6),
               Text(
                 'Direct Hostinger MySQL API • 256-Bit SSL Encrypted',
@@ -652,23 +724,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          _buildCopyableField(
-            context,
-            'Beneficiary Account Name',
-            'KRUIZLY',
-          ),
+          _buildCopyableField(context, 'Beneficiary Account Name', 'Kruizly'),
           const SizedBox(height: 10),
-          _buildCopyableField(
-            context,
-            'Account Number',
-            '003110100014092',
-          ),
+          _buildCopyableField(context, 'Account Number', '003110100014092'),
           const SizedBox(height: 10),
-          _buildCopyableField(
-            context,
-            'IFSC Code',
-            'SVCB0000031',
-          ),
+          _buildCopyableField(context, 'IFSC Code', 'SVCB0000031'),
           const SizedBox(height: 10),
           _buildCopyableField(
             context,
@@ -703,19 +763,31 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               children: [
                 Text(
                   label,
-                  style: TextStyle(fontSize: 10, color: context.themeTextSecondary, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: context.themeTextSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   value,
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: context.themeTextPrimary),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: context.themeTextPrimary,
+                  ),
                 ),
               ],
             ),
           ),
           IconButton(
             tooltip: 'Copy $label',
-            icon: const Icon(Icons.copy, size: 18, color: AppColors.primaryLight),
+            icon: const Icon(
+              Icons.copy,
+              size: 18,
+              color: AppColors.primaryLight,
+            ),
             onPressed: () => _copyToClipboard(label, value),
           ),
         ],
@@ -723,7 +795,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     );
   }
 
-  Widget _buildSummaryRow(BuildContext context, String label, String val, {bool isDiscount = false}) {
+  Widget _buildSummaryRow(
+    BuildContext context,
+    String label,
+    String val, {
+    bool isDiscount = false,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [

@@ -27,7 +27,13 @@ class MyTripsScreen extends ConsumerWidget {
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          title: Text('My Trips', style: TextStyle(fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
+          title: Text(
+            'My Trips',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: context.themeTextPrimary,
+            ),
+          ),
         ),
         body: Center(
           child: Padding(
@@ -35,16 +41,27 @@ class MyTripsScreen extends ConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.luggage_outlined, size: 64, color: context.themeTextMuted),
+                Icon(
+                  Icons.luggage_outlined,
+                  size: 64,
+                  color: context.themeTextMuted,
+                ),
                 const SizedBox(height: 16),
                 Text(
                   'Sign In to View Trips',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: context.themeTextPrimary),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: context.themeTextPrimary,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Track active bookings, view invoices, and manage upcoming self-drive rentals.',
-                  style: TextStyle(color: context.themeTextSecondary, fontSize: 13),
+                  style: TextStyle(
+                    color: context.themeTextSecondary,
+                    fontSize: 13,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
@@ -70,7 +87,11 @@ class MyTripsScreen extends ConsumerWidget {
         elevation: 0,
         title: Text(
           'My Trips',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: context.themeTextPrimary),
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: context.themeTextPrimary,
+          ),
         ),
       ),
       body: RefreshIndicator(
@@ -94,15 +115,21 @@ class MyTripsScreen extends ConsumerWidget {
                           f['label']!,
                           style: TextStyle(
                             fontSize: 12,
-                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                            color: isSelected ? Colors.white : context.themeTextSecondary,
+                            fontWeight: isSelected
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: isSelected
+                                ? Colors.white
+                                : context.themeTextSecondary,
                           ),
                         ),
                         selected: isSelected,
                         selectedColor: AppColors.primary,
                         backgroundColor: context.themeSurfaceElevated,
                         side: BorderSide(
-                          color: isSelected ? AppColors.primaryLight : context.themeBorder,
+                          color: isSelected
+                              ? AppColors.primaryLight
+                              : context.themeBorder,
                         ),
                         onSelected: (_) => tripsNotifier.setFilter(f['id']!),
                       ),
@@ -114,46 +141,66 @@ class MyTripsScreen extends ConsumerWidget {
             const SizedBox(height: 8),
             Expanded(
               child: tripsState.isLoading
-                  ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                      ),
+                    )
                   : tripsState.filteredBookings.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.luggage_outlined, size: 54, color: context.themeTextMuted),
-                              const SizedBox(height: 12),
-                              Text(
-                                'No bookings found',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: context.themeTextPrimary),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'Explore the KRUIZLY fleet and book your next drive.',
-                                style: TextStyle(color: context.themeTextSecondary, fontSize: 13),
-                              ),
-                              const SizedBox(height: 20),
-                              CustomButton(
-                                text: 'Explore Fleet',
-                                width: 150,
-                                onPressed: () => context.go('/fleet'),
-                              ),
-                            ],
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.luggage_outlined,
+                            size: 54,
+                            color: context.themeTextMuted,
                           ),
-                        )
-                      : ListView.builder(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          itemCount: tripsState.filteredBookings.length,
-                          itemBuilder: (context, index) {
-                            final b = tripsState.filteredBookings[index];
-                            return TripCard(
-                              booking: b,
-                              onTap: () => context.push('/trips/${b.bookingId}'),
-                              onPayNow: () => context.push('/checkout/${b.bookingId}'),
-                              onInvoice: () => context.push('/invoice/${b.bookingId}'),
-                            );
-                          },
-                        ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'No bookings found',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: context.themeTextPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Explore the Kruizly fleet and book your next drive.',
+                            style: TextStyle(
+                              color: context.themeTextSecondary,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          CustomButton(
+                            text: 'Explore Fleet',
+                            width: 150,
+                            onPressed: () => context.go('/fleet'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      itemCount: tripsState.filteredBookings.length,
+                      itemBuilder: (context, index) {
+                        final b = tripsState.filteredBookings[index];
+                        return TripCard(
+                          booking: b,
+                          onTap: () => context.push('/trips/${b.bookingId}'),
+                          onPayNow: () =>
+                              context.push('/checkout/${b.bookingId}'),
+                          onInvoice: () =>
+                              context.push('/invoice/${b.bookingId}'),
+                        );
+                      },
+                    ),
             ),
           ],
         ),

@@ -38,7 +38,9 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       return;
     }
 
-    final success = await ref.read(authProvider.notifier).signInWithEmailPassword(email, password);
+    final success = await ref
+        .read(authProvider.notifier)
+        .signInWithEmailPassword(email, password);
     if (success && mounted) {
       context.go('/home');
     }
@@ -74,12 +76,14 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       fit: BoxFit.contain,
                       errorBuilder: (context, error, stackTrace) {
                         return Text(
-                          'KRUIZLY',
+                          'Kruizly',
                           style: TextStyle(
                             fontSize: 32,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 3,
-                            color: isDark ? AppColors.primaryLight : AppColors.primary,
+                            color: isDark
+                                ? AppColors.primaryLight
+                                : AppColors.primary,
                           ),
                         );
                       },
@@ -113,7 +117,10 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         const SizedBox(height: 6),
                         Text(
                           'Sign in to access your bookings and fleet',
-                          style: TextStyle(fontSize: 13, color: context.themeTextSecondary),
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: context.themeTextSecondary,
+                          ),
                         ),
                         const SizedBox(height: 24),
                         TextField(
@@ -122,20 +129,31 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                           style: TextStyle(color: context.themeTextPrimary),
                           decoration: InputDecoration(
                             labelText: 'Email Address',
-                            labelStyle: TextStyle(color: context.themeTextSecondary),
-                            prefixIcon: Icon(Icons.email_outlined, color: context.themeTextSecondary),
+                            labelStyle: TextStyle(
+                              color: context.themeTextSecondary,
+                            ),
+                            prefixIcon: Icon(
+                              Icons.email_outlined,
+                              color: context.themeTextSecondary,
+                            ),
                             filled: true,
                             fillColor: context.themeSurfaceElevated,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: context.themeBorder),
+                              borderSide: BorderSide(
+                                color: context.themeBorder,
+                              ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: context.themeBorder),
+                              borderSide: BorderSide(
+                                color: context.themeBorder,
+                              ),
                             ),
                             focusedBorder: const OutlineInputBorder(
-                              borderRadius: BorderRadius.all(Radius.circular(12)),
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(12),
+                              ),
                               borderSide: BorderSide(color: AppColors.primary),
                             ),
                           ),
@@ -147,27 +165,42 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                           style: TextStyle(color: context.themeTextPrimary),
                           decoration: InputDecoration(
                             labelText: 'Password',
-                            labelStyle: TextStyle(color: context.themeTextSecondary),
-                            prefixIcon: Icon(Icons.lock_outline, color: context.themeTextSecondary),
+                            labelStyle: TextStyle(
+                              color: context.themeTextSecondary,
+                            ),
+                            prefixIcon: Icon(
+                              Icons.lock_outline,
+                              color: context.themeTextSecondary,
+                            ),
                             suffixIcon: IconButton(
                               icon: Icon(
-                                _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                                _obscurePassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
                                 color: context.themeTextSecondary,
                               ),
-                              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                              onPressed: () => setState(
+                                () => _obscurePassword = !_obscurePassword,
+                              ),
                             ),
                             filled: true,
                             fillColor: context.themeSurfaceElevated,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: context.themeBorder),
+                              borderSide: BorderSide(
+                                color: context.themeBorder,
+                              ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: context.themeBorder),
+                              borderSide: BorderSide(
+                                color: context.themeBorder,
+                              ),
                             ),
                             focusedBorder: const OutlineInputBorder(
-                              borderRadius: BorderRadius.all(Radius.circular(12)),
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(12),
+                              ),
                               borderSide: BorderSide(color: AppColors.primary),
                             ),
                           ),
@@ -236,15 +269,24 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         const SizedBox(height: 16),
                         Row(
                           children: [
-                            Expanded(child: Divider(color: context.themeBorder)),
+                            Expanded(
+                              child: Divider(color: context.themeBorder),
+                            ),
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
                               child: Text(
                                 'OR',
-                                style: TextStyle(color: context.themeTextMuted, fontSize: 12),
+                                style: TextStyle(
+                                  color: context.themeTextMuted,
+                                  fontSize: 12,
+                                ),
                               ),
                             ),
-                            Expanded(child: Divider(color: context.themeBorder)),
+                            Expanded(
+                              child: Divider(color: context.themeBorder),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 16),
@@ -264,14 +306,19 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                     children: [
                       Text(
                         "Don't have an account? ",
-                        style: TextStyle(color: context.themeTextSecondary, fontSize: 14),
+                        style: TextStyle(
+                          color: context.themeTextSecondary,
+                          fontSize: 14,
+                        ),
                       ),
                       GestureDetector(
                         onTap: () => context.push('/sign-up'),
                         child: Text(
                           'Sign Up',
                           style: TextStyle(
-                            color: isDark ? AppColors.primaryLight : AppColors.primary,
+                            color: isDark
+                                ? AppColors.primaryLight
+                                : AppColors.primary,
                             fontWeight: FontWeight.w700,
                             fontSize: 14,
                           ),
@@ -285,7 +332,10 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       onPressed: () => context.go('/home'),
                       child: Text(
                         'Explore as Guest',
-                        style: TextStyle(color: context.themeTextMuted, fontSize: 13),
+                        style: TextStyle(
+                          color: context.themeTextMuted,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                   ),

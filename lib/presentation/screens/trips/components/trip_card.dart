@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/booking_notification_helper.dart';
 import '../../../../data/models/booking_model.dart';
 import '../../../widgets/glass_card.dart';
 import '../../../widgets/status_badge.dart';
@@ -96,7 +97,23 @@ class TripCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(Icons.timelapse_rounded, size: 12, color: context.themeTextMuted),
+              const SizedBox(width: 4),
+              Text(
+                BookingNotificationHelper.formatDurationDetailed(
+                  booking.pickupDate,
+                  booking.dropDate,
+                  days: booking.days,
+                  hours: booking.hours,
+                ),
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.themeTextMuted),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
