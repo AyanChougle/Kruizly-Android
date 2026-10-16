@@ -63,6 +63,15 @@ class PriceBreakdownCard extends StatelessWidget {
             '₹${breakdown.rentalTotal.toInt()}',
           ),
 
+          if (withDriver && breakdown.driverTotal > 0) ...[
+            const SizedBox(height: 10),
+            _buildRow(
+              context,
+              'Driver Allowance',
+              '₹${breakdown.driverTotal.toInt()}',
+            ),
+          ],
+
           if (breakdown.securityDeposit > 0) ...[
             const SizedBox(height: 10),
             _buildRow(

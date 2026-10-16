@@ -1,9 +1,12 @@
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/media_permission_helper.dart';
@@ -44,6 +47,31 @@ class StaffDashboardScreen extends ConsumerStatefulWidget {
 class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   String _selectedRole = 'ADMIN';
   final bool _bgVideoEnabled = true;
+  String? _cachedAuthToken;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchAuthToken();
+  }
+
+  Future<void> _fetchAuthToken() async {
+    try {
+      final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+      if (mounted) setState(() => _cachedAuthToken = token);
+    } catch (_) {}
+  }
+
+  Map<String, String> get _authHeaders {
+    if (_cachedAuthToken != null && _cachedAuthToken!.isNotEmpty) {
+      return {
+        'Authorization': 'Bearer $_cachedAuthToken',
+        'X-Authorization': 'Bearer $_cachedAuthToken',
+        'X-Firebase-Token': _cachedAuthToken!,
+      };
+    }
+    return const {};
+  }
 
   // Sub-tabs for Admin (8 tabs matching admin.html)
   int _adminSubTab = 0;
@@ -59,6 +87,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   DateTime? _mgrCustomFrom;
   DateTime? _mgrCustomTo;
   String _mgrFleetFilter = 'all'; // 'all', 'on_trip', 'yard'
+  String _selectedHub = 'all'; // 'all', 'ghansoli', 'kandivali'
   bool _otherFleetsCollapsed = false;
 
   // Customer Analytics filter
@@ -71,7 +100,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   String _accountsSearchQuery = '';
 
   // Booking Calendar state
-  DateTime _calendarMonth = DateTime(2026, 9, 1);
+  DateTime _calendarMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
   String _calendarViewMode = 'grid'; // 'grid', 'agenda'
   DateTime? _selectedCalendarDate;
 
@@ -143,6 +172,34 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
       c.dispose();
     }
     super.dispose();
+  }
+
+  int get _kpiCrossAxisCount {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 900) return 4;
+    if (width > 600) return 3;
+    return 2;
+  }
+
+  double get _kpiChildAspectRatio {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 900) return 1.85;
+    if (width > 600) return 1.75;
+    return 1.6;
+  }
+
+  int get _kpiExecCrossAxisCount {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 900) return 6;
+    if (width > 600) return 3;
+    return 3;
+  }
+
+  double get _kpiExecChildAspectRatio {
+    final width = MediaQuery.of(context).size.width;
+    if (width > 900) return 1.8;
+    if (width > 600) return 1.6;
+    return 1.35;
   }
 
   DateTimeRange? _getDateRange(String period, DateTime? customFrom, DateTime? customTo) {
@@ -429,7 +486,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             ),
             const Spacer(),
             Text(
-              'September 2026',
+              DateFormat('MMMM yyyy').format(DateTime.now()),
               style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: accentColor),
             ),
           ],
@@ -976,7 +1033,15 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                             height: 28,
                             width: 110,
                             onPressed: () {
-                              _showKycInspectionModal(name, email, uid, isReadOnly: isManager);
+                              final kycList = ref.read(adminKycListProvider).value ?? [];
+                              final kycMatch = kycList.firstWhere(
+                                (k) => (k['userId']?.toString() == uid ||
+                                    k['user_id']?.toString() == uid ||
+                                    k['email']?.toString() == email ||
+                                    k['phone']?.toString() == phone),
+                                orElse: () => u,
+                              );
+                              _showExecutiveKycModal(name, phone, email, uid, kycMatch);
                             },
                           ),
                         ],
@@ -989,84 +1054,6 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           },
         ),
       ],
-    );
-  }
-
-  void _showKycInspectionModal(String name, String email, String uid, {bool isReadOnly = false}) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(color: context.themeSurfaceElevated, borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('KYC Verification: $name', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
-                      Text(email, style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
-                    ],
-                  ),
-                ),
-                if (isReadOnly)
-                  const SizedBox.shrink(), // hidden — read-only enforced via Close-only button below
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildDocInspectRow('Driving License', 'DL-Verified', true),
-            _buildDocInspectRow('Aadhaar Card', 'UIDAI Attached', true),
-            _buildDocInspectRow('PAN Card', 'Income Tax Verified', true),
-            const SizedBox(height: 20),
-            if (isReadOnly)
-              CustomButton(
-                text: 'Close',
-                height: 38,
-                onPressed: () => Navigator.pop(ctx),
-              )
-            else
-              Row(
-                children: [
-                  Expanded(
-                    child: CustomButton(
-                      text: 'Approve KYC',
-                      height: 38,
-                      onPressed: () async {
-                        await ref.read(adminBookingsProvider.notifier).updateKyc(uid: uid, documentType: 'all', status: 'verified');
-                        if (ctx.mounted) Navigator.pop(ctx);
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('KYC for $name approved.')));
-                        }
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: CustomButton(
-                      text: 'Reject',
-                      isOutlined: true,
-                      height: 38,
-                      onPressed: () async {
-                        await ref.read(adminBookingsProvider.notifier).updateKyc(uid: uid, documentType: 'all', status: 'rejected');
-                        if (ctx.mounted) Navigator.pop(ctx);
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('KYC for $name rejected.')));
-                        }
-                      },
-                    ),
-                  ),
-                ],
-              ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -1143,12 +1130,12 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
         const SizedBox(height: 14),
 
         GridView.count(
-          crossAxisCount: 2,
+          crossAxisCount: _kpiCrossAxisCount,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           crossAxisSpacing: 8,
           mainAxisSpacing: 8,
-          childAspectRatio: 1.6,
+          childAspectRatio: _kpiChildAspectRatio,
           children: [
             _buildStatMetricCard('TOTAL REGISTERED USERS', '${stats.totalUsers}', 'System user accounts', accentColor),
             _buildStatMetricCard('TOTAL ACTIVE CUSTOMERS', '$uniqueCustomers', 'Unique users who booked', const Color(0xFF06D6A0)),
@@ -1161,25 +1148,46 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
 
         Text('Monthly User & Customer Acquisition Breakdown', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
         const SizedBox(height: 8),
-        GlassCard(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            children: [
-              _buildTableRow(['MONTH', 'NEW USERS', 'BOOKED', 'BOOKINGS'], isHeader: true),
-              const Divider(height: 12),
-              if (stats.monthly.isNotEmpty)
-                ...stats.monthly.entries.map((e) {
-                  final monthData = e.value is Map<String, dynamic> ? e.value as Map<String, dynamic> : <String, dynamic>{};
-                  final newUsers = '${(monthData['new_users'] as num?)?.toInt() ?? 0}';
-                  final booked = '${(monthData['booked_users'] as num?)?.toInt() ?? 0}';
-                  final bookings = '${(monthData['bookings'] as num?)?.toInt() ?? 0}';
-                  return _buildTableRow([e.key, newUsers, booked, bookings]);
-                })
-              else ...[
-                _buildTableRow(['No monthly data available', '-', '-', '-']),
-              ],
-            ],
-          ),
+        Builder(
+          builder: (context) {
+            final Map<String, ({Set<String> users, int bookings})> dynamicMonthly = {};
+            for (final b in allBookings) {
+              final key = DateFormat('yyyy-MM').format(b.pickupDate);
+              final existing = dynamicMonthly[key] ?? (users: <String>{}, bookings: 0);
+              existing.users.add(b.userName.isNotEmpty ? b.userName : b.userEmail);
+              dynamicMonthly[key] = (users: existing.users, bookings: existing.bookings + 1);
+            }
+
+            final hasBackendData = stats.monthly.isNotEmpty &&
+                stats.monthly.values.any((v) => v is Map<String, dynamic> && ((v['bookings'] as num?)?.toInt() ?? 0) > 0);
+
+            return GlassCard(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children: [
+                  _buildTableRow(['MONTH', 'NEW USERS', 'BOOKED', 'BOOKINGS'], isHeader: true),
+                  const Divider(height: 12),
+                  if (hasBackendData)
+                    ...stats.monthly.entries.map((e) {
+                      final monthData = e.value is Map<String, dynamic> ? e.value as Map<String, dynamic> : <String, dynamic>{};
+                      final newUsers = '${(monthData['new_users'] as num?)?.toInt() ?? 0}';
+                      final booked = '${(monthData['booked_users'] as num?)?.toInt() ?? 0}';
+                      final bookings = '${(monthData['bookings'] as num?)?.toInt() ?? 0}';
+                      return _buildTableRow([e.key, newUsers, booked, bookings]);
+                    })
+                  else if (dynamicMonthly.isNotEmpty)
+                    ...dynamicMonthly.entries.map((e) {
+                      final bookedCount = e.value.users.length;
+                      final bookingsCount = e.value.bookings;
+                      return _buildTableRow([e.key, '$bookedCount', '$bookedCount', '$bookingsCount']);
+                    })
+                  else ...[
+                    _buildTableRow(['No monthly data available', '-', '-', '-']),
+                  ],
+                ],
+              ),
+            );
+          },
         ),
       ],
     );
@@ -1229,12 +1237,12 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
         const SizedBox(height: 14),
 
         GridView.count(
-          crossAxisCount: 2,
+          crossAxisCount: _kpiCrossAxisCount,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           crossAxisSpacing: 8,
           mainAxisSpacing: 8,
-          childAspectRatio: 1.6,
+          childAspectRatio: _kpiChildAspectRatio,
           children: [
             _buildStatMetricCard('TOTAL BOOKINGS', '${stats.totalBookings}', 'All reservations recorded', context.themeTextPrimary),
             _buildStatMetricCard('PAID & CONFIRMED', '${stats.paidBookings}', 'Verified payment received', const Color(0xFF06D6A0)),
@@ -1386,20 +1394,22 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               ),
               const SizedBox(height: 12),
 
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  _buildRosterChip('MH03EL1025 Maruti Suzuki Fronx'),
-                  _buildRosterChip('MH05GJ4711 Maruti Suzuki Ertiga'),
-                  _buildRosterChip('MH48GJ4153 Toyota Glanza'),
-                  _buildRosterChip('MH04MU1178 Toyota Glanza'),
-                  _buildRosterChip('MH05FV3454 Tata Punch'),
-                  _buildRosterChip('MH43CU1632 Maruti Suzuki Fronx'),
-                  _buildRosterChip('MH02FU6808 Mahindra XUV700'),
-                  _buildRosterChip('CPR-007 Maruti Suzuki Baleno'),
-                  _buildRosterChip('MH43BY2773 MG Hector'),
-                ],
+              Builder(
+                builder: (context) {
+                  final rosterVehicles = vehicles.where((v) => _currentRosterRegs.contains(v.regNo)).toList();
+                  if (rosterVehicles.isEmpty) {
+                    return Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: _currentRosterRegs.map((reg) => _buildRosterChip(reg)).toList(),
+                    );
+                  }
+                  return Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: rosterVehicles.map((v) => _buildRosterChip('${v.regNo} ${v.fullName}')).toList(),
+                  );
+                },
               ),
             ],
           ),
@@ -1631,38 +1641,62 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     AsyncValue<List<BookingModel>> bookingsAsync,
     Color accentColor,
   ) {
-    final allBookings = bookingsAsync.value ?? [];
+    final allRawBookings = bookingsAsync.value ?? [];
     final activeFleetAsync = ref.watch(activeFleetProvider);
-    final activeFleet = activeFleetAsync.value ?? [];
+    final allActiveFleet = activeFleetAsync.value ?? [];
+
+    // Filter by selected operational Hub
+    final allBookings = _selectedHub == 'all'
+        ? allRawBookings
+        : allRawBookings.where((b) {
+            final loc = b.location.toLowerCase();
+            if (_selectedHub == 'ghansoli') return loc.contains('ghansoli') || loc.contains('gavson');
+            if (_selectedHub == 'kandivali') return loc.contains('kandivali');
+            return true;
+          }).toList();
+
+    final activeFleet = _selectedHub == 'all'
+        ? allActiveFleet
+        : allActiveFleet.where((v) {
+            final loc = v.location.toLowerCase();
+            if (_selectedHub == 'ghansoli') return loc.contains('ghansoli') || loc.contains('gavson');
+            if (_selectedHub == 'kandivali') return loc.contains('kandivali');
+            return true;
+          }).toList();
 
     final mgrRange = _getDateRange(_mgrPeriod, _mgrCustomFrom, _mgrCustomTo);
     final periodBookings = allBookings.where((b) => _isBookingInRange(b, mgrRange)).toList();
     final nonCancelledBookings = periodBookings.where((b) => !b.isCancelled).toList();
 
     double periodRevenue;
-    if (_mgrPeriod == 'All Time') {
-      periodRevenue = stats.totalRevenue;
-    } else if (_mgrPeriod == 'This Month') {
-      periodRevenue = stats.monthRevenue;
-    } else if (_mgrPeriod == 'Last Month') {
-      periodRevenue = stats.lastMonthRevenue;
+    if (_selectedHub == 'all') {
+      if (_mgrPeriod == 'All Time') {
+        periodRevenue = stats.totalRevenue > 0 ? stats.totalRevenue : nonCancelledBookings.fold(0.0, (sum, b) => sum + b.finalAmount);
+      } else if (_mgrPeriod == 'This Month') {
+        periodRevenue = stats.monthRevenue > 0 ? stats.monthRevenue : nonCancelledBookings.fold(0.0, (sum, b) => sum + b.finalAmount);
+      } else if (_mgrPeriod == 'Last Month') {
+        periodRevenue = stats.lastMonthRevenue > 0 ? stats.lastMonthRevenue : nonCancelledBookings.fold(0.0, (sum, b) => sum + b.finalAmount);
+      } else {
+        periodRevenue = nonCancelledBookings.fold(0.0, (sum, b) => sum + b.finalAmount);
+      }
     } else {
+      // Direct hub-filtered dynamic calculation from bookings
       periodRevenue = nonCancelledBookings.fold(0.0, (sum, b) => sum + b.finalAmount);
     }
 
-    final periodActiveTrips = (_mgrPeriod == 'All Time' || _mgrPeriod == 'This Month')
-        ? stats.activeTrips
+    final periodActiveTrips = _selectedHub == 'all' && (_mgrPeriod == 'All Time' || _mgrPeriod == 'This Month')
+        ? (stats.activeTrips > 0 ? stats.activeTrips : periodBookings.where((b) => b.status == 'active').length)
         : periodBookings.where((b) => b.status == 'active').length;
 
-    final periodCompletedTrips = (_mgrPeriod == 'All Time' || _mgrPeriod == 'This Month')
-        ? stats.completedTrips
+    final periodCompletedTrips = _selectedHub == 'all' && (_mgrPeriod == 'All Time' || _mgrPeriod == 'This Month')
+        ? (stats.completedTrips > 0 ? stats.completedTrips : periodBookings.where((b) => b.status == 'completed').length)
         : periodBookings.where((b) => b.status == 'completed').length;
 
-    final periodTotalBookings = (_mgrPeriod == 'All Time' || _mgrPeriod == 'This Month')
-        ? (stats.totalBookings > 0 ? stats.totalBookings : allBookings.length)
-        : periodBookings.length;
-
+    final periodTotalBookings = periodBookings.length;
     final periodAvgBooking = periodTotalBookings > 0 ? (periodRevenue / periodTotalBookings) : 0.0;
+    final hubTotalFleet = activeFleet.length;
+    final hubOnTrip = activeFleet.where((v) => !v.isAvailable).length;
+    final hubUtilization = hubTotalFleet > 0 ? ((hubOnTrip / hubTotalFleet) * 100).round() : stats.fleetUtilization;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -1707,6 +1741,38 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               const SizedBox(height: 6),
               Text('Filter Business Metrics', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
               const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                decoration: BoxDecoration(
+                  color: context.themeSurfaceElevated,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.location_on_outlined, size: 16, color: accentColor),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedHub,
+                          isExpanded: true,
+                          dropdownColor: context.themeSurfaceElevated,
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.themeTextPrimary),
+                          items: const [
+                            DropdownMenuItem(value: 'all', child: Text('All Operational Hubs')),
+                            DropdownMenuItem(value: 'ghansoli', child: Text('Ghansoli Hub (Gavson HQ)')),
+                            DropdownMenuItem(value: 'kandivali', child: Text('Kandivali Hub (Mumbai West)')),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) setState(() => _selectedHub = val);
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
@@ -1748,19 +1814,19 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
 
         if (_mgrSubTab == 0) ...[
           GridView.count(
-            crossAxisCount: 2,
+            crossAxisCount: _kpiCrossAxisCount,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             crossAxisSpacing: 8,
             mainAxisSpacing: 8,
-            childAspectRatio: 1.65,
+            childAspectRatio: _kpiChildAspectRatio,
             children: [
               _buildKpiCard('PERIOD REVENUE', _formatINRShort(periodRevenue), const Color(0xFF06D6A0)),
               _buildKpiCard('ACTIVE TRIPS', '$periodActiveTrips', accentColor),
               _buildKpiCard('COMPLETED TRIPS', '$periodCompletedTrips', context.themeTextPrimary),
               _buildKpiCard('TOTAL BOOKINGS', '$periodTotalBookings', context.themeTextPrimary),
               _buildKpiCard('AVG. BOOKING VALUE', _formatINRShort(periodAvgBooking), accentColor),
-              _buildKpiCard('FLEET UTILIZATION', '${stats.fleetUtilization}%', const Color(0xFF06D6A0)),
+              _buildKpiCard('FLEET UTILIZATION', '$hubUtilization%', const Color(0xFF06D6A0)),
             ],
           ),
           const SizedBox(height: 16),
@@ -1774,22 +1840,57 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 const SizedBox(height: 4),
                 Text('Synchronized ledger across financial months.', style: TextStyle(fontSize: 11, color: context.themeTextSecondary)),
                 const SizedBox(height: 12),
-                if (stats.monthly.isNotEmpty)
-                  ...stats.monthly.entries.map((e) {
-                    final monthData = e.value is Map<String, dynamic> ? e.value as Map<String, dynamic> : <String, dynamic>{};
-                    final bookings = (monthData['bookings'] as num?)?.toInt() ?? 0;
-                    final revenue = (monthData['revenue'] as num?)?.toDouble() ?? 0.0;
-                    final label = bookings == 1 ? '1 Booking' : '$bookings Bookings';
-                    return _buildMonthlyRow(e.key, label, _formatINR(revenue), false);
-                  })
-                else
-                  Text('No monthly data available yet.', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                Builder(
+                  builder: (context) {
+                    final Map<String, ({int count, double revenue})> dynamicMonthly = {};
+                    for (final b in nonCancelledBookings) {
+                      final key = DateFormat('MMMM yyyy').format(b.pickupDate);
+                      final existing = dynamicMonthly[key] ?? (count: 0, revenue: 0.0);
+                      dynamicMonthly[key] = (
+                        count: existing.count + 1,
+                        revenue: existing.revenue + b.finalAmount,
+                      );
+                    }
+
+                    final hasBackendRevenue = stats.monthly.isNotEmpty &&
+                        stats.monthly.values.any((v) =>
+                            v is Map<String, dynamic> &&
+                            (((v['month_sales'] ?? v['revenue'] ?? v['total_revenue'] as num?)?.toDouble() ?? 0.0) > 0 ||
+                             ((v['total_bookings'] ?? v['bookings'] ?? v['paid_bookings'] as num?)?.toInt() ?? 0) > 0));
+
+                    if (hasBackendRevenue && _selectedHub == 'all') {
+                      return Column(
+                        children: stats.monthly.entries.map((e) {
+                          final monthData = e.value is Map<String, dynamic> ? e.value as Map<String, dynamic> : <String, dynamic>{};
+                          final bookings = (monthData['total_bookings'] ?? monthData['bookings'] ?? monthData['paid_bookings'] as num?)?.toInt() ?? 0;
+                          final revenue = (monthData['month_sales'] ?? monthData['revenue'] ?? monthData['total_revenue'] as num?)?.toDouble() ?? 0.0;
+                          final label = bookings == 1 ? '1 Booking' : '$bookings Bookings';
+
+                          String formattedMonth = e.key;
+                          final parsed = DateTime.tryParse(e.key);
+                          if (parsed != null) {
+                            formattedMonth = DateFormat('MMMM yyyy').format(parsed);
+                          }
+                          return _buildMonthlyRow(formattedMonth, label, _formatINR(revenue), false);
+                        }).toList(),
+                      );
+                    } else if (dynamicMonthly.isNotEmpty) {
+                      return Column(
+                        children: dynamicMonthly.entries.map((e) {
+                          final label = e.value.count == 1 ? '1 Booking' : '${e.value.count} Bookings';
+                          return _buildMonthlyRow(e.key, label, _formatINR(e.value.revenue), false);
+                        }).toList(),
+                      );
+                    }
+                    return Text('No monthly data recorded yet.', style: TextStyle(fontSize: 12, color: context.themeTextSecondary));
+                  },
+                ),
                 const Divider(height: 18),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text('Total Verified Revenue', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
-                    Text(_formatINR(stats.totalRevenue), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF06D6A0))),
+                    Text(_formatINR(periodRevenue), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF06D6A0))),
                   ],
                 ),
               ],
@@ -1824,12 +1925,12 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           const SizedBox(height: 12),
 
           GridView.count(
-            crossAxisCount: 2,
+            crossAxisCount: _kpiCrossAxisCount,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             crossAxisSpacing: 8,
             mainAxisSpacing: 8,
-            childAspectRatio: 1.6,
+            childAspectRatio: _kpiChildAspectRatio,
             children: [
               _buildKpiCard('TOTAL FLEET REVENUE', _formatINRShort(stats.totalRevenue), const Color(0xFF06D6A0)),
               _buildKpiCard('TOTAL BOOKINGS', '${stats.totalBookings}', context.themeTextPrimary),
@@ -1839,15 +1940,21 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           ),
           const SizedBox(height: 14),
 
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildFilterPill('All (${activeFleet.length})', _mgrFleetFilter == 'all', () => setState(() => _mgrFleetFilter = 'all')),
-                _buildFilterPill('On Trip (${stats.activeTrips})', _mgrFleetFilter == 'on_trip', () => setState(() => _mgrFleetFilter = 'on_trip')),
-                _buildFilterPill('Yard (${stats.availableInYard})', _mgrFleetFilter == 'yard', () => setState(() => _mgrFleetFilter = 'yard')),
-              ],
-            ),
+          Builder(
+            builder: (context) {
+              final onTripCount = activeFleet.where((v) => !v.isAvailable).length;
+              final inYardCount = activeFleet.where((v) => v.isAvailable).length;
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildFilterPill('All (${activeFleet.length})', _mgrFleetFilter == 'all', () => setState(() => _mgrFleetFilter = 'all')),
+                    _buildFilterPill('On Trip ($onTripCount)', _mgrFleetFilter == 'on_trip', () => setState(() => _mgrFleetFilter = 'on_trip')),
+                    _buildFilterPill('Yard ($inYardCount)', _mgrFleetFilter == 'yard', () => setState(() => _mgrFleetFilter = 'yard')),
+                  ],
+                ),
+              );
+            },
           ),
           const SizedBox(height: 14),
 
@@ -1876,12 +1983,12 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
 
         if (_mgrSubTab == 2) ...[
           GridView.count(
-            crossAxisCount: 2,
+            crossAxisCount: _kpiCrossAxisCount,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             crossAxisSpacing: 8,
             mainAxisSpacing: 8,
-            childAspectRatio: 1.6,
+            childAspectRatio: _kpiChildAspectRatio,
             children: [
               _buildKpiCard('TOTAL BOOKINGS', '$periodTotalBookings', context.themeTextPrimary),
               _buildKpiCard('ACTIVE / ONGOING', '$periodActiveTrips', const Color(0xFF06D6A0)),
@@ -1919,12 +2026,12 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
 
         if (_mgrSubTab == 3) ...[
           GridView.count(
-            crossAxisCount: 2,
+            crossAxisCount: _kpiCrossAxisCount,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             crossAxisSpacing: 8,
             mainAxisSpacing: 8,
-            childAspectRatio: 1.6,
+            childAspectRatio: _kpiChildAspectRatio,
             children: [
               _buildKpiCard('ACTIVE FLEETS', '${activeFleet.length}', const Color(0xFF06D6A0)),
               _buildKpiCard('PARKED IN YARD', '${stats.availableInYard}', context.themeTextPrimary),
@@ -2087,34 +2194,96 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     AsyncValue<List<BookingModel>> bookingsAsync,
     Color accentColor,
   ) {
-    final allBookings = bookingsAsync.value ?? [];
+    final allRawBookings = bookingsAsync.value ?? [];
+    final allBookings = _selectedHub == 'all'
+        ? allRawBookings
+        : allRawBookings.where((b) {
+            final loc = b.location.toLowerCase();
+            if (_selectedHub == 'ghansoli') return loc.contains('ghansoli') || loc.contains('gavson');
+            if (_selectedHub == 'kandivali') return loc.contains('kandivali');
+            return true;
+          }).toList();
+
     final now = DateTime.now();
     final pickupsToday = allBookings.where((b) => b.pickupDate.year == now.year && b.pickupDate.month == now.month && b.pickupDate.day == now.day).length;
     final returnsToday = allBookings.where((b) => b.dropDate.year == now.year && b.dropDate.month == now.month && b.dropDate.day == now.day).length;
+    final execActiveTrips = _selectedHub == 'all' && stats.activeTrips > 0
+        ? stats.activeTrips
+        : allBookings.where((b) => b.status == 'active').length;
+    final execPendingPay = _selectedHub == 'all' && stats.pendingPayments > 0
+        ? stats.pendingPayments
+        : allBookings.where((b) => b.paymentStatus == 'pending_payment' || b.paymentStatus == 'pending_verification').length;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
-        Text('Executive Operations Hub', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: context.themeTextPrimary)),
-        const SizedBox(height: 4),
-        Text(
-          'Start trips, verify customer payments, approve bookings, review KYC identity documents, and inspect returns.',
-          style: TextStyle(fontSize: 12, color: context.themeTextSecondary, height: 1.3),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Executive Operations Hub', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: context.themeTextPrimary)),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Start trips, verify customer payments, approve bookings, review KYC identity documents, and inspect returns.',
+                    style: TextStyle(fontSize: 12, color: context.themeTextSecondary, height: 1.3),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        // Executive Hub Selector Dropdown
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+          decoration: BoxDecoration(
+            color: context.themeSurfaceElevated,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: context.themeBorder),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.location_on_outlined, size: 16, color: accentColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedHub,
+                    isExpanded: true,
+                    dropdownColor: context.themeSurfaceElevated,
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.themeTextPrimary),
+                    items: const [
+                      DropdownMenuItem(value: 'all', child: Text('All Operational Hubs')),
+                      DropdownMenuItem(value: 'ghansoli', child: Text('Ghansoli Hub (Gavson HQ)')),
+                      DropdownMenuItem(value: 'kandivali', child: Text('Kandivali Hub (Mumbai West)')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setState(() => _selectedHub = val);
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 14),
 
         GridView.count(
-          crossAxisCount: 3,
+          crossAxisCount: _kpiExecCrossAxisCount,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           crossAxisSpacing: 8,
           mainAxisSpacing: 8,
-          childAspectRatio: 1.35,
+          childAspectRatio: _kpiExecChildAspectRatio,
           children: [
-            _buildKpiCard('ACTIVE TRIPS', '${stats.activeTrips}', const Color(0xFF06D6A0)),
+            _buildKpiCard('ACTIVE TRIPS', '$execActiveTrips', const Color(0xFF06D6A0)),
             _buildKpiCard('PICKUPS TODAY', '$pickupsToday', Colors.white),
             _buildKpiCard('RETURNS TODAY', '$returnsToday', accentColor),
-            _buildKpiCard('PENDING PAY', '${stats.pendingPayments}', const Color(0xFFFF5C77)),
+            _buildKpiCard('PENDING PAY', '$execPendingPay', const Color(0xFFFF5C77)),
             _buildKpiCard('PENDING KYC', '${stats.pendingDocs}', const Color(0xFFFFB703)),
             _buildKpiCard('IN YARD', '${stats.availableInYard}', const Color(0xFF06D6A0)),
           ],
@@ -2403,15 +2572,29 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
 
     final isExpanded = _expandedBookingIds.contains(bId);
 
+    String cleanFastag(String? raw) {
+      if (raw == null || raw.trim().isEmpty) return '';
+      final d = double.tryParse(raw.trim());
+      if (d == null || d < 0) return '';
+      return raw.trim();
+    }
+
+    String cleanOdo(String? raw) {
+      if (raw == null || raw.trim().isEmpty) return '';
+      final d = double.tryParse(raw.trim());
+      if (d == null || d <= 0) return '';
+      return raw.trim();
+    }
+
     // Initialize controllers for odometer and fastag
-    final startOdoCtrl = _startOdoControllers.putIfAbsent(bId, () => TextEditingController(text: b.startOdometer ?? ''));
-    final endOdoCtrl = _endOdoControllers.putIfAbsent(bId, () => TextEditingController(text: b.endOdometer ?? ''));
-    final startFastagCtrl = _startFastagControllers.putIfAbsent(bId, () => TextEditingController(text: b.startFastag ?? ''));
-    final returnFastagCtrl = _returnFastagControllers.putIfAbsent(bId, () => TextEditingController(text: b.returnFastag ?? ''));
+    final startOdoCtrl = _startOdoControllers.putIfAbsent(bId, () => TextEditingController(text: cleanOdo(b.startOdometer)));
+    final endOdoCtrl = _endOdoControllers.putIfAbsent(bId, () => TextEditingController(text: cleanOdo(b.endOdometer)));
+    final startFastagCtrl = _startFastagControllers.putIfAbsent(bId, () => TextEditingController(text: cleanFastag(b.startFastag)));
+    final returnFastagCtrl = _returnFastagControllers.putIfAbsent(bId, () => TextEditingController(text: cleanFastag(b.returnFastag)));
 
     final startKm = double.tryParse(startOdoCtrl.text) ?? 0;
     final endKm = double.tryParse(endOdoCtrl.text) ?? 0;
-    final distanceDriven = (endKm > startKm) ? (endKm - startKm).toInt() : 0;
+    final distanceDriven = (endKm > startKm && startKm > 0) ? (endKm - startKm).toInt() : (endKm > 0 ? endKm.toInt() : 0);
 
     return GlassCard(
       margin: const EdgeInsets.only(bottom: 12),
@@ -2444,15 +2627,24 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           ),
           const SizedBox(height: 6),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Row(
-                children: [
-                  Icon(Icons.calendar_today_outlined, size: 13, color: context.themeTextMuted),
-                  const SizedBox(width: 4),
-                  Text(dateStr, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500, color: context.themeTextSecondary)),
-                ],
+              Expanded(
+                child: Row(
+                  children: [
+                    Icon(Icons.calendar_today_outlined, size: 13, color: context.themeTextMuted),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        dateStr,
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500, color: context.themeTextSecondary),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -2713,10 +2905,22 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   Widget _buildDetailMetaItem(String label, String value) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label.toUpperCase(), style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: context.themeTextMuted)),
+        Text(
+          label.toUpperCase(),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: context.themeTextMuted),
+        ),
         const SizedBox(height: 2),
-        Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.themeTextPrimary)),
+        Text(
+          value,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          softWrap: true,
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.themeTextPrimary),
+        ),
       ],
     );
   }
@@ -2726,8 +2930,25 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
       return const Center(child: CircularProgressIndicator(color: AppColors.primary));
     }
 
+    // Deduplicate vehicles by registration number or ID to eliminate duplicates
+    final seen = <String>{};
+    final uniqueVehicles = <VehicleModel>[];
+    for (final v in vehicles) {
+      final key = v.regNo.trim().isNotEmpty ? v.regNo.trim().toUpperCase() : '${v.brand}_${v.model}_${v.id}'.toUpperCase();
+      if (!seen.contains(key)) {
+        seen.add(key);
+        uniqueVehicles.add(v);
+      }
+    }
+
+    // Sort: Kandivali & Ghansoli units properly grouped and sorted by brand & model
+    uniqueVehicles.sort((a, b) {
+      if (a.brand != b.brand) return a.brand.compareTo(b.brand);
+      return a.model.compareTo(b.model);
+    });
+
     return Column(
-      children: vehicles.map((v) {
+      children: uniqueVehicles.map((v) {
         return GlassCard(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(12),
@@ -2739,24 +2960,34 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   width: 88,
                   height: 62,
                   color: context.isDarkMode ? const Color(0xFF1A2230) : const Color(0xFFEEF2F7),
-                  child: Image.asset(
-                    AppAssets.getCarImagePath(v.brand, v.model),
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      // Try fallback candidates
-                      final candidates = AppAssets.getCarImageCandidates(v.brand, v.model);
-                      if (candidates.length > 1) {
-                        return Image.asset(
-                          candidates[1],
-                          fit: BoxFit.cover,
-                          errorBuilder: (ctx, err, st) => Center(
+                  child: Builder(
+                    builder: (ctx) {
+                      final candidates = AppAssets.getCarImageCandidates(v.brand, v.model, v.imageUrl);
+                      Widget buildThumb(int idx) {
+                        if (idx >= candidates.length) {
+                          if (v.imageUrl != null && v.imageUrl!.isNotEmpty) {
+                            final netUrl = v.imageUrl!.startsWith('http')
+                                ? v.imageUrl!
+                                : '${AppConfig.mediaBaseUrl}/${v.imageUrl!}';
+                            return CachedNetworkImage(
+                              imageUrl: netUrl,
+                              fit: BoxFit.cover,
+                              errorWidget: (_, _, _) => Center(
+                                child: Icon(Icons.directions_car_filled_rounded, size: 32, color: context.themeTextMuted),
+                              ),
+                            );
+                          }
+                          return Center(
                             child: Icon(Icons.directions_car_filled_rounded, size: 32, color: context.themeTextMuted),
-                          ),
+                          );
+                        }
+                        return Image.asset(
+                          candidates[idx],
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => buildThumb(idx + 1),
                         );
                       }
-                      return Center(
-                        child: Icon(Icons.directions_car_filled_rounded, size: 32, color: context.themeTextMuted),
-                      );
+                      return buildThumb(0);
                     },
                   ),
                 ),
@@ -4115,101 +4346,175 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setModalState) => Container(
-          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
-          padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 24),
-          decoration: BoxDecoration(
-            color: context.themeSurfaceElevated,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Verify Payment Receipt', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
-                      const SizedBox(height: 2),
-                      Text('Audit customer payment transfer details', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
-                    ],
-                  ),
-                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: ListView(
+        builder: (context, setModalState) => Center(
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.88,
+              maxWidth: 720,
+            ),
+            padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 24),
+            decoration: BoxDecoration(
+              color: context.themeSurfaceElevated,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    GlassCard(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(bId, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFFFF5C77))),
-                              StatusBadge(status: b.paymentStatus),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text('${b.userName} • ${b.userPhone ?? "No phone"}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
-                          Text('Vehicle: ${b.vehicleName}', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
-                          const SizedBox(height: 6),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('AMOUNT PAYABLE', style: TextStyle(fontSize: 9.5, color: context.themeTextMuted)),
-                                  Text(_formatINR(b.finalAmount > 0 ? b.finalAmount : b.totalAmount), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF06D6A0))),
-                                ],
-                              ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text('UTR / REFERENCE', style: TextStyle(fontSize: 9.5, color: context.themeTextMuted)),
-                                  Text(b.paymentRef != null && b.paymentRef!.isNotEmpty ? b.paymentRef! : 'UPI/2026/09/KZ992819', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Verify Payment Receipt', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                        const SizedBox(height: 2),
+                        Text('Audit customer payment transfer details', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                      ],
                     ),
-                    const SizedBox(height: 12),
-
-                    // Receipt Preview Box
-                    Container(
-                      height: 150,
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: context.themeBorder),
-                      ),
-                      child: Center(
+                    IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: ListView(
+                    children: [
+                      GlassCard(
+                        padding: const EdgeInsets.all(12),
                         child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.receipt_long_rounded, size: 40, color: Color(0xFFFF5C77)),
-                            const SizedBox(height: 8),
-                            Text(
-                              b.paymentScreenshotUrl != null && b.paymentScreenshotUrl!.isNotEmpty
-                                  ? 'Receipt Attached (${b.paymentScreenshotUrl!.split("/").last})'
-                                  : 'UPI / Bank Payment Receipt Attached',
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.themeTextPrimary),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(bId, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFFFF5C77))),
+                                StatusBadge(status: b.paymentStatus),
+                              ],
                             ),
-                            const SizedBox(height: 4),
-                            Text('Tap to view high-resolution proof', style: TextStyle(fontSize: 10, color: context.themeTextMuted)),
+                            const SizedBox(height: 6),
+                            Text('${b.userName} • ${b.userPhone ?? "No phone"}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
+                            Text('Vehicle: ${b.vehicleName}', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                            const SizedBox(height: 6),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('AMOUNT PAYABLE', style: TextStyle(fontSize: 9.5, color: context.themeTextMuted)),
+                                    Text(_formatINR(b.finalAmount > 0 ? b.finalAmount : b.totalAmount), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF06D6A0))),
+                                  ],
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text('UTR / REFERENCE', style: TextStyle(fontSize: 9.5, color: context.themeTextMuted)),
+                                    Text(b.paymentRef != null && b.paymentRef!.isNotEmpty ? b.paymentRef! : 'UPI/2026/09/KZ992819', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ],
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 14),
+                      const SizedBox(height: 12),
+
+                      // Receipt Preview Box
+                      Builder(
+                        builder: (context) {
+                          final hasUrl = b.paymentScreenshotUrl != null && b.paymentScreenshotUrl!.trim().isNotEmpty;
+                          final fullUrl = hasUrl ? _buildFullMediaUrl(b.paymentScreenshotUrl!) : '';
+                          final isPdf = fullUrl.toLowerCase().endsWith('.pdf') || fullUrl.toLowerCase().contains('.pdf?') || fullUrl.toLowerCase().contains('ext=.pdf');
+
+                          return GestureDetector(
+                            onTap: () async {
+                              if (hasUrl) {
+                                if (isPdf) {
+                                  final uri = Uri.tryParse(fullUrl);
+                                  if (uri != null && await canLaunchUrl(uri)) {
+                                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                    return;
+                                  }
+                                }
+                                _showFullScreenImage(fullUrl, 'Payment Receipt - $bId');
+                              }
+                            },
+                            child: Container(
+                              height: 170,
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.4),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: context.themeBorder),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: hasUrl && !isPdf
+                                    ? Stack(
+                                        fit: StackFit.expand,
+                                        children: [
+                                          CachedNetworkImage(
+                                            imageUrl: fullUrl,
+                                            httpHeaders: _authHeaders,
+                                            fit: BoxFit.cover,
+                                            placeholder: (_, _) => const Center(
+                                              child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2),
+                                            ),
+                                            errorWidget: (_, _, _) => Center(
+                                              child: Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  const Icon(Icons.receipt_long_rounded, size: 36, color: Color(0xFFFF5C77)),
+                                                  const SizedBox(height: 6),
+                                                  Text('Receipt Attached', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
+                                                  const SizedBox(height: 2),
+                                                  Text('Tap to open high-resolution proof', style: TextStyle(fontSize: 10, color: context.themeTextMuted)),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          Positioned(
+                                            bottom: 8,
+                                            right: 8,
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: Colors.black.withValues(alpha: 0.7),
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              child: const Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(Icons.zoom_in_rounded, size: 14, color: Colors.white),
+                                                  SizedBox(width: 4),
+                                                  Text('Tap to inspect', style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w600)),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    : Center(
+                                        child: Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(isPdf ? Icons.picture_as_pdf_rounded : Icons.receipt_long_rounded, size: 40, color: const Color(0xFFFF5C77)),
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              hasUrl
+                                                  ? (isPdf ? 'PDF Receipt Attached' : 'Receipt Attached')
+                                                  : 'UPI / Bank Payment Receipt Attached',
+                                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.themeTextPrimary),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(hasUrl ? 'Tap to view high-resolution proof' : 'No document attached', style: TextStyle(fontSize: 10, color: context.themeTextMuted)),
+                                          ],
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 14),
 
                     // Auditor Identity Dropdown (Screenshot: Pankaj, Jafar, Sejal)
                     Text('Select Staff Auditor Identity *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
@@ -4283,8 +4588,9 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildRealisticKycCardPreview(int docType, String name, String phone) {
     final cleanName = name.trim().isEmpty ? 'PRAFULL PATIL' : name.toUpperCase();
@@ -4542,22 +4848,67 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   Widget _buildDocumentImages(int docType, Map<String, dynamic> kycData) {
     String? frontUrl;
     String? backUrl;
+    bool isFrontPdf = false;
+    bool isBackPdf = false;
     String frontLabel;
     String backLabel;
 
+    String? resolveDocUrl(dynamic directUrl, dynamic mediaId, dynamic pathKey) {
+      if (directUrl != null && directUrl.toString().trim().isNotEmpty) {
+        return directUrl.toString().trim();
+      }
+      if (pathKey != null && pathKey.toString().trim().isNotEmpty) {
+        return pathKey.toString().trim();
+      }
+      if (mediaId != null && mediaId.toString().trim().isNotEmpty) {
+        return '/media/file.php?id=${mediaId.toString().trim()}';
+      }
+      return null;
+    }
+
     if (docType == 0) {
-      frontUrl = (kycData['licenseFrontUrl'] ?? kycData['license_front'])?.toString();
-      backUrl = (kycData['licenseBackUrl'] ?? kycData['license_back'])?.toString();
+      frontUrl = resolveDocUrl(
+        kycData['licenseFrontURL'] ?? kycData['licenseFrontUrl'] ?? kycData['license_front'] ?? kycData['license_front_url'],
+        kycData['licenseFrontMediaId'] ?? kycData['license_front_media_id'] ?? kycData['license_media_id'],
+        kycData['license_path'] ?? kycData['licenseFile'],
+      );
+      backUrl = resolveDocUrl(
+        kycData['licenseBackURL'] ?? kycData['licenseBackUrl'] ?? kycData['license_back'] ?? kycData['license_back_url'],
+        kycData['licenseBackMediaId'] ?? kycData['license_back_media_id'],
+        kycData['license_back_path'],
+      );
+      isFrontPdf = kycData['licenseFrontIsPdf'] == true;
+      isBackPdf = kycData['licenseBackIsPdf'] == true;
       frontLabel = 'License Front';
       backLabel = 'License Back';
     } else if (docType == 1) {
-      frontUrl = (kycData['aadharFrontUrl'] ?? kycData['aadhar_front'])?.toString();
-      backUrl = (kycData['aadharBackUrl'] ?? kycData['aadhar_back'])?.toString();
+      frontUrl = resolveDocUrl(
+        kycData['aadharFrontURL'] ?? kycData['aadharFrontUrl'] ?? kycData['aadhar_front'] ?? kycData['aadhar_front_url'],
+        kycData['aadharFrontMediaId'] ?? kycData['aadhar_front_media_id'] ?? kycData['aadhar_media_id'],
+        kycData['aadhar_path'] ?? kycData['aadharFile'],
+      );
+      backUrl = resolveDocUrl(
+        kycData['aadharBackURL'] ?? kycData['aadharBackUrl'] ?? kycData['aadhar_back'] ?? kycData['aadhar_back_url'],
+        kycData['aadharBackMediaId'] ?? kycData['aadhar_back_media_id'],
+        kycData['aadhar_back_path'],
+      );
+      isFrontPdf = kycData['aadharFrontIsPdf'] == true;
+      isBackPdf = kycData['aadharBackIsPdf'] == true;
       frontLabel = 'Aadhaar Front';
       backLabel = 'Aadhaar Back';
     } else {
-      frontUrl = (kycData['panFrontUrl'] ?? kycData['pan_front'])?.toString();
-      backUrl = (kycData['panBackUrl'] ?? kycData['pan_back'])?.toString();
+      frontUrl = resolveDocUrl(
+        kycData['panFrontURL'] ?? kycData['panFrontUrl'] ?? kycData['pan_front'] ?? kycData['pan_front_url'],
+        kycData['panFrontMediaId'] ?? kycData['pan_front_media_id'] ?? kycData['pan_media_id'],
+        kycData['pan_path'] ?? kycData['panFile'],
+      );
+      backUrl = resolveDocUrl(
+        kycData['panBackURL'] ?? kycData['panBackUrl'] ?? kycData['pan_back'] ?? kycData['pan_back_url'],
+        kycData['panBackMediaId'] ?? kycData['pan_back_media_id'],
+        kycData['pan_back_path'],
+      );
+      isFrontPdf = kycData['panFrontIsPdf'] == true;
+      isBackPdf = kycData['panBackIsPdf'] == true;
       frontLabel = 'PAN Front';
       backLabel = 'PAN Back';
     }
@@ -4589,13 +4940,13 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           children: [
             if (frontUrl != null)
               Expanded(
-                child: _buildDocImageCard(frontUrl, frontLabel),
+                child: _buildDocImageCard(frontUrl, frontLabel, isExplicitPdf: isFrontPdf),
               ),
             if (frontUrl != null && backUrl != null)
               const SizedBox(width: 10),
             if (backUrl != null)
               Expanded(
-                child: _buildDocImageCard(backUrl, backLabel),
+                child: _buildDocImageCard(backUrl, backLabel, isExplicitPdf: isBackPdf),
               ),
           ],
         ),
@@ -4603,59 +4954,107 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     );
   }
 
-  Widget _buildDocImageCard(String imageUrl, String label) {
+  String _buildFullMediaUrl(String rawUrl) {
+    final clean = rawUrl.trim();
+    if (clean.startsWith('http://') || clean.startsWith('https://')) return clean;
+    final path = clean.startsWith('/') ? clean : '/$clean';
+    if (path.startsWith('/media/')) {
+      return '${AppConfig.mediaBaseUrl}/api$path';
+    }
+    return '${AppConfig.mediaBaseUrl}$path';
+  }
+
+  Widget _buildDocImageCard(String imageUrl, String label, {bool isExplicitPdf = false}) {
+    final fullUrl = _buildFullMediaUrl(imageUrl);
+    final isPdf = isExplicitPdf || fullUrl.toLowerCase().endsWith('.pdf') || fullUrl.toLowerCase().contains('.pdf?') || fullUrl.toLowerCase().contains('ext=.pdf');
+
     return GestureDetector(
-      onTap: () => _showFullScreenImage(imageUrl, label),
+      onTap: () async {
+        if (isPdf) {
+          final uri = Uri.tryParse(fullUrl);
+          if (uri != null && await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          } else {
+            _showFullScreenImage(fullUrl, label);
+          }
+        } else {
+          _showFullScreenImage(fullUrl, label);
+        }
+      },
       child: GlassCard(
         padding: const EdgeInsets.all(6),
         child: Column(
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: Image.network(
-                imageUrl,
-                height: 120,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                loadingBuilder: (context, child, progress) {
-                  if (progress == null) return child;
-                  return SizedBox(
-                    height: 120,
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        value: progress.expectedTotalBytes != null
-                            ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
-                            : null,
-                        color: AppColors.primary,
-                        strokeWidth: 2,
+              child: isPdf
+                  ? Container(
+                      height: 120,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.picture_as_pdf_rounded, size: 40, color: Colors.redAccent),
+                          const SizedBox(height: 6),
+                          Text(
+                            'PDF Document',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.themeTextPrimary),
+                          ),
+                          Text('Tap to open / download', style: TextStyle(fontSize: 10, color: context.themeTextMuted)),
+                        ],
+                      ),
+                    )
+                  : CachedNetworkImage(
+                      imageUrl: fullUrl,
+                      httpHeaders: _authHeaders,
+                      height: 120,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => SizedBox(
+                        height: 120,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.primary,
+                            strokeWidth: 2,
+                          ),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => Image.network(
+                        fullUrl,
+                        headers: _authHeaders,
+                        height: 120,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          height: 120,
+                          decoration: BoxDecoration(
+                            color: context.themeSurfaceElevated,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.broken_image_outlined, size: 28, color: context.themeTextMuted),
+                                const SizedBox(height: 4),
+                                Text('Document Image', style: TextStyle(fontSize: 10, color: context.themeTextMuted)),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                  );
-                },
-                errorBuilder: (context, error, stackTrace) => Container(
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: context.themeSurfaceElevated,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.broken_image_outlined, size: 28, color: context.themeTextMuted),
-                        const SizedBox(height: 4),
-                        Text('Failed to load', style: TextStyle(fontSize: 10, color: context.themeTextMuted)),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
             ),
             const SizedBox(height: 6),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.zoom_in_rounded, size: 14, color: context.themeTextSecondary),
+                Icon(isPdf ? Icons.open_in_new_rounded : Icons.zoom_in_rounded, size: 14, color: context.themeTextSecondary),
                 const SizedBox(width: 4),
                 Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.themeTextSecondary)),
               ],
@@ -4667,75 +5066,112 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   }
 
   void _showFullScreenImage(String imageUrl, String title) {
+    final directUrl = imageUrl;
+    final altUrl = imageUrl.contains('/api/media/')
+        ? imageUrl.replaceAll('/api/media/', '/media/')
+        : (imageUrl.contains('/media/')
+            ? imageUrl.replaceAll('/media/', '/api/media/')
+            : imageUrl);
+
     showDialog(
       context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.black,
-        insetPadding: const EdgeInsets.all(8),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: InteractiveViewer(
-                minScale: 0.5,
-                maxScale: 5.0,
-                child: Image.network(
-                  imageUrl,
-                  fit: BoxFit.contain,
-                  loadingBuilder: (context, child, progress) {
-                    if (progress == null) return child;
-                    return const Center(child: CircularProgressIndicator(color: AppColors.primary));
-                  },
-                  errorBuilder: (context, error, stackTrace) => Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.broken_image_outlined, size: 48, color: Colors.white54),
-                        const SizedBox(height: 8),
-                        Text('Image unavailable', style: const TextStyle(color: Colors.white70)),
-                      ],
+      builder: (ctx) {
+        String currentUrl = directUrl;
+        bool hasTriedAlt = false;
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) => Dialog(
+            backgroundColor: Colors.black,
+            insetPadding: const EdgeInsets.all(8),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: InteractiveViewer(
+                    minScale: 0.5,
+                    maxScale: 5.0,
+                    child: CachedNetworkImage(
+                      imageUrl: currentUrl,
+                      httpHeaders: _authHeaders,
+                      fit: BoxFit.contain,
+                      placeholder: (context, url) => const Center(
+                        child: CircularProgressIndicator(color: AppColors.primary),
+                      ),
+                      errorWidget: (context, url, error) {
+                        if (!hasTriedAlt && altUrl != directUrl) {
+                          hasTriedAlt = true;
+                          Future.microtask(() => setDialogState(() => currentUrl = altUrl));
+                        }
+                        return Image.network(
+                          currentUrl,
+                          headers: _authHeaders,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) => Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.broken_image_outlined, size: 48, color: Colors.white54),
+                                const SizedBox(height: 8),
+                                const Text('Image unavailable in app preview', style: TextStyle(color: Colors.white70)),
+                                const SizedBox(height: 12),
+                                ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                                  icon: const Icon(Icons.open_in_browser_rounded, size: 16),
+                                  label: const Text('Open in Browser'),
+                                  onPressed: () async {
+                                    final uri = Uri.tryParse(currentUrl);
+                                    if (uri != null && await canLaunchUrl(uri)) {
+                                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),
-              ),
-            ),
-            Positioned(
-              top: 8,
-              left: 12,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
-              ),
-            ),
-            Positioned(
-              top: 8,
-              right: 8,
-              child: IconButton(
-                icon: const Icon(Icons.close_rounded, color: Colors.white, size: 28),
-                onPressed: () => Navigator.pop(ctx),
-              ),
-            ),
-            Positioned(
-              bottom: 12,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(20),
+                Positioned(
+                  top: 8,
+                  left: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
                   ),
-                  child: const Text('Pinch to zoom • Drag to pan', style: TextStyle(color: Colors.white70, fontSize: 11)),
                 ),
-              ),
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: IconButton(
+                    icon: const Icon(Icons.close_rounded, color: Colors.white, size: 28),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ),
+                Positioned(
+                  bottom: 12,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text('Pinch to zoom • Drag to pan', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -4748,41 +5184,52 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setModalState) => Container(
-          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-          decoration: BoxDecoration(
-            color: context.themeSurfaceElevated,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+        builder: (context, setModalState) => Center(
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.88,
+              maxWidth: 720,
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+            decoration: BoxDecoration(
+              color: context.themeSurfaceElevated,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Customer KYC Verification', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                          const SizedBox(height: 2),
+                          Text('$name • $phone', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                        ],
+                      ),
+                    ),
+                    IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Segmented Document Tabs
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
                     children: [
-                      Text('Customer KYC Verification', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
-                      const SizedBox(height: 2),
-                      Text('$name • $phone', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                      _buildFilterPill('Driving License', currentDocTab == 0, () => setModalState(() => currentDocTab = 0)),
+                      const SizedBox(width: 8),
+                      _buildFilterPill('Aadhaar Card', currentDocTab == 1, () => setModalState(() => currentDocTab = 1)),
+                      const SizedBox(width: 8),
+                      _buildFilterPill('PAN Card', currentDocTab == 2, () => setModalState(() => currentDocTab = 2)),
                     ],
                   ),
-                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Segmented Document Tabs
-              Row(
-                children: [
-                  _buildFilterPill('Driving License', currentDocTab == 0, () => setModalState(() => currentDocTab = 0)),
-                  _buildFilterPill('Aadhaar Card', currentDocTab == 1, () => setModalState(() => currentDocTab = 1)),
-                  _buildFilterPill('PAN Card', currentDocTab == 2, () => setModalState(() => currentDocTab = 2)),
-                ],
-              ),
-              const SizedBox(height: 14),
+                ),
+                const SizedBox(height: 14),
 
               Expanded(
                 child: ListView(
@@ -4848,8 +5295,9 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   void _showInspectBookingModal(BookingModel booking) {
     final messenger = ScaffoldMessenger.of(context);

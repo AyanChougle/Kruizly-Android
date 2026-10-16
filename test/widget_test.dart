@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kruizly/data/models/admin_stats_model.dart';
 import 'package:kruizly/data/models/coupon_model.dart';
+import 'package:kruizly/data/models/partner_car_model.dart';
 import 'package:kruizly/data/models/user_model.dart';
 import 'package:kruizly/data/models/vehicle_model.dart';
+import 'package:kruizly/core/constants/app_assets.dart';
 import 'package:kruizly/core/theme/app_theme.dart';
 import 'package:kruizly/presentation/screens/booking/components/payment_plan_selector.dart';
 import 'package:kruizly/presentation/state/booking_provider.dart';
@@ -159,11 +161,11 @@ void main() {
       final bk = draft.breakdown;
       expect(bk.durationHours, 24);
       expect(bk.durationDays, 1);
-      expect(bk.rentalTotal, 6000.0); // 24 * 250
+      expect(bk.rentalTotal, 5000.0); // 1 full day * 5000
       expect(bk.securityDeposit, 3000.0);
-      expect(bk.finalAmount, 9000.0);
+      expect(bk.finalAmount, 8000.0);
       expect(bk.advanceAmount, 500.0);
-      expect(bk.remainingBalance, 8500.0);
+      expect(bk.remainingBalance, 7500.0);
     });
 
     test('Calculates driver charges properly over multi-day booking', () {
@@ -182,7 +184,7 @@ void main() {
       expect(bk.durationHours, 48);
       expect(bk.durationDays, 2);
       expect(bk.driverTotal, 3000.0); // 2 days * 1500
-      expect(bk.rentalTotal, 12000.0); // 48 * 250
+      expect(bk.rentalTotal, 10000.0); // 2 days * 5000
       expect(bk.advanceAmount, bk.finalAmount); // Full payment
       expect(bk.remainingBalance, 0.0);
     });
@@ -214,10 +216,10 @@ void main() {
 
       final bk = draft.breakdown;
       expect(bk.durationHours, 48);
-      expect(bk.rentalTotal, 12000.0); // 48 * 250
-      expect(bk.couponDiscount, 500.0); // 10% of 12000 = 1200, capped at 500
-      expect(bk.finalAmount, 12000.0 + 3000.0 - 500.0); // 14500
-      expect(bk.advanceAmount, 14500.0);
+      expect(bk.rentalTotal, 10000.0); // 2 days * 5000
+      expect(bk.couponDiscount, 500.0); // 10% of 10000 = 1000, capped at 500
+      expect(bk.finalAmount, 10000.0 + 3000.0 - 500.0); // 12500
+      expect(bk.advanceAmount, 12500.0);
       expect(bk.remainingBalance, 0.0);
     });
   });
@@ -520,5 +522,78 @@ void main() {
         expect(find.text('Kruizly STATIC CONTENT'), findsOneWidget);
       },
     );
+
+    test('4. Sunroof removal and model name normalization', () {
+      final jsonWithSunroof = {
+        'id': 114,
+        'brand': 'Mahindra',
+        'model': 'Thar Roxx Sunroof',
+        'reg_no': 'MH02TR1014',
+        'hub': 'Kandivali Hub, Mumbai',
+      };
+      final vehicle = VehicleModel.fromJson(jsonWithSunroof);
+      expect(vehicle.model, 'Thar Roxx');
+      expect(vehicle.fullName, 'Mahindra Thar Roxx');
+      expect(vehicle.location, 'Kandivali Hub, Mumbai');
+    });
+
+    test('5. AppAssets candidates correctly resolve Thar Roxx and BMW', () {
+      final tharCandidates = AppAssets.getCarImageCandidates('Mahindra', 'Thar Roxx');
+      expect(tharCandidates.first, 'assets/fleet/Mahindra Thar Roxx.png');
+
+      final bmwCandidates = AppAssets.getCarImageCandidates('BMW', '520D');
+      expect(bmwCandidates.first, 'assets/fleet/BMW 520D.png');
+    });
+
+    test('6. AppAssets.getFleetImage authoritative resolver', () {
+      expect(AppAssets.getFleetImage('Mahindra Thar Roxx'), 'assets/fleet/Mahindra Thar Roxx.png');
+      expect(AppAssets.getFleetImage('Thar Roxx Sunroof'), 'assets/fleet/Mahindra Thar Roxx.png');
+      expect(AppAssets.getFleetImage('BMW 520D'), 'assets/fleet/BMW 520D.png');
+      expect(AppAssets.getFleetImage('BMW M5 Modified'), 'assets/fleet/BMW 520D.png');
+    });
+
+    test('7. PartnerCarModel deserialization & payout model checks', () {
+      final fixedJson = {
+        'carId': 'CRP-009',
+        'brand': 'Mahindra',
+        'model': 'Thar Roxx',
+        'year': 2025,
+        'regNo': 'MH02TR9999',
+        'transmission': 'Automatic',
+        'fuel': 'Diesel',
+        'city': 'Navi Mumbai',
+        'expectedPrice': 3500.0,
+        'status': 'approved',
+        'payoutModel': 'fixed_monthly',
+        'fixedMonthlyAmount': 45000.0,
+      };
+
+      final fixedCar = PartnerCarModel.fromJson(fixedJson);
+      expect(fixedCar.fullName, 'Mahindra Thar Roxx');
+      expect(fixedCar.isFixedMonthly, true);
+      expect(fixedCar.fixedMonthlyAmount, 45000.0);
+      expect(fixedCar.payoutModelLabel, 'Fixed Monthly Retainer');
+
+      final revJson = {
+        'carId': 'CRP-010',
+        'brand': 'BMW',
+        'model': '520D',
+        'year': 2024,
+        'regNo': 'MH04BM5200',
+        'transmission': 'Automatic',
+        'fuel': 'Diesel',
+        'city': 'Mumbai',
+        'expectedPrice': 8000.0,
+        'status': 'approved',
+        'payoutModel': 'revenue_share',
+        'fixedMonthlyAmount': 0.0,
+      };
+
+      final revCar = PartnerCarModel.fromJson(revJson);
+      expect(revCar.fullName, 'BMW 520D');
+      expect(revCar.isFixedMonthly, false);
+      expect(revCar.payoutModelLabel, '60% Revenue Share');
+    });
   });
 }
+

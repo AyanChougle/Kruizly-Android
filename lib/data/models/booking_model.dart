@@ -109,7 +109,10 @@ class BookingModel {
       userEmail: (json['''userEmail'''] ?? json['''user_email'''] ?? '''''').toString(),
       userPhone: json['''userPhone''']?.toString() ?? json['''user_phone''']?.toString(),
       vehicleReg: (json['''vehicleReg'''] ?? json['''vehicle_reg'''] ?? '''''').toString(),
-      vehicleName: (json['''vehicleName'''] ?? json['''vehicle_name'''] ?? '''Vehicle''').toString(),
+      vehicleName: (json['''vehicleName'''] ?? json['''vehicle_name'''] ?? '''Vehicle''')
+          .toString()
+          .replaceAll(RegExp(r'\s*\(?\b[Ss]unroof\b\)?', caseSensitive: false), '')
+          .trim(),
       vehicleCategory: (json['''vehicleCategory'''] ?? json['''vehicle_category'''] ?? '''Sedan''').toString(),
       pickupDate: parseDate(json['''pickupDate'''] ?? json['''pickup_date''']),
       dropDate: parseDate(json['''dropDate'''] ?? json['''drop_date''']),
@@ -128,9 +131,26 @@ class BookingModel {
       paymentPlan: (json['''paymentPlan'''] ?? json['''payment_plan'''] ?? '''advance''').toString(),
       paymentStatus: (json['''paymentStatus'''] ?? json['''payment_status'''] ?? '''pending_payment''').toString(),
       status: (json['''status'''] ?? json['''booking_status'''] ?? '''pending_payment''').toString(),
+      paymentScreenshotUrl: () {
+        final raw = json['paymentScreenshotUrl'] ??
+            json['payment_screenshot_url'] ??
+            json['screenshotUrl'] ??
+            json['screenshot_url'] ??
+            json['screenshotMediaId'] ??
+            json['screenshot_media_id'] ??
+            json['paymentScreenshot'] ??
+            json['payment_screenshot'] ??
+            json['receiptUrl'] ??
+            json['receipt_url'];
+        if (raw == null || raw.toString().trim().isEmpty) return null;
+        final s = raw.toString().trim();
+        if (s.startsWith('http://') || s.startsWith('https://')) return s;
+        if (s.startsWith('/')) return s;
+        if (RegExp(r'^\d+$').hasMatch(s)) return '/api/media/file.php?id=$s';
+        return s;
+      }(),
       paymentRef: json['''paymentRef''']?.toString() ?? json['''payment_ref''']?.toString(),
-      paymentScreenshotUrl: json['''paymentScreenshotUrl''']?.toString() ?? json['''payment_screenshot_url''']?.toString(),
-      location: (json['''location'''] ?? '''Gavson Business Park, Ghansoli''').toString(),
+      location: (json['''hub'''] ?? json['''hubName'''] ?? json['''hub_name'''] ?? json['''location'''] ?? '''Gavson Business Park, Ghansoli''').toString(),
       startOdometer: json['''startOdometer''']?.toString() ?? json['''start_odometer''']?.toString(),
       endOdometer: json['''endOdometer''']?.toString() ?? json['''end_odometer''']?.toString(),
       startFastag: json['''startFastag''']?.toString() ?? json['''start_fastag''']?.toString(),

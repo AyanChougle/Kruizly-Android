@@ -58,6 +58,7 @@ class VehicleModel {
   String get fullName => '$brand $model';
   String get title => fullName;
   String get registrationNumber => regNo;
+  double get driverPriceDay => driverPrice;
   double get driverPriceHour => driverPrice > 0 ? driverPrice / 24.0 : 83.33;
 
   String get categoryDisplay {
@@ -89,12 +90,17 @@ class VehicleModel {
         ? (json['priceHour'] as num).toDouble()
         : double.tryParse((json['price_hour'] ?? json['priceHour'] ?? (priceDay / 24)).toString()) ?? (priceDay / 24);
 
+    final rawModel = (json['model'] ?? '').toString();
+    final cleanModel = rawModel
+        .replaceAll(RegExp(r'\s*\(?\b[Ss]unroof\b\)?', caseSensitive: false), '')
+        .trim();
+
     return VehicleModel(
       id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
       carId: json['carId']?.toString() ?? json['car_id']?.toString(),
       regNo: (json['regNo'] ?? json['reg_no'] ?? '').toString(),
       brand: (json['brand'] ?? '').toString(),
-      model: (json['model'] ?? '').toString(),
+      model: cleanModel.isNotEmpty ? cleanModel : rawModel,
       year: json['year'] is int ? json['year'] : int.tryParse(json['year'].toString()) ?? 2026,
       category: (json['category'] ?? 'economy').toString(),
       transmission: (json['transmission'] ?? 'Manual').toString(),
@@ -113,7 +119,7 @@ class VehicleModel {
       extraKm: json['extraKm'] is num
           ? (json['extraKm'] as num).toDouble()
           : double.tryParse((json['extra_km'] ?? 15).toString()) ?? 15.0,
-      location: (json['hub'] ?? json['location'] ?? 'Gavson Business Park, Ghansoli').toString(),
+      location: (json['hub'] ?? json['hubName'] ?? json['hub_name'] ?? json['location'] ?? 'Gavson Business Park, Ghansoli').toString(),
       isAvailable: json['available'] == 1 ||
           json['available'] == true ||
           json['isAvailable'] == true ||

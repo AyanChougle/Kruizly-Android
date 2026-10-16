@@ -8,6 +8,7 @@ import '''../../data/repositories/coupon_repository.dart''';
 import '''../../data/repositories/fleet_repository.dart''';
 import '''../../data/repositories/invoice_repository.dart''';
 import '''../../data/repositories/kyc_repository.dart''';
+import '../../data/models/partner_car_model.dart';
 import '../../data/repositories/admin_repository.dart';
 import '../../data/repositories/partner_repository.dart';
 import '../../data/repositories/payment_repository.dart';
@@ -45,6 +46,16 @@ final kycRepositoryProvider = Provider<KycRepository>(
 final partnerRepositoryProvider = Provider<PartnerRepository>(
   (ref) => PartnerRepository(apiClient: ref.watch(apiClientProvider)),
 );
+
+final myPartnerCarsProvider =
+    FutureProvider.autoDispose<List<PartnerCarModel>>((ref) async {
+  try {
+    final repo = ref.watch(partnerRepositoryProvider);
+    return await repo.getMyPartnerCars();
+  } catch (_) {
+    return [];
+  }
+});
 
 final adminRepositoryProvider = Provider<AdminRepository>(
   (ref) => AdminRepository(apiClient: ref.watch(apiClientProvider)),

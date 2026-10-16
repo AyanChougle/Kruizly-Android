@@ -30,8 +30,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     context.go('/fleet');
   }
 
-  void _handleQuickSearch(DateTime pickup, DateTime drop) {
+  void _handleQuickSearch(DateTime pickup, DateTime drop, String hub) {
     ref.read(bookingProvider.notifier).setDates(pickup, drop);
+    ref.read(fleetProvider.notifier).setHub(hub);
     context.go('/fleet');
   }
 

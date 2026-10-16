@@ -22,6 +22,7 @@ class VehicleCard extends StatelessWidget {
     final candidates = AppAssets.getCarImageCandidates(
       vehicle.brand,
       vehicle.model,
+      vehicle.imageUrl,
     );
 
     Widget buildFromAsset(int candidateIndex) {

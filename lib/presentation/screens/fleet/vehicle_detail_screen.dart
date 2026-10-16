@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../state/app_providers.dart';
@@ -79,10 +80,32 @@ class VehicleDetailScreen extends ConsumerWidget {
             );
           }
 
-          final assetPath = AppAssets.getCarImagePath(
+          final candidates = AppAssets.getCarImageCandidates(
             vehicle.brand,
             vehicle.model,
+            vehicle.imageUrl,
           );
+
+          Widget buildDetailImage(int index) {
+            if (index >= candidates.length) {
+              if (vehicle.imageUrl != null && vehicle.imageUrl!.isNotEmpty) {
+                final netUrl = vehicle.imageUrl!.startsWith('http')
+                    ? vehicle.imageUrl!
+                    : '${AppConfig.mediaBaseUrl}/${vehicle.imageUrl!}';
+                return CachedNetworkImage(
+                  imageUrl: netUrl,
+                  fit: BoxFit.contain,
+                  errorWidget: (_, _, _) => Image.asset(AppAssets.carPlaceholder, fit: BoxFit.contain),
+                );
+              }
+              return Image.asset(AppAssets.carPlaceholder, fit: BoxFit.contain);
+            }
+            return Image.asset(
+              candidates[index],
+              fit: BoxFit.contain,
+              errorBuilder: (_, _, _) => buildDetailImage(index + 1),
+            );
+          }
 
           return Column(
             children: [
@@ -99,22 +122,7 @@ class VehicleDetailScreen extends ConsumerWidget {
                         width: double.infinity,
                         height: 220,
                         child: Center(
-                          child: Image.asset(
-                            assetPath,
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, _, _) {
-                              if (vehicle.imageUrl != null &&
-                                  vehicle.imageUrl!.isNotEmpty) {
-                                return CachedNetworkImage(
-                                  imageUrl: vehicle.imageUrl!,
-                                  fit: BoxFit.contain,
-                                  errorWidget: (_, _, _) =>
-                                      Image.asset(AppAssets.carPlaceholder),
-                                );
-                              }
-                              return Image.asset(AppAssets.carPlaceholder);
-                            },
-                          ),
+                          child: buildDetailImage(0),
                         ),
                       ),
                       const SizedBox(height: 16),

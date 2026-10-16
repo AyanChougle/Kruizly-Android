@@ -5,10 +5,12 @@ class FleetFilterBar extends StatefulWidget {
   final String searchQuery;
   final String selectedCategory;
   final String selectedTransmission;
+  final String selectedHub;
   final String sortBy;
   final Function(String query) onSearchChanged;
   final Function(String category) onCategoryChanged;
   final Function(String transmission) onTransmissionChanged;
+  final Function(String hub) onHubChanged;
   final Function(String sort) onSortChanged;
 
   const FleetFilterBar({
@@ -16,15 +18,22 @@ class FleetFilterBar extends StatefulWidget {
     required this.searchQuery,
     required this.selectedCategory,
     required this.selectedTransmission,
+    this.selectedHub = 'all',
     required this.sortBy,
     required this.onSearchChanged,
     required this.onCategoryChanged,
     required this.onTransmissionChanged,
+    required this.onHubChanged,
     required this.onSortChanged,
   });
 
   static const List<String> categories = ['all', 'suv', 'luxury', 'mpv', 'sedan', 'economy'];
   static const List<String> transmissions = ['all', 'Automatic', 'Manual'];
+  static const List<({String key, String label})> hubs = [
+    (key: 'all', label: 'All Hubs'),
+    (key: 'ghansoli', label: 'Ghansoli Hub (Navi Mumbai)'),
+    (key: 'kandivali', label: 'Kandivali Hub (Mumbai)'),
+  ];
   static const List<({String key, String label, IconData icon})> sortOptions = [
     (key: 'recommended', label: 'Recommended', icon: Icons.auto_awesome_rounded),
     (key: 'price_asc', label: 'Price: Low → High', icon: Icons.arrow_upward_rounded),
@@ -33,13 +42,22 @@ class FleetFilterBar extends StatefulWidget {
   ];
 
   @override
-  State<FleetFilterBar> createState() => _FleetFilterBarState();
+  State<FleetFilterBar> createState() => FleetFilterBarState();
 }
 
-class _FleetFilterBarState extends State<FleetFilterBar> with SingleTickerProviderStateMixin {
+class FleetFilterBarState extends State<FleetFilterBar> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _expandAnimation;
   bool _filtersExpanded = false;
+
+  bool get isExpanded => _filtersExpanded;
+
+  void closeFilters() {
+    if (_filtersExpanded) {
+      setState(() => _filtersExpanded = false);
+      _controller.reverse();
+    }
+  }
 
   @override
   void initState() {
@@ -150,6 +168,28 @@ class _FleetFilterBarState extends State<FleetFilterBar> with SingleTickerProvid
             ),
           ],
         ),
+        const SizedBox(height: 10),
+
+        // PERMANENTLY VISIBLE HUB SELECTOR PILLS
+        SizedBox(
+          height: 36,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: FleetFilterBar.hubs.map((hub) {
+              final isActive = widget.selectedHub.toLowerCase() == hub.key.toLowerCase();
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: _AnimatedPill(
+                  label: hub.label,
+                  icon: Icons.location_on_rounded,
+                  isSelected: isActive,
+                  isDark: isDark,
+                  onTap: () => widget.onHubChanged(hub.key),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
 
         // Animated expandable filters section
         SizeTransition(
@@ -178,7 +218,10 @@ class _FleetFilterBarState extends State<FleetFilterBar> with SingleTickerProvid
                             icon: opt.icon,
                             isSelected: isActive,
                             isDark: isDark,
-                            onTap: () => widget.onSortChanged(opt.key),
+                            onTap: () {
+                              widget.onSortChanged(opt.key);
+                              if (_filtersExpanded) _toggleFilters();
+                            },
                           ),
                         );
                       }).toList(),
@@ -201,7 +244,10 @@ class _FleetFilterBarState extends State<FleetFilterBar> with SingleTickerProvid
                             label: cat == 'all' ? 'All Types' : cat.toUpperCase(),
                             isSelected: isActive,
                             isDark: isDark,
-                            onTap: () => widget.onCategoryChanged(cat),
+                            onTap: () {
+                              widget.onCategoryChanged(cat);
+                              if (_filtersExpanded) _toggleFilters();
+                            },
                           ),
                         );
                       }).toList(),
@@ -224,7 +270,37 @@ class _FleetFilterBarState extends State<FleetFilterBar> with SingleTickerProvid
                             label: tr == 'all' ? 'All Trans.' : tr,
                             isSelected: isActive,
                             isDark: isDark,
-                            onTap: () => widget.onTransmissionChanged(tr),
+                            onTap: () {
+                              widget.onTransmissionChanged(tr);
+                              if (_filtersExpanded) _toggleFilters();
+                            },
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Hub Location Row
+                  _SectionLabel(label: 'OPERATIONAL HUB', isDark: isDark),
+                  const SizedBox(height: 6),
+                  SizedBox(
+                    height: 36,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: FleetFilterBar.hubs.map((hub) {
+                        final isActive = widget.selectedHub.toLowerCase() == hub.key.toLowerCase();
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _AnimatedPill(
+                            label: hub.label,
+                            icon: Icons.location_on_rounded,
+                            isSelected: isActive,
+                            isDark: isDark,
+                            onTap: () {
+                              widget.onHubChanged(hub.key);
+                              if (_filtersExpanded) _toggleFilters();
+                            },
                           ),
                         );
                       }).toList(),

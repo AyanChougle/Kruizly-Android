@@ -7,6 +7,7 @@ class FleetState {
   final List<VehicleModel> allVehicles;
   final String selectedCategory;
   final String selectedTransmission;
+  final String selectedHub; // 'all', 'ghansoli', 'kandivali'
   final String searchQuery;
   final String sortBy; // "price_asc", "price_desc", "name"
   final String? errorMessage;
@@ -16,6 +17,7 @@ class FleetState {
     this.allVehicles = const [],
     this.selectedCategory = 'all',
     this.selectedTransmission = 'all',
+    this.selectedHub = 'all',
     this.searchQuery = '',
     this.sortBy = 'recommended',
     this.errorMessage,
@@ -30,6 +32,15 @@ class FleetState {
       }
       if (selectedTransmission != 'all' && v.transmission.toLowerCase() != selectedTransmission.toLowerCase()) {
         return false;
+      }
+      if (selectedHub != 'all') {
+        final loc = v.location.toLowerCase();
+        if (selectedHub == 'ghansoli' && !loc.contains('ghansoli') && !loc.contains('gavson')) {
+          return false;
+        }
+        if (selectedHub == 'kandivali' && !loc.contains('kandivali')) {
+          return false;
+        }
       }
       if (searchQuery.isNotEmpty) {
         final query = searchQuery.toLowerCase();
@@ -68,6 +79,7 @@ class FleetState {
     List<VehicleModel>? allVehicles,
     String? selectedCategory,
     String? selectedTransmission,
+    String? selectedHub,
     String? searchQuery,
     String? sortBy,
     String? errorMessage,
@@ -77,6 +89,7 @@ class FleetState {
       allVehicles: allVehicles ?? this.allVehicles,
       selectedCategory: selectedCategory ?? this.selectedCategory,
       selectedTransmission: selectedTransmission ?? this.selectedTransmission,
+      selectedHub: selectedHub ?? this.selectedHub,
       searchQuery: searchQuery ?? this.searchQuery,
       sortBy: sortBy ?? this.sortBy,
       errorMessage: errorMessage,
@@ -107,6 +120,10 @@ class FleetNotifier extends StateNotifier<FleetState> {
 
   void setTransmission(String transmission) {
     state = state.copyWith(selectedTransmission: transmission);
+  }
+
+  void setHub(String hub) {
+    state = state.copyWith(selectedHub: hub);
   }
 
   void setSearchQuery(String query) {

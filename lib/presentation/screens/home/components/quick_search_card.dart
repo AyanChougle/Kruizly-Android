@@ -5,7 +5,7 @@ import '../../../widgets/custom_button.dart';
 import '../../../widgets/glass_card.dart';
 
 class QuickSearchCard extends StatefulWidget {
-  final Function(DateTime pickup, DateTime drop) onSearch;
+  final Function(DateTime pickup, DateTime drop, String hub) onSearch;
 
   const QuickSearchCard({super.key, required this.onSearch});
 
@@ -16,6 +16,7 @@ class QuickSearchCard extends StatefulWidget {
 class _QuickSearchCardState extends State<QuickSearchCard> {
   late DateTime _pickupDate;
   late DateTime _dropDate;
+  String _selectedHub = 'all'; // 'all', 'ghansoli', 'kandivali'
 
   @override
   void initState() {
@@ -26,10 +27,11 @@ class _QuickSearchCardState extends State<QuickSearchCard> {
 
   Future<void> _pickDateTime(bool isPickup) async {
     final initialDate = isPickup ? _pickupDate : _dropDate;
+    final firstDate = isPickup ? DateTime.now() : _pickupDate.add(const Duration(hours: 24));
     final pickedDate = await showDatePicker(
       context: context,
-      initialDate: initialDate,
-      firstDate: DateTime.now(),
+      initialDate: initialDate.isBefore(firstDate) ? firstDate : initialDate,
+      firstDate: firstDate,
       lastDate: DateTime.now().add(const Duration(days: 90)),
       builder: (context, child) {
         return Theme(
@@ -75,13 +77,16 @@ class _QuickSearchCardState extends State<QuickSearchCard> {
     setState(() {
       if (isPickup) {
         _pickupDate = combined;
-        if (_dropDate.isBefore(_pickupDate.add(const Duration(hours: 4)))) {
+        if (_dropDate.isBefore(_pickupDate.add(const Duration(hours: 24)))) {
           _dropDate = _pickupDate.add(const Duration(hours: 24));
         }
       } else {
-        if (combined.isAfter(_pickupDate)) {
-          _dropDate = combined;
+        DateTime effectiveDrop = combined;
+        final minDrop = _pickupDate.add(const Duration(hours: 24));
+        if (effectiveDrop.isBefore(minDrop)) {
+          effectiveDrop = minDrop;
         }
+        _dropDate = effectiveDrop;
       }
     });
   }
@@ -130,7 +135,7 @@ class _QuickSearchCardState extends State<QuickSearchCard> {
           ),
           const SizedBox(height: 14),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
             decoration: BoxDecoration(
               color: isDark ? AppColors.surfaceElevated : AppColors.lightSurfaceElevated,
               borderRadius: BorderRadius.circular(12),
@@ -141,15 +146,40 @@ class _QuickSearchCardState extends State<QuickSearchCard> {
                 const Icon(Icons.location_on_outlined, color: AppColors.primary, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    'Hub: Gavson Business Park, Ghansoli, Navi Mumbai',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isDark ? AppColors.textSecondary : AppColors.lightTextSecondary,
-                      fontWeight: FontWeight.w500,
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _selectedHub,
+                      isExpanded: true,
+                      dropdownColor: isDark ? AppColors.surfaceElevated : Colors.white,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isDark ? AppColors.textPrimary : AppColors.lightTextPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      icon: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: isDark ? AppColors.textSecondary : AppColors.lightTextSecondary,
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'all',
+                          child: Text('All Mumbai & Navi Mumbai Hubs'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'ghansoli',
+                          child: Text('Ghansoli Hub (Gavson Business Park)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'kandivali',
+                          child: Text('Kandivali Hub (Mumbai West)'),
+                        ),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() => _selectedHub = val);
+                        }
+                      },
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -160,7 +190,7 @@ class _QuickSearchCardState extends State<QuickSearchCard> {
             text: 'Find Available Fleet',
             icon: Icons.search_rounded,
             height: 48,
-            onPressed: () => widget.onSearch(_pickupDate, _dropDate),
+            onPressed: () => widget.onSearch(_pickupDate, _dropDate, _selectedHub),
           ),
         ],
       ),

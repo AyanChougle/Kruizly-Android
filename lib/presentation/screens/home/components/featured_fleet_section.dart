@@ -86,9 +86,12 @@ class FeaturedFleetSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Still watch fleet to trigger load, but display hardcoded featured cars
-    ref.watch(fleetProvider);
+    final fleetState = ref.watch(fleetProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final displayVehicles = fleetState.filteredVehicles.isNotEmpty
+        ? fleetState.filteredVehicles.take(6).toList()
+        : _featuredShowcase;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -97,7 +100,7 @@ class FeaturedFleetSection extends ConsumerWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Featured Vehicles',
+              'Featured Fleet',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
@@ -109,7 +112,7 @@ class FeaturedFleetSection extends ConsumerWidget {
               child: const Row(
                 children: [
                   Text(
-                    'View All',
+                    'Explore All',
                     style: TextStyle(
                       color: AppColors.primary,
                       fontWeight: FontWeight.w600,
@@ -124,7 +127,7 @@ class FeaturedFleetSection extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 12),
-        ..._featuredShowcase.map(
+        ...displayVehicles.map(
           (v) => VehicleCard(
             vehicle: v,
             onTap: () => onVehicleTap(v.id.toString()),

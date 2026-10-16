@@ -21,7 +21,7 @@ class DateTimePickerCard extends StatelessWidget {
     final current = isPickup ? pickupDate : dropDate;
     final firstDate = isPickup
         ? DateTime.now()
-        : pickupDate.add(const Duration(hours: 2));
+        : pickupDate.add(const Duration(hours: 24));
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final pickedDate = await showDatePicker(
@@ -87,14 +87,24 @@ class DateTimePickerCard extends StatelessWidget {
 
     if (isPickup) {
       DateTime newDrop = dropDate;
-      if (dropDate.isBefore(combined.add(const Duration(hours: 4)))) {
+      if (dropDate.isBefore(combined.add(const Duration(hours: 24)))) {
         newDrop = combined.add(const Duration(hours: 24));
       }
       onDatesChanged(combined, newDrop);
     } else {
-      if (combined.isAfter(pickupDate)) {
-        onDatesChanged(pickupDate, combined);
+      DateTime effectiveDrop = combined;
+      if (effectiveDrop.isBefore(pickupDate.add(const Duration(hours: 24)))) {
+        effectiveDrop = pickupDate.add(const Duration(hours: 24));
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Minimum rental duration is 24 hours (1 full day).'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
       }
+      onDatesChanged(pickupDate, effectiveDrop);
     }
   }
 

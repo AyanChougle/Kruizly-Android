@@ -8,11 +8,18 @@ import '../../state/fleet_provider.dart';
 import '../../widgets/vehicle_card.dart';
 import 'components/fleet_filter_bar.dart';
 
-class FleetCatalogScreen extends ConsumerWidget {
+class FleetCatalogScreen extends ConsumerStatefulWidget {
   const FleetCatalogScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FleetCatalogScreen> createState() => _FleetCatalogScreenState();
+}
+
+class _FleetCatalogScreenState extends ConsumerState<FleetCatalogScreen> {
+  final GlobalKey<FleetFilterBarState> _filterBarKey = GlobalKey<FleetFilterBarState>();
+
+  @override
+  Widget build(BuildContext context) {
     final fleetState = ref.watch(fleetProvider);
     final fleetNotifier = ref.read(fleetProvider.notifier);
     final themeMode = ref.watch(themeModeProvider);
@@ -32,27 +39,42 @@ class FleetCatalogScreen extends ConsumerWidget {
           ),
         ),
       ),
-      body: RefreshIndicator(
-        color: AppColors.primary,
-        backgroundColor: isDark ? AppColors.surface : AppColors.lightSurface,
-        onRefresh: () => fleetNotifier.fetchFleet(),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: FleetFilterBar(
-                searchQuery: fleetState.searchQuery,
-                selectedCategory: fleetState.selectedCategory,
-                selectedTransmission: fleetState.selectedTransmission,
-                sortBy: fleetState.sortBy,
-                onSearchChanged: fleetNotifier.setSearchQuery,
-                onCategoryChanged: fleetNotifier.setCategory,
-                onTransmissionChanged: fleetNotifier.setTransmission,
-                onSortChanged: fleetNotifier.setSortBy,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Expanded(
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          if (notification is ScrollStartNotification) {
+            _filterBarKey.currentState?.closeFilters();
+          }
+          return false;
+        },
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () {
+            _filterBarKey.currentState?.closeFilters();
+          },
+          child: RefreshIndicator(
+            color: AppColors.primary,
+            backgroundColor: isDark ? AppColors.surface : AppColors.lightSurface,
+            onRefresh: () => fleetNotifier.fetchFleet(),
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: FleetFilterBar(
+                    key: _filterBarKey,
+                    searchQuery: fleetState.searchQuery,
+                    selectedCategory: fleetState.selectedCategory,
+                    selectedTransmission: fleetState.selectedTransmission,
+                    selectedHub: fleetState.selectedHub,
+                    sortBy: fleetState.sortBy,
+                    onSearchChanged: fleetNotifier.setSearchQuery,
+                    onCategoryChanged: fleetNotifier.setCategory,
+                    onTransmissionChanged: fleetNotifier.setTransmission,
+                    onHubChanged: fleetNotifier.setHub,
+                    onSortChanged: fleetNotifier.setSortBy,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Expanded(
               child: fleetState.isLoading
                   ? const Center(
                       child: CircularProgressIndicator(
@@ -131,6 +153,8 @@ class FleetCatalogScreen extends ConsumerWidget {
           ],
         ),
       ),
+    ),
+    ),
     );
   }
 }

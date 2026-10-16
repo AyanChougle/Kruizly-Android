@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../data/models/partner_car_model.dart';
 import '../../state/app_providers.dart';
 import '../../state/auth_provider.dart';
 import '../../state/profile_provider.dart';
@@ -94,6 +96,7 @@ class ProfileScreen extends ConsumerWidget {
     final authState = ref.watch(authProvider);
     final themeMode = ref.watch(themeModeProvider);
     final isDark = themeMode == ThemeMode.dark;
+    final hostedCarsAsync = ref.watch(myPartnerCarsProvider);
 
     if (!authState.isAuthenticated) {
       return Scaffold(
@@ -341,6 +344,11 @@ class ProfileScreen extends ConsumerWidget {
                   ],
                 ),
               ),
+            hostedCarsAsync.when(
+              data: (cars) => _buildHostedCarsSection(context, cars, isDark),
+              loading: () => const SizedBox.shrink(),
+              error: (err, stack) => const SizedBox.shrink(),
+            ),
             const SizedBox(height: 16),
             GlassCard(
               padding: const EdgeInsets.symmetric(vertical: 6),
@@ -540,6 +548,329 @@ class ProfileScreen extends ConsumerWidget {
         activeTrackColor: AppColors.primary,
         onChanged: onChanged,
       ),
+    );
+  }
+
+  Widget _buildHostedCarsSection(
+    BuildContext context,
+    List<PartnerCarModel> hostedCars,
+    bool isDark,
+  ) {
+    if (hostedCars.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Text(
+                  'My Hosted Cars',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.3,
+                    color: context.themeTextPrimary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Text(
+                    '${hostedCars.length} ${hostedCars.length == 1 ? "Car" : "Cars"}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primaryLight,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            TextButton.icon(
+              onPressed: () => context.push('/host-car'),
+              icon: const Icon(Icons.add, size: 16, color: AppColors.primaryLight),
+              label: const Text(
+                'List Car',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primaryLight,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ...hostedCars.map((car) => _buildHostedCarCard(context, car, isDark)),
+      ],
+    );
+  }
+
+  Widget _buildHostedCarCard(
+    BuildContext context,
+    PartnerCarModel car,
+    bool isDark,
+  ) {
+    final assetPath = AppAssets.getFleetImage(car.fullName);
+    final isFixed = car.isFixedMonthly;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: context.themeSurfaceElevated,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: context.themeBorder),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Vehicle Image Preview
+          SizedBox(
+            height: 140,
+            width: double.infinity,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Container(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Image.asset(
+                        assetPath,
+                        fit: BoxFit.contain,
+                        errorBuilder: (ctx, err, stack) => Image.asset(
+                          'assets/fleet/Toyota Glanza.png',
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF06D6A0).withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: const Color(0xFF06D6A0).withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: Text(
+                      car.status.toUpperCase(),
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                        color: Color(0xFF06D6A0),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'HOSTED VEHICLE',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                    color: Color(0xFF4FD7FF),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  car.fullName,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    color: context.themeTextPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // Payout Model Badge
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: (isFixed
+                            ? const Color(0xFF06D6A0)
+                            : const Color(0xFF4FD7FF))
+                        .withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: (isFixed
+                              ? const Color(0xFF06D6A0)
+                              : const Color(0xFF4FD7FF))
+                          .withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isFixed
+                              ? const Color(0xFF06D6A0)
+                              : const Color(0xFF4FD7FF),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        isFixed
+                            ? 'Fixed Monthly Retainer • ₹${car.fixedMonthlyAmount > 0 ? car.fixedMonthlyAmount.toInt() : 35000} / mo'
+                            : 'Trip Revenue Share • 60% Host Payout / 40% Company',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: isFixed
+                              ? const Color(0xFF06D6A0)
+                              : const Color(0xFF4FD7FF),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // 2-column info grid
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: context.themeBorder.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildMetaCol(
+                              'REGISTRATION',
+                              car.regNo.isNotEmpty ? car.regNo : 'MH04MU1178',
+                              context,
+                            ),
+                          ),
+                          Expanded(
+                            child: _buildMetaCol(
+                              'LOCATION',
+                              car.city.isNotEmpty ? car.city : 'Navi Mumbai',
+                              context,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildMetaCol(
+                              'TRANSMISSION',
+                              car.transmission,
+                              context,
+                            ),
+                          ),
+                          Expanded(
+                            child: _buildMetaCol(
+                              'YEAR',
+                              '${car.year}',
+                              context,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // Card Footer
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'LISTING ID #${car.carId.isNotEmpty ? car.carId.toUpperCase() : "KZ-HOST"}',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                        color: context.themeTextMuted,
+                      ),
+                    ),
+                    Text(
+                      'Managed by Kruizly Admin',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        color: context.themeTextMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetaCol(String label, String value, BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 9.5,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.5,
+            color: context.themeTextMuted,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+            color: context.themeTextPrimary,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
     );
   }
 }

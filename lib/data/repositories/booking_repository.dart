@@ -1,4 +1,4 @@
-﻿import '''../../core/constants/api_endpoints.dart''';
+import '''../../core/constants/api_endpoints.dart''';
 import '''../../core/errors/app_exceptions.dart''';
 import '''../../core/network/api_client.dart''';
 import '''../models/booking_model.dart''';
@@ -28,6 +28,7 @@ class BookingRepository {
     String? couponCode,
     double couponDiscount = 0.0,
     String paymentPlan = '''advance''',
+    String? location,
     String? userName,
     String? userEmail,
     String? userPhone,
@@ -57,6 +58,8 @@ class BookingRepository {
         '''paymentPlan''': paymentPlan,
         '''paymentStatus''': '''pending_payment''',
         '''status''': '''pending_payment''',
+        '''location''': ?location,
+        '''hub''': ?location,
         '''userName''': ?userName,
         '''userEmail''': ?userEmail,
         '''userPhone''': ?userPhone,

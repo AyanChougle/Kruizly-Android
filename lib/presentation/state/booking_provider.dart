@@ -1,4 +1,4 @@
-﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/coupon_model.dart';
 import '../../data/models/vehicle_model.dart';
 import 'app_providers.dart';
@@ -67,23 +67,52 @@ class BookingDraftState {
     final diffMs = dropDate.difference(pickupDate).inMilliseconds;
     if (diffMs <= 0) return const BookingPriceBreakdown();
 
-    final hours = (diffMs / (1000 * 60 * 60)).ceil().clamp(1, 999999);
+    final rawHours = (diffMs / (1000 * 60 * 60)).ceil().clamp(1, 999999);
+    final hours = rawHours < 24 ? 24 : rawHours;
     final days = (hours / 24).ceil().clamp(1, 999999);
+    final fullDays = hours ~/ 24;
+    final remHours = hours % 24;
 
-    final dayLabel = days == 1 ? '1 Day' : '$days Days';
-    final hrLabel = '$hours ${hours == 1 ? "hr" : "hrs"}';
-    final formattedDuration = '$dayLabel ($hrLabel)';
+    final String formattedDuration;
+    if (fullDays > 0 && remHours > 0) {
+      formattedDuration =
+          '$fullDays ${fullDays > 1 ? "Days" : "Day"} $remHours ${remHours > 1 ? "Hrs" : "Hr"} ($hours hrs)';
+    } else {
+      formattedDuration =
+          '$fullDays ${fullDays > 1 ? "Days" : "Day"} ($hours hrs)';
+    }
 
     final priceDay = vehicle!.priceDay;
-    final hourlyRate = vehicle!.priceHour > 0
-        ? vehicle!.priceHour
-        : (priceDay > 0 ? priceDay / 24.0 : 0.0);
+    final hourlyRate = priceDay > 0 ? (priceDay / 24.0).roundToDouble() : 0.0;
 
-    final driverHourlyRate = vehicle!.driverPriceHour;
+    final driverPriceDay = vehicle!.driverPriceDay > 0 ? vehicle!.driverPriceDay : 2000.0;
+    final driverHourlyRate = driverPriceDay > 0 ? (driverPriceDay / 24.0).roundToDouble() : 83.0;
 
-    final rentalTotal = (hours * hourlyRate).roundToDouble();
-    final driverTotal = withDriver ? (hours * driverHourlyRate).roundToDouble() : 0.0;
-    final securityDeposit = vehicle!.securityDeposit;
+    // Authoritative rental charge: full days * day rate + pro-rated remaining hours (minimum 1 full day)
+    double rentalTotal = fullDays * priceDay;
+    if (remHours > 0 && priceDay > 0) {
+      rentalTotal += (remHours * (priceDay / 24.0)).roundToDouble();
+    }
+    if (rentalTotal < priceDay) {
+      rentalTotal = priceDay;
+    }
+
+    // Authoritative driver allowance
+    double driverTotal = 0.0;
+    if (withDriver) {
+      driverTotal = fullDays * driverPriceDay;
+      if (remHours > 0) {
+        driverTotal += (remHours * (driverPriceDay / 24.0)).roundToDouble();
+      }
+      if (driverTotal < driverPriceDay) {
+        driverTotal = driverPriceDay;
+      }
+    }
+
+    final isLuxury = vehicle!.category.toLowerCase() == 'luxury';
+    final securityDeposit = vehicle!.securityDeposit > 0
+        ? vehicle!.securityDeposit
+        : (isLuxury ? 15000.0 : 3000.0);
 
     double couponDiscount = 0.0;
     if (appliedCoupon != null) {
@@ -164,7 +193,12 @@ class BookingNotifier extends StateNotifier<BookingDraftState> {
   }
 
   void setDates(DateTime pickup, DateTime drop) {
-    state = state.copyWith(pickupDate: pickup, dropDate: drop);
+    var d = drop;
+    final minDrop = pickup.add(const Duration(hours: 24));
+    if (d.isBefore(minDrop)) {
+      d = minDrop;
+    }
+    state = state.copyWith(pickupDate: pickup, dropDate: d);
   }
 
   void toggleDriver(bool withDriver) {
@@ -268,6 +302,7 @@ class BookingNotifier extends StateNotifier<BookingDraftState> {
         couponCode: state.appliedCoupon?.code,
         couponDiscount: bk.couponDiscount,
         paymentPlan: state.paymentPlan,
+        location: v.location,
         userName: userName,
         userEmail: userEmail,
         userPhone: userPhone,
