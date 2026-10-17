@@ -98,6 +98,49 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
                 actions: [
+                  if (authState.isAuthenticated &&
+                      (authState.user?.isStaff ?? false))
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: GestureDetector(
+                        onTap: () => context.push('/staff-portal'),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color:
+                                const Color(0xFF06D6A0).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: const Color(0xFF06D6A0)
+                                  .withValues(alpha: 0.4),
+                            ),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.admin_panel_settings_rounded,
+                                color: Color(0xFF06D6A0),
+                                size: 16,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'STAFF',
+                                style: TextStyle(
+                                  color: Color(0xFF06D6A0),
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.6,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   if (authState.isAuthenticated)
                     Padding(
                       padding: const EdgeInsets.only(right: 14),

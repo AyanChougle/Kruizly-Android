@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/coupon_model.dart';
 import '../../data/models/vehicle_model.dart';
+import 'admin_provider.dart';
 import 'app_providers.dart';
 
 class BookingPriceBreakdown {
@@ -312,6 +313,7 @@ class BookingNotifier extends StateNotifier<BookingDraftState> {
         isSubmitting: false,
         createdBookingId: recordedId,
       );
+      _ref.invalidate(adminStatsProvider);
       return recordedId;
     } catch (e) {
       state = state.copyWith(

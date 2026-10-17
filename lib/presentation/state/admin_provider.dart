@@ -86,6 +86,7 @@ class AdminBookingsNotifier extends StateNotifier<AsyncValue<List<BookingModel>>
       state = AsyncValue.data(updated);
     });
 
+    _ref.invalidate(adminStatsProvider);
     return success;
   }
 

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/booking_model.dart';
+import '../../state/admin_provider.dart';
 import '../../state/app_providers.dart';
 import '../../state/booking_provider.dart';
 import '../../state/trips_provider.dart';
@@ -86,8 +87,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         screenshotMediaId: screenshotMediaId,
       );
 
-      // Refresh trips
+      // Refresh trips and admin stats
       ref.read(tripsProvider.notifier).fetchTrips();
+      ref.invalidate(adminStatsProvider);
 
       if (!mounted) return;
 

@@ -153,6 +153,23 @@ class ProfileScreen extends ConsumerWidget {
                   width: 180,
                   onPressed: () => context.push('/sign-in'),
                 ),
+                const SizedBox(height: 14),
+                TextButton.icon(
+                  onPressed: () => context.push('/staff-portal'),
+                  icon: const Icon(
+                    Icons.admin_panel_settings_outlined,
+                    size: 18,
+                    color: Color(0xFF06D6A0),
+                  ),
+                  label: const Text(
+                    'Staff & Admin Console Access',
+                    style: TextStyle(
+                      color: Color(0xFF06D6A0),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 32),
                 GlassCard(
                   padding: const EdgeInsets.symmetric(vertical: 4),
@@ -392,6 +409,18 @@ class ProfileScreen extends ConsumerWidget {
                         'Earn monthly passive income by partnering your vehicle',
                     isDark: isDark,
                     onTap: () => context.push('/host-car'),
+                  ),
+                  Divider(
+                    color: isDark ? AppColors.border : AppColors.lightBorder,
+                    height: 1,
+                  ),
+                  _buildMenuTile(
+                    icon: Icons.admin_panel_settings_outlined,
+                    title: 'Admin & Staff Portal',
+                    subtitle:
+                        'Operations, Fleet Roster, KYC verification & Live Ledger',
+                    isDark: isDark,
+                    onTap: () => context.push('/staff-portal'),
                   ),
                   Divider(
                     color: isDark ? AppColors.border : AppColors.lightBorder,

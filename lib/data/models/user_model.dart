@@ -40,22 +40,53 @@ class UserModel {
   bool get isVerified =>
       licenseStatus == '''verified''' && aadharStatus == '''verified''';
 
-  bool get isAdmin => role.toLowerCase() == 'admin';
-  bool get isManager => role.toLowerCase() == 'manager' || isAdmin;
+  static const Set<String> adminEmails = {
+    'ayan@kruizly.com',
+    'admin@kruizly.com',
+    'ayanchougle@gmail.com',
+    'carrentpedatabase@gmail.com',
+    'currentpedatabase@gmail.com',
+  };
+
+  static const Set<String> adminPhones = {
+    '7208533219',
+    '9076430110',
+    '9324021200',
+  };
+
+  bool get isAdmin {
+    final cleanEmail = email.toLowerCase().trim();
+    if (adminEmails.contains(cleanEmail)) return true;
+    final r = role.toLowerCase().trim();
+    return r == 'admin' || r == 'super_admin';
+  }
+
+  bool get isManager => role.toLowerCase().trim() == 'manager' || isAdmin;
   bool get isExecutive =>
-      role.toLowerCase() == 'executive' || isManager || isAdmin;
+      role.toLowerCase().trim() == 'executive' || isManager || isAdmin;
   bool get isAccounts =>
-      role.toLowerCase() == 'accounts' ||
-      role.toLowerCase() == 'accountant' ||
+      role.toLowerCase().trim() == 'accounts' ||
+      role.toLowerCase().trim() == 'accountant' ||
       isAdmin;
 
-  bool get isStaff => [
-    '''admin''',
-    '''manager''',
-    '''executive''',
-    '''accountant''',
-    '''accounts''',
-  ].contains(role.toLowerCase());
+  bool get isStaff {
+    final cleanEmail = email.toLowerCase().trim();
+    final cleanPhone = (phone ?? '').replaceAll(RegExp(r'\D'), '');
+    final cleanRole = role.toLowerCase().trim();
+
+    if (adminEmails.contains(cleanEmail)) return true;
+    if (adminPhones.any((p) => cleanPhone.endsWith(p))) return true;
+
+    return [
+      'admin',
+      'super_admin',
+      'manager',
+      'executive',
+      'accountant',
+      'accounts',
+      'staff',
+    ].contains(cleanRole);
+  }
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(

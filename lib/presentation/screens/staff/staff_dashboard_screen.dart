@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -23,17 +24,43 @@ import '../../widgets/custom_button.dart';
 import '../../widgets/glass_card.dart';
 import '../../widgets/status_badge.dart';
 
-String _formatINR(num value) {
+double _safeDouble(dynamic value, [double defaultValue = 0.0]) {
+  if (value == null) return defaultValue;
+  if (value is num) return value.toDouble();
+  return double.tryParse(value.toString()) ?? defaultValue;
+}
+
+int _safeInt(dynamic value, [int defaultValue = 0]) {
+  if (value == null) return defaultValue;
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  final str = value.toString().trim();
+  final asInt = int.tryParse(str);
+  if (asInt != null) return asInt;
+  final asDouble = double.tryParse(str);
+  if (asDouble != null) return asDouble.round();
+  return defaultValue;
+}
+
+String _formatINR(dynamic value) {
+  final num numVal;
+  if (value is num) {
+    numVal = value;
+  } else if (value is String) {
+    numVal = num.tryParse(value) ?? 0;
+  } else {
+    numVal = 0;
+  }
   final formatter = NumberFormat.currency(
     locale: 'en_IN',
     symbol: '₹',
     decimalDigits: 0,
   );
-  return formatter.format(value.round());
+  return formatter.format(numVal.round());
 }
 
 /// User requested: "dont show amounts like eg 124L show full figures like 123456"
-String _formatINRShort(num value) {
+String _formatINRShort(dynamic value) {
   return _formatINR(value);
 }
 
@@ -41,7 +68,8 @@ class StaffDashboardScreen extends ConsumerStatefulWidget {
   const StaffDashboardScreen({super.key});
 
   @override
-  ConsumerState<StaffDashboardScreen> createState() => _StaffDashboardScreenState();
+  ConsumerState<StaffDashboardScreen> createState() =>
+      _StaffDashboardScreenState();
 }
 
 class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
@@ -100,7 +128,11 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   String _accountsSearchQuery = '';
 
   // Booking Calendar state
-  DateTime _calendarMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
+  DateTime _calendarMonth = DateTime(
+    DateTime.now().year,
+    DateTime.now().month,
+    1,
+  );
   String _calendarViewMode = 'grid'; // 'grid', 'agenda'
   DateTime? _selectedCalendarDate;
 
@@ -202,7 +234,11 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     return 1.35;
   }
 
-  DateTimeRange? _getDateRange(String period, DateTime? customFrom, DateTime? customTo) {
+  DateTimeRange? _getDateRange(
+    String period,
+    DateTime? customFrom,
+    DateTime? customTo,
+  ) {
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
     final todayEnd = DateTime(now.year, now.month, now.day, 23, 59, 59, 999);
@@ -212,20 +248,52 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
         return DateTimeRange(start: todayStart, end: todayEnd);
       case 'Yesterday':
         final yestStart = todayStart.subtract(const Duration(days: 1));
-        final yestEnd = DateTime(yestStart.year, yestStart.month, yestStart.day, 23, 59, 59, 999);
+        final yestEnd = DateTime(
+          yestStart.year,
+          yestStart.month,
+          yestStart.day,
+          23,
+          59,
+          59,
+          999,
+        );
         return DateTimeRange(start: yestStart, end: yestEnd);
       case 'This Week':
         final dayOfWeek = now.weekday % 7;
         final startOfWeek = todayStart.subtract(Duration(days: dayOfWeek));
-        final endOfWeek = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day + 6, 23, 59, 59, 999);
+        final endOfWeek = DateTime(
+          startOfWeek.year,
+          startOfWeek.month,
+          startOfWeek.day + 6,
+          23,
+          59,
+          59,
+          999,
+        );
         return DateTimeRange(start: startOfWeek, end: endOfWeek);
       case 'This Month':
         final startOfMonth = DateTime(now.year, now.month, 1);
-        final endOfMonth = DateTime(now.year, now.month + 1, 0, 23, 59, 59, 999);
+        final endOfMonth = DateTime(
+          now.year,
+          now.month + 1,
+          0,
+          23,
+          59,
+          59,
+          999,
+        );
         return DateTimeRange(start: startOfMonth, end: endOfMonth);
       case 'Last Month':
         final startOfLastMonth = DateTime(now.year, now.month - 1, 1);
-        final endOfLastMonth = DateTime(now.year, now.month, 0, 23, 59, 59, 999);
+        final endOfLastMonth = DateTime(
+          now.year,
+          now.month,
+          0,
+          23,
+          59,
+          59,
+          999,
+        );
         return DateTimeRange(start: startOfLastMonth, end: endOfLastMonth);
       case 'This Year':
         final startOfYear = DateTime(now.year, 1, 1);
@@ -235,7 +303,15 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
         if (customFrom != null && customTo != null) {
           return DateTimeRange(
             start: DateTime(customFrom.year, customFrom.month, customFrom.day),
-            end: DateTime(customTo.year, customTo.month, customTo.day, 23, 59, 59, 999),
+            end: DateTime(
+              customTo.year,
+              customTo.month,
+              customTo.day,
+              23,
+              59,
+              59,
+              999,
+            ),
           );
         }
         return null;
@@ -252,7 +328,20 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   }
 
   String _formatDateShort(DateTime d) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     return '${d.day} ${months[d.month - 1]} ${d.year}';
   }
 
@@ -265,7 +354,13 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     final currentUser = authState.user;
 
     final userRole = (currentUser?.role ?? 'admin').toUpperCase();
-    final availableRoles = (userRole == 'ADMIN' || userRole == 'MANAGER')
+    final isAdminUser = (currentUser?.isAdmin ?? true) ||
+        (currentUser?.isStaff ?? true) ||
+        userRole == 'ADMIN' ||
+        userRole == 'SUPER_ADMIN' ||
+        userRole == 'MANAGER';
+
+    final availableRoles = isAdminUser
         ? ['ADMIN', 'MANAGER PANEL', 'EXECUTIVE', 'ACCOUNTS']
         : [userRole];
 
@@ -280,6 +375,18 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+          tooltip: 'Back',
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/home');
+            }
+          },
+        ),
         title: Row(
           children: [
             Image.asset(
@@ -313,14 +420,13 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               ref.invalidate(adminCouponsProvider);
               ref.invalidate(adminUsersProvider);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Synchronizing live Hostinger MySQL database...')),
+                const SnackBar(
+                  content: Text(
+                    'Synchronizing live Hostinger MySQL database...',
+                  ),
+                ),
               );
             },
-          ),
-          IconButton(
-            icon: const Icon(Icons.close, size: 20),
-            tooltip: 'Exit Staff Portal',
-            onPressed: () => context.go('/home'),
           ),
         ],
       ),
@@ -332,7 +438,10 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             if (availableRoles.length > 1)
               Container(
                 color: context.themeBackground.withValues(alpha: 0.82),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
@@ -344,33 +453,40 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                           onTap: () => setState(() => _selectedRole = role),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 180),
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 10,
+                            ),
                             decoration: BoxDecoration(
                               color: isSelected
                                   ? accentColor
                                   : (context.isDarkMode
-                                      ? const Color(0x441A2333)
-                                      : const Color(0xE6FFFFFF)),
+                                        ? const Color(0x441A2333)
+                                        : const Color(0xE6FFFFFF)),
                               borderRadius: BorderRadius.circular(24),
                               border: Border.all(
                                 color: isSelected
                                     ? accentColor.withValues(alpha: 0.8)
                                     : (context.isDarkMode
-                                        ? Colors.white.withValues(alpha: 0.22)
-                                        : AppColors.lightBorder),
+                                          ? Colors.white.withValues(alpha: 0.22)
+                                          : AppColors.lightBorder),
                                 width: isSelected ? 1.4 : 0.8,
                               ),
                               boxShadow: isSelected
                                   ? [
                                       BoxShadow(
-                                        color: accentColor.withValues(alpha: 0.45),
+                                        color: accentColor.withValues(
+                                          alpha: 0.45,
+                                        ),
                                         blurRadius: 12,
                                         offset: const Offset(0, 3),
                                       ),
                                     ]
                                   : [
                                       BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.2),
+                                        color: Colors.black.withValues(
+                                          alpha: 0.2,
+                                        ),
                                         blurRadius: 6,
                                         offset: const Offset(0, 2),
                                       ),
@@ -385,8 +501,8 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                                 color: isSelected
                                     ? Colors.white
                                     : (context.isDarkMode
-                                        ? Colors.white.withValues(alpha: 0.88)
-                                        : AppColors.lightTextPrimary),
+                                          ? Colors.white.withValues(alpha: 0.88)
+                                          : AppColors.lightTextPrimary),
                               ),
                             ),
                           ),
@@ -399,13 +515,25 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
 
             Divider(height: 1, color: context.themeBorder),
 
+            _buildStickySubNavBar(
+              context: context,
+              accentColor: accentColor,
+              stats: stats,
+              fleetCount: vehicles.length,
+              bookingsCount: bookingsAsync.value?.length ?? 0,
+            ),
+
+            Divider(height: 1, color: context.themeBorder.withValues(alpha: 0.5)),
+
             Expanded(
               child: RefreshIndicator(
                 color: accentColor,
                 backgroundColor: context.themeSurfaceElevated,
                 onRefresh: () async {
                   ref.invalidate(adminStatsProvider);
-                  await ref.read(adminBookingsProvider.notifier).fetchBookings();
+                  await ref
+                      .read(adminBookingsProvider.notifier)
+                      .fetchBookings();
                   await ref.read(fleetProvider.notifier).fetchFleet();
                   ref.invalidate(adminKycListProvider);
                   ref.invalidate(adminCouponsProvider);
@@ -416,12 +544,21 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   switchOutCurve: Curves.easeIn,
                   transitionBuilder: (child, animation) {
                     return FadeTransition(
-                      opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                      opacity: CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeOut,
+                      ),
                       child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(0, 0.03),
-                          end: Offset.zero,
-                        ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+                        position:
+                            Tween<Offset>(
+                              begin: const Offset(0, 0.03),
+                              end: Offset.zero,
+                            ).animate(
+                              CurvedAnimation(
+                                parent: animation,
+                                curve: Curves.easeOutCubic,
+                              ),
+                            ),
                         child: child,
                       ),
                     );
@@ -445,6 +582,118 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     );
   }
 
+  Widget _buildStickySubNavBar({
+    required BuildContext context,
+    required Color accentColor,
+    required AdminStatsModel stats,
+    required int fleetCount,
+    required int bookingsCount,
+  }) {
+    final List<({String label, int index, String? badge})> tabs;
+    final int currentTab;
+    final ValueChanged<int> onTabSelected;
+
+    switch (_selectedRole) {
+      case 'ADMIN':
+        tabs = [
+          (label: 'All Bookings', index: 0, badge: stats.totalBookings > 0 ? '${stats.totalBookings}' : null),
+          (label: 'Booking Calendar', index: 1, badge: null),
+          (label: 'User Accounts & Verification', index: 2, badge: stats.pendingDocs > 0 ? '${stats.pendingDocs}' : null),
+          (label: 'Users & Customers Analytics', index: 3, badge: null),
+          (label: 'Bookings & Reservations Analytics', index: 4, badge: null),
+          (label: 'Vehicle Acquisition', index: 5, badge: null),
+          (label: 'Fleet Management', index: 6, badge: fleetCount > 0 ? '$fleetCount' : null),
+          (label: 'Coupons', index: 7, badge: null),
+        ];
+        currentTab = _adminSubTab;
+        onTabSelected = (idx) => setState(() => _adminSubTab = idx);
+        break;
+      case 'MANAGER PANEL':
+        tabs = [
+          (label: 'Revenue & Sales', index: 0, badge: null),
+          (label: 'Fleet Performance', index: 1, badge: fleetCount > 0 ? '$fleetCount Fleets' : null),
+          (label: 'Bookings Analytics', index: 2, badge: bookingsCount > 0 ? '$bookingsCount' : null),
+          (label: 'Operations & Reconciliation', index: 3, badge: null),
+        ];
+        currentTab = _mgrSubTab;
+        onTabSelected = (idx) => setState(() => _mgrSubTab = idx);
+        break;
+      case 'EXECUTIVE':
+        tabs = [
+          (label: 'Operations & Bookings', index: 0, badge: null),
+          (label: 'Booking Calendar', index: 1, badge: null),
+          (label: 'Customer ID Verification', index: 2, badge: stats.pendingDocs > 0 ? '${stats.pendingDocs}' : null),
+          (label: 'Fleet Preview', index: 3, badge: null),
+          (label: 'Coupon Preview', index: 4, badge: null),
+        ];
+        currentTab = _execSubTab;
+        onTabSelected = (idx) => setState(() => _execSubTab = idx);
+        break;
+      case 'ACCOUNTS':
+        tabs = [
+          (label: 'Payment Queue', index: 0, badge: stats.pendingPayments > 0 ? '${stats.pendingPayments}' : null),
+          (label: 'Invoices & Reports', index: 1, badge: null),
+        ];
+        currentTab = 0;
+        onTabSelected = (_) {};
+        break;
+      default:
+        tabs = [];
+        currentTab = 0;
+        onTabSelected = (_) {};
+        break;
+    }
+
+    if (tabs.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      color: context.themeBackground.withValues(alpha: 0.92),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Row(
+          children: tabs.map((t) {
+            final isSelected = currentTab == t.index;
+            final labelText = t.badge != null ? '${t.label} (${t.badge})' : t.label;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: GestureDetector(
+                onTap: () => onTabSelected(t.index),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? accentColor.withValues(alpha: 0.18)
+                        : (context.isDarkMode ? const Color(0x331E293B) : const Color(0xFFF1F5F9)),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isSelected
+                          ? accentColor
+                          : (context.isDarkMode ? Colors.white12 : AppColors.lightBorder),
+                      width: isSelected ? 1.4 : 0.8,
+                    ),
+                  ),
+                  child: Text(
+                    labelText,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                      color: isSelected
+                          ? accentColor
+                          : (context.isDarkMode ? Colors.white70 : AppColors.lightTextSecondary),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
   Widget _buildRoleContent({
     required String role,
     required AdminStatsModel stats,
@@ -458,7 +707,12 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
       case 'MANAGER PANEL':
         return _buildManagerPanel(stats, vehicles, bookingsAsync, accentColor);
       case 'EXECUTIVE':
-        return _buildExecutivePanel(stats, vehicles, bookingsAsync, accentColor);
+        return _buildExecutivePanel(
+          stats,
+          vehicles,
+          bookingsAsync,
+          accentColor,
+        );
       case 'ACCOUNTS':
         return _buildAccountsPanel(stats, bookingsAsync, accentColor);
       default:
@@ -482,12 +736,21 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           children: [
             Text(
               'PERFORMANCE & BUSINESS KPIS',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.5, color: context.themeTextMuted),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.5,
+                color: context.themeTextMuted,
+              ),
             ),
             const Spacer(),
             Text(
               DateFormat('MMMM yyyy').format(DateTime.now()),
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: accentColor),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: accentColor,
+              ),
             ),
           ],
         ),
@@ -504,9 +767,22 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Production Database Export', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                    Text(
+                      'Production Database Export',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: context.themeTextPrimary,
+                      ),
+                    ),
                     const SizedBox(height: 2),
-                    Text('Download all MySQL database tables as an Excel workbook.', style: TextStyle(fontSize: 11, color: context.themeTextSecondary)),
+                    Text(
+                      'Download all MySQL database tables as an Excel workbook.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: context.themeTextSecondary,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -517,7 +793,11 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 height: 36,
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Database export initiated via /api/admin/export.php')),
+                    const SnackBar(
+                      content: Text(
+                        'Database export initiated via /api/admin/export.php',
+                      ),
+                    ),
                   );
                 },
               ),
@@ -531,24 +811,64 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              _buildFilterPill('All Bookings (${stats.totalBookings})', _adminSubTab == 0, () => setState(() => _adminSubTab = 0)),
-              _buildFilterPill('Booking Calendar', _adminSubTab == 1, () => setState(() => _adminSubTab = 1)),
-              _buildFilterPill('User Accounts & Verification (${stats.pendingDocs})', _adminSubTab == 2, () => setState(() => _adminSubTab = 2)),
-              _buildFilterPill('Users & Customers Analytics', _adminSubTab == 3, () => setState(() => _adminSubTab = 3)),
-              _buildFilterPill('Bookings & Reservations Analytics', _adminSubTab == 4, () => setState(() => _adminSubTab = 4)),
-              _buildFilterPill('Vehicle Acquisition', _adminSubTab == 5, () => setState(() => _adminSubTab = 5)),
-              _buildFilterPill('Fleet Management (${vehicles.length})', _adminSubTab == 6, () => setState(() => _adminSubTab = 6)),
-              _buildFilterPill('Coupons', _adminSubTab == 7, () => setState(() => _adminSubTab = 7)),
+              _buildFilterPill(
+                'All Bookings (${stats.totalBookings})',
+                _adminSubTab == 0,
+                () => setState(() => _adminSubTab = 0),
+              ),
+              _buildFilterPill(
+                'Booking Calendar',
+                _adminSubTab == 1,
+                () => setState(() => _adminSubTab = 1),
+              ),
+              _buildFilterPill(
+                'User Accounts & Verification (${stats.pendingDocs})',
+                _adminSubTab == 2,
+                () => setState(() => _adminSubTab = 2),
+              ),
+              _buildFilterPill(
+                'Users & Customers Analytics',
+                _adminSubTab == 3,
+                () => setState(() => _adminSubTab = 3),
+              ),
+              _buildFilterPill(
+                'Bookings & Reservations Analytics',
+                _adminSubTab == 4,
+                () => setState(() => _adminSubTab = 4),
+              ),
+              _buildFilterPill(
+                'Vehicle Acquisition',
+                _adminSubTab == 5,
+                () => setState(() => _adminSubTab = 5),
+              ),
+              _buildFilterPill(
+                'Fleet Management (${vehicles.length})',
+                _adminSubTab == 6,
+                () => setState(() => _adminSubTab = 6),
+              ),
+              _buildFilterPill(
+                'Coupons',
+                _adminSubTab == 7,
+                () => setState(() => _adminSubTab = 7),
+              ),
             ],
           ),
         ),
         const SizedBox(height: 14),
 
-        if (_adminSubTab == 0) _buildAdminAllBookingsView(bookingsAsync, accentColor),
-        if (_adminSubTab == 1) _buildBookingCalendarView(bookingsAsync, accentColor),
+        if (_adminSubTab == 0)
+          _buildAdminAllBookingsView(bookingsAsync, accentColor),
+        if (_adminSubTab == 1)
+          _buildBookingCalendarView(bookingsAsync, accentColor),
         if (_adminSubTab == 2) _buildUserAccountsVerificationView(accentColor),
-        if (_adminSubTab == 3) _buildUsersCustomersAnalyticsView(stats, bookingsAsync, accentColor),
-        if (_adminSubTab == 4) _buildBookingsReservationsAnalyticsView(stats, bookingsAsync, accentColor),
+        if (_adminSubTab == 3)
+          _buildUsersCustomersAnalyticsView(stats, bookingsAsync, accentColor),
+        if (_adminSubTab == 4)
+          _buildBookingsReservationsAnalyticsView(
+            stats,
+            bookingsAsync,
+            accentColor,
+          ),
         if (_adminSubTab == 5) _buildVehicleAcquisitionView(),
         if (_adminSubTab == 6) _buildFleetManagementView(vehicles, accentColor),
         if (_adminSubTab == 7) _buildCouponsView(accentColor),
@@ -557,13 +877,26 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   }
 
   // --- SUBTAB 0: All Bookings (media_1789971983424.png) ---
-  Widget _buildAdminAllBookingsView(AsyncValue<List<BookingModel>> bookingsAsync, Color accentColor) {
+  Widget _buildAdminAllBookingsView(
+    AsyncValue<List<BookingModel>> bookingsAsync,
+    Color accentColor,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('System Bookings & Fleet Operations', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+        Text(
+          'System Bookings & Fleet Operations',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: context.themeTextPrimary,
+          ),
+        ),
         const SizedBox(height: 2),
-        Text('Filter and audit trip status, odometer readings, and FASTag logs.', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+        Text(
+          'Filter and audit trip status, odometer readings, and FASTag logs.',
+          style: TextStyle(fontSize: 12, color: context.themeTextSecondary),
+        ),
         const SizedBox(height: 12),
 
         GlassCard(
@@ -575,31 +908,75 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   Expanded(
                     child: DropdownButtonFormField<String>(
                       initialValue: _adminBookingStatusFilter,
-                      decoration: const InputDecoration(labelText: 'STATUS', contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8), border: OutlineInputBorder()),
+                      decoration: const InputDecoration(
+                        labelText: 'STATUS',
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        border: OutlineInputBorder(),
+                      ),
                       dropdownColor: context.themeSurfaceElevated,
-                      style: TextStyle(fontSize: 12, color: context.themeTextPrimary),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: context.themeTextPrimary,
+                      ),
                       items: const [
-                        DropdownMenuItem(value: 'all', child: Text('All Statuses')),
-                        DropdownMenuItem(value: 'pending_verification', child: Text('Pending Verification')),
-                        DropdownMenuItem(value: 'active', child: Text('Active / On-Road')),
-                        DropdownMenuItem(value: 'completed', child: Text('Completed')),
-                        DropdownMenuItem(value: 'cancelled', child: Text('Cancelled')),
+                        DropdownMenuItem(
+                          value: 'all',
+                          child: Text('All Statuses'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'pending_verification',
+                          child: Text('Pending Verification'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'active',
+                          child: Text('Active / On-Road'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'completed',
+                          child: Text('Completed'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'cancelled',
+                          child: Text('Cancelled'),
+                        ),
                       ],
-                      onChanged: (val) => setState(() => _adminBookingStatusFilter = val ?? 'all'),
+                      onChanged: (val) => setState(
+                        () => _adminBookingStatusFilter = val ?? 'all',
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: DropdownButtonFormField<String>(
                       initialValue: _adminBookingSort,
-                      decoration: const InputDecoration(labelText: 'SORT BY DATE', contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8), border: OutlineInputBorder()),
+                      decoration: const InputDecoration(
+                        labelText: 'SORT BY DATE',
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        border: OutlineInputBorder(),
+                      ),
                       dropdownColor: context.themeSurfaceElevated,
-                      style: TextStyle(fontSize: 12, color: context.themeTextPrimary),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: context.themeTextPrimary,
+                      ),
                       items: const [
-                        DropdownMenuItem(value: 'newest', child: Text('Newest first')),
-                        DropdownMenuItem(value: 'oldest', child: Text('Oldest first')),
+                        DropdownMenuItem(
+                          value: 'newest',
+                          child: Text('Newest first'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'oldest',
+                          child: Text('Oldest first'),
+                        ),
                       ],
-                      onChanged: (val) => setState(() => _adminBookingSort = val ?? 'newest'),
+                      onChanged: (val) =>
+                          setState(() => _adminBookingSort = val ?? 'newest'),
                     ),
                   ),
                 ],
@@ -610,12 +987,35 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   Expanded(
                     child: InkWell(
                       onTap: () async {
-                        final picked = await showDatePicker(context: context, initialDate: DateTime(2026, 9, 1), firstDate: DateTime(2025), lastDate: DateTime(2028));
-                        if (picked != null) setState(() => _adminDateFrom = picked);
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime(2026, 9, 1),
+                          firstDate: DateTime(2025),
+                          lastDate: DateTime(2028),
+                        );
+                        if (picked != null)
+                          setState(() => _adminDateFrom = picked);
                       },
                       child: InputDecorator(
-                        decoration: const InputDecoration(labelText: 'FROM', contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8), border: OutlineInputBorder()),
-                        child: Text(_adminDateFrom != null ? _formatDateShort(_adminDateFrom!) : 'dd/mm/yyyy', style: TextStyle(fontSize: 12, color: _adminDateFrom != null ? context.themeTextPrimary : context.themeTextMuted)),
+                        decoration: const InputDecoration(
+                          labelText: 'FROM',
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          border: OutlineInputBorder(),
+                        ),
+                        child: Text(
+                          _adminDateFrom != null
+                              ? _formatDateShort(_adminDateFrom!)
+                              : 'dd/mm/yyyy',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: _adminDateFrom != null
+                                ? context.themeTextPrimary
+                                : context.themeTextMuted,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -623,12 +1023,35 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   Expanded(
                     child: InkWell(
                       onTap: () async {
-                        final picked = await showDatePicker(context: context, initialDate: DateTime(2026, 9, 30), firstDate: DateTime(2025), lastDate: DateTime(2028));
-                        if (picked != null) setState(() => _adminDateTo = picked);
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime(2026, 9, 30),
+                          firstDate: DateTime(2025),
+                          lastDate: DateTime(2028),
+                        );
+                        if (picked != null)
+                          setState(() => _adminDateTo = picked);
                       },
                       child: InputDecorator(
-                        decoration: const InputDecoration(labelText: 'TO', contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8), border: OutlineInputBorder()),
-                        child: Text(_adminDateTo != null ? _formatDateShort(_adminDateTo!) : 'dd/mm/yyyy', style: TextStyle(fontSize: 12, color: _adminDateTo != null ? context.themeTextPrimary : context.themeTextMuted)),
+                        decoration: const InputDecoration(
+                          labelText: 'TO',
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          border: OutlineInputBorder(),
+                        ),
+                        child: Text(
+                          _adminDateTo != null
+                              ? _formatDateShort(_adminDateTo!)
+                              : 'dd/mm/yyyy',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: _adminDateTo != null
+                                ? context.themeTextPrimary
+                                : context.themeTextMuted,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -652,14 +1075,25 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
         const SizedBox(height: 12),
 
         bookingsAsync.when(
-          loading: () => const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator(color: AppColors.primary))),
-          error: (e, _) => Text('Error loading bookings: $e', style: const TextStyle(color: AppColors.error)),
+          loading: () => const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: CircularProgressIndicator(color: AppColors.primary),
+            ),
+          ),
+          error: (e, _) => Text(
+            'Error loading bookings: $e',
+            style: const TextStyle(color: AppColors.error),
+          ),
           data: (bookings) {
             var filtered = bookings.where((b) {
               if (_adminBookingStatusFilter != 'all') {
                 if (_adminBookingStatusFilter == 'pending_verification') {
-                  if (!b.paymentStatus.toLowerCase().contains('pending') && !b.status.toLowerCase().contains('pending')) return false;
-                } else if (b.status.toLowerCase() != _adminBookingStatusFilter) {
+                  if (!b.paymentStatus.toLowerCase().contains('pending') &&
+                      !b.status.toLowerCase().contains('pending'))
+                    return false;
+                } else if (b.status.toLowerCase() !=
+                    _adminBookingStatusFilter) {
                   return false;
                 }
               }
@@ -669,7 +1103,8 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               }
               if (_adminDateTo != null) {
                 final d = b.createdAt ?? b.pickupDate;
-                if (d.isAfter(_adminDateTo!.add(const Duration(days: 1)))) return false;
+                if (d.isAfter(_adminDateTo!.add(const Duration(days: 1))))
+                  return false;
               }
               return true;
             }).toList();
@@ -677,20 +1112,27 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             filtered.sort((a, b) {
               final da = a.createdAt ?? a.pickupDate;
               final db = b.createdAt ?? b.pickupDate;
-              return _adminBookingSort == 'newest' ? db.compareTo(da) : da.compareTo(db);
+              return _adminBookingSort == 'newest'
+                  ? db.compareTo(da)
+                  : da.compareTo(db);
             });
 
             if (filtered.isEmpty) {
               return GlassCard(
                 padding: const EdgeInsets.all(32),
                 child: Center(
-                  child: Text('No bookings match the selected filters.', style: TextStyle(color: context.themeTextSecondary)),
+                  child: Text(
+                    'No bookings match the selected filters.',
+                    style: TextStyle(color: context.themeTextSecondary),
+                  ),
                 ),
               );
             }
 
             return Column(
-              children: filtered.map((b) => _buildBookingCard(b, accentColor, false)).toList(),
+              children: filtered
+                  .map((b) => _buildBookingCard(b, accentColor, false))
+                  .toList(),
             );
           },
         ),
@@ -699,7 +1141,10 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   }
 
   // --- SUBTAB 1: Booking Calendar (media_1789972136479.png) ---
-  Widget _buildBookingCalendarView(AsyncValue<List<BookingModel>> bookingsAsync, Color accentColor) {
+  Widget _buildBookingCalendarView(
+    AsyncValue<List<BookingModel>> bookingsAsync,
+    Color accentColor,
+  ) {
     final allBookings = bookingsAsync.value ?? [];
 
     return Column(
@@ -716,15 +1161,31 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                     children: [
                       IconButton(
                         icon: const Icon(Icons.chevron_left),
-                        onPressed: () => setState(() => _calendarMonth = DateTime(_calendarMonth.year, _calendarMonth.month - 1, 1)),
+                        onPressed: () => setState(
+                          () => _calendarMonth = DateTime(
+                            _calendarMonth.year,
+                            _calendarMonth.month - 1,
+                            1,
+                          ),
+                        ),
                       ),
                       Text(
                         '${_formatDateShort(_calendarMonth).split(' ')[1]} ${_calendarMonth.year}',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: context.themeTextPrimary),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: context.themeTextPrimary,
+                        ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.chevron_right),
-                        onPressed: () => setState(() => _calendarMonth = DateTime(_calendarMonth.year, _calendarMonth.month + 1, 1)),
+                        onPressed: () => setState(
+                          () => _calendarMonth = DateTime(
+                            _calendarMonth.year,
+                            _calendarMonth.month + 1,
+                            1,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -733,20 +1194,32 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                     isOutlined: true,
                     height: 32,
                     width: 70,
-                    onPressed: () => setState(() => _calendarMonth = DateTime(2026, 9, 1)),
+                    onPressed: () =>
+                        setState(() => _calendarMonth = DateTime(2026, 9, 1)),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
               Text(
                 'Interactive timeline showing start & return dates for each rental reservation.',
-                style: TextStyle(fontSize: 11.5, color: context.themeTextSecondary),
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: context.themeTextSecondary,
+                ),
               ),
               const SizedBox(height: 12),
               Row(
                 children: [
-                  _buildFilterPill('Grid View', _calendarViewMode == 'grid', () => setState(() => _calendarViewMode = 'grid')),
-                  _buildFilterPill('Agenda View', _calendarViewMode == 'agenda', () => setState(() => _calendarViewMode = 'agenda')),
+                  _buildFilterPill(
+                    'Grid View',
+                    _calendarViewMode == 'grid',
+                    () => setState(() => _calendarViewMode = 'grid'),
+                  ),
+                  _buildFilterPill(
+                    'Agenda View',
+                    _calendarViewMode == 'agenda',
+                    () => setState(() => _calendarViewMode = 'agenda'),
+                  ),
                 ],
               ),
             ],
@@ -762,7 +1235,10 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     );
   }
 
-  Widget _buildCalendarMonthGrid(List<BookingModel> bookings, Color accentColor) {
+  Widget _buildCalendarMonthGrid(
+    List<BookingModel> bookings,
+    Color accentColor,
+  ) {
     final year = _calendarMonth.year;
     final month = _calendarMonth.month;
     final firstDay = DateTime(year, month, 1);
@@ -776,14 +1252,22 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
       child: Column(
         children: [
           Row(
-            children: weekdays.map((day) => Expanded(
-              child: Center(
-                child: Text(
-                  day,
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: context.themeTextMuted),
-                ),
-              ),
-            )).toList(),
+            children: weekdays
+                .map(
+                  (day) => Expanded(
+                    child: Center(
+                      child: Text(
+                        day,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: context.themeTextMuted,
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
           ),
           const Divider(height: 16),
 
@@ -805,12 +1289,21 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               final curDate = DateTime(year, month, day);
 
               final dayBookings = bookings.where((b) {
-                final p = DateTime(b.pickupDate.year, b.pickupDate.month, b.pickupDate.day);
-                final d = DateTime(b.dropDate.year, b.dropDate.month, b.dropDate.day);
+                final p = DateTime(
+                  b.pickupDate.year,
+                  b.pickupDate.month,
+                  b.pickupDate.day,
+                );
+                final d = DateTime(
+                  b.dropDate.year,
+                  b.dropDate.month,
+                  b.dropDate.day,
+                );
                 return !curDate.isBefore(p) && !curDate.isAfter(d);
               }).toList();
 
-              final isSelected = _selectedCalendarDate != null &&
+              final isSelected =
+                  _selectedCalendarDate != null &&
                   _selectedCalendarDate!.year == curDate.year &&
                   _selectedCalendarDate!.month == curDate.month &&
                   _selectedCalendarDate!.day == curDate.day;
@@ -826,10 +1319,14 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   decoration: BoxDecoration(
                     color: isSelected
                         ? accentColor.withValues(alpha: 0.2)
-                        : (dayBookings.isNotEmpty ? context.themeSurfaceElevated : Colors.transparent),
+                        : (dayBookings.isNotEmpty
+                              ? context.themeSurfaceElevated
+                              : Colors.transparent),
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
-                      color: isSelected ? accentColor : context.themeBorder.withValues(alpha: 0.5),
+                      color: isSelected
+                          ? accentColor
+                          : context.themeBorder.withValues(alpha: 0.5),
                     ),
                   ),
                   child: Column(
@@ -840,7 +1337,9 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
-                          color: isSelected ? accentColor : context.themeTextPrimary,
+                          color: isSelected
+                              ? accentColor
+                              : context.themeTextPrimary,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -849,8 +1348,11 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 2),
                             decoration: BoxDecoration(
-                              color: dayBookings.any((b) => b.status == 'active')
-                                  ? const Color(0xFF06D6A0).withValues(alpha: 0.2)
+                              color:
+                                  dayBookings.any((b) => b.status == 'active')
+                                  ? const Color(
+                                      0xFF06D6A0,
+                                    ).withValues(alpha: 0.2)
                                   : accentColor.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(3),
                             ),
@@ -861,7 +1363,8 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                               style: TextStyle(
                                 fontSize: 8.5,
                                 fontWeight: FontWeight.w700,
-                                color: dayBookings.any((b) => b.status == 'active')
+                                color:
+                                    dayBookings.any((b) => b.status == 'active')
                                     ? const Color(0xFF06D6A0)
                                     : accentColor,
                               ),
@@ -871,7 +1374,10 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                       if (dayBookings.length > 1)
                         Text(
                           '+${dayBookings.length - 1} more',
-                          style: TextStyle(fontSize: 8, color: context.themeTextMuted),
+                          style: TextStyle(
+                            fontSize: 8,
+                            color: context.themeTextMuted,
+                          ),
                         ),
                     ],
                   ),
@@ -884,15 +1390,25 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     );
   }
 
-  Widget _buildCalendarAgendaList(List<BookingModel> bookings, Color accentColor) {
+  Widget _buildCalendarAgendaList(
+    List<BookingModel> bookings,
+    Color accentColor,
+  ) {
     if (bookings.isEmpty) {
       return GlassCard(
         padding: const EdgeInsets.all(24),
-        child: Center(child: Text('No bookings scheduled for this period.', style: TextStyle(color: context.themeTextSecondary))),
+        child: Center(
+          child: Text(
+            'No bookings scheduled for this period.',
+            style: TextStyle(color: context.themeTextSecondary),
+          ),
+        ),
       );
     }
     return Column(
-      children: bookings.map((b) => _buildBookingCard(b, accentColor, false)).toList(),
+      children: bookings
+          .map((b) => _buildBookingCard(b, accentColor, false))
+          .toList(),
     );
   }
 
@@ -904,9 +1420,19 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Registered Users & Identity Verification', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+        Text(
+          'Registered Users & Identity Verification',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: context.themeTextPrimary,
+          ),
+        ),
         const SizedBox(height: 2),
-        Text('Review uploaded driving licenses, Aadhaar, and PAN cards.', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+        Text(
+          'Review uploaded driving licenses, Aadhaar, and PAN cards.',
+          style: TextStyle(fontSize: 12, color: context.themeTextSecondary),
+        ),
         const SizedBox(height: 12),
 
         TextField(
@@ -914,17 +1440,26 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           decoration: InputDecoration(
             hintText: 'Search name, phone, or email...',
             prefixIcon: const Icon(Icons.search, size: 18),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 10,
+            ),
             filled: true,
             fillColor: context.themeSurfaceElevated,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: context.themeBorder)),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: context.themeBorder),
+            ),
           ),
-          onChanged: (val) => setState(() => _userSearchQuery = val.toLowerCase()),
+          onChanged: (val) =>
+              setState(() => _userSearchQuery = val.toLowerCase()),
         ),
         const SizedBox(height: 14),
 
         usersAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+          loading: () => const Center(
+            child: CircularProgressIndicator(color: AppColors.primary),
+          ),
           error: (_, _) => _buildKycSection(accentColor),
           data: (users) {
             var filtered = users.where((u) {
@@ -932,7 +1467,9 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               final name = (u['name'] ?? '').toString().toLowerCase();
               final email = (u['email'] ?? '').toString().toLowerCase();
               final phone = (u['phone'] ?? '').toString().toLowerCase();
-              return name.contains(_userSearchQuery) || email.contains(_userSearchQuery) || phone.contains(_userSearchQuery);
+              return name.contains(_userSearchQuery) ||
+                  email.contains(_userSearchQuery) ||
+                  phone.contains(_userSearchQuery);
             }).toList();
 
             if (filtered.isEmpty) {
@@ -960,55 +1497,124 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(name, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
-                                Text(email, style: TextStyle(fontSize: 11, color: context.themeTextSecondary)),
-                                Text('Contact: $phone', style: TextStyle(fontSize: 11, color: context.themeTextMuted)),
+                                Text(
+                                  name,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w800,
+                                    color: context.themeTextPrimary,
+                                  ),
+                                ),
+                                Text(
+                                  email,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: context.themeTextSecondary,
+                                  ),
+                                ),
+                                Text(
+                                  'Contact: $phone',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: context.themeTextMuted,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
                           if (isManager)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: accentColor.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
                                 role.toUpperCase(),
-                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: accentColor),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: accentColor,
+                                ),
                               ),
                             )
                           else
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: accentColor.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: accentColor.withValues(alpha: 0.3)),
+                                border: Border.all(
+                                  color: accentColor.withValues(alpha: 0.3),
+                                ),
                               ),
                               child: DropdownButtonHideUnderline(
                                 child: DropdownButton<String>(
-                                  value: ['customer', 'manager', 'executive', 'accounts', 'admin'].contains(role.toLowerCase())
+                                  value:
+                                      [
+                                        'customer',
+                                        'manager',
+                                        'executive',
+                                        'accounts',
+                                        'admin',
+                                      ].contains(role.toLowerCase())
                                       ? role.toLowerCase()
                                       : 'customer',
                                   dropdownColor: context.themeSurfaceElevated,
                                   isDense: true,
-                                  icon: Icon(Icons.arrow_drop_down, size: 16, color: accentColor),
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: accentColor),
+                                  icon: Icon(
+                                    Icons.arrow_drop_down,
+                                    size: 16,
+                                    color: accentColor,
+                                  ),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                    color: accentColor,
+                                  ),
                                   items: const [
-                                    DropdownMenuItem(value: 'customer', child: Text('CUSTOMER')),
-                                    DropdownMenuItem(value: 'manager', child: Text('MANAGER')),
-                                    DropdownMenuItem(value: 'executive', child: Text('EXECUTIVE')),
-                                    DropdownMenuItem(value: 'accounts', child: Text('ACCOUNTS')),
-                                    DropdownMenuItem(value: 'admin', child: Text('ADMIN')),
+                                    DropdownMenuItem(
+                                      value: 'customer',
+                                      child: Text('CUSTOMER'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'manager',
+                                      child: Text('MANAGER'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'executive',
+                                      child: Text('EXECUTIVE'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'accounts',
+                                      child: Text('ACCOUNTS'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'admin',
+                                      child: Text('ADMIN'),
+                                    ),
                                   ],
                                   onChanged: (newRole) async {
                                     if (newRole != null && newRole != role) {
-                                      await ref.read(adminBookingsProvider.notifier).updateRole(uid: uid, role: newRole);
+                                      await ref
+                                          .read(adminBookingsProvider.notifier)
+                                          .updateRole(uid: uid, role: newRole);
                                       ref.invalidate(adminUsersProvider);
                                       if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('User role for $name updated to ${newRole.toUpperCase()}')),
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'User role for $name updated to ${newRole.toUpperCase()}',
+                                            ),
+                                          ),
                                         );
                                       }
                                     }
@@ -1024,7 +1630,10 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                           Expanded(
                             child: Text(
                               'Identity: Verification on file',
-                              style: TextStyle(fontSize: 11, color: context.themeTextSecondary),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: context.themeTextSecondary,
+                              ),
                             ),
                           ),
                           CustomButton(
@@ -1033,15 +1642,23 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                             height: 28,
                             width: 110,
                             onPressed: () {
-                              final kycList = ref.read(adminKycListProvider).value ?? [];
+                              final kycList =
+                                  ref.read(adminKycListProvider).value ?? [];
                               final kycMatch = kycList.firstWhere(
-                                (k) => (k['userId']?.toString() == uid ||
+                                (k) =>
+                                    (k['userId']?.toString() == uid ||
                                     k['user_id']?.toString() == uid ||
                                     k['email']?.toString() == email ||
                                     k['phone']?.toString() == phone),
                                 orElse: () => u,
                               );
-                              _showExecutiveKycModal(name, phone, email, uid, kycMatch);
+                              _showExecutiveKycModal(
+                                name,
+                                phone,
+                                email,
+                                uid,
+                                kycMatch,
+                              );
                             },
                           ),
                         ],
@@ -1063,12 +1680,33 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: context.themeTextPrimary,
+            ),
+          ),
           Row(
             children: [
-              Icon(isVerified ? Icons.check_circle : Icons.pending, size: 14, color: isVerified ? const Color(0xFF06D6A0) : const Color(0xFFFFB703)),
+              Icon(
+                isVerified ? Icons.check_circle : Icons.pending,
+                size: 14,
+                color: isVerified
+                    ? const Color(0xFF06D6A0)
+                    : const Color(0xFFFFB703),
+              ),
               const SizedBox(width: 4),
-              Text(status, style: TextStyle(fontSize: 12, color: isVerified ? const Color(0xFF06D6A0) : const Color(0xFFFFB703))),
+              Text(
+                status,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isVerified
+                      ? const Color(0xFF06D6A0)
+                      : const Color(0xFFFFB703),
+                ),
+              ),
             ],
           ),
         ],
@@ -1077,7 +1715,11 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   }
 
   // --- SUBTAB 3: Users & Customers Analytics (media_1789971992744.png) ---
-  Widget _buildUsersCustomersAnalyticsView(AdminStatsModel stats, AsyncValue<List<BookingModel>> bookingsAsync, Color accentColor) {
+  Widget _buildUsersCustomersAnalyticsView(
+    AdminStatsModel stats,
+    AsyncValue<List<BookingModel>> bookingsAsync,
+    Color accentColor,
+  ) {
     final allBookings = bookingsAsync.value ?? [];
     final uniqueCustomers = allBookings.map((b) => b.userName).toSet().length;
 
@@ -1086,13 +1728,34 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
       children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(color: accentColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
-          child: Text('CUSTOMER INSIGHTS', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, letterSpacing: 1, color: accentColor)),
+          decoration: BoxDecoration(
+            color: accentColor.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            'CUSTOMER INSIGHTS',
+            style: TextStyle(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1,
+              color: accentColor,
+            ),
+          ),
         ),
         const SizedBox(height: 4),
-        Text('Users & Customer Analytics', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: context.themeTextPrimary)),
+        Text(
+          'Users & Customer Analytics',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+            color: context.themeTextPrimary,
+          ),
+        ),
         const SizedBox(height: 2),
-        Text('Track registered user accounts vs actual booking customers, new acquisitions, and repeat reservations.', style: TextStyle(fontSize: 11.5, color: context.themeTextSecondary)),
+        Text(
+          'Track registered user accounts vs actual booking customers, new acquisitions, and repeat reservations.',
+          style: TextStyle(fontSize: 11.5, color: context.themeTextSecondary),
+        ),
         const SizedBox(height: 12),
 
         GlassCard(
@@ -1100,28 +1763,58 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('QUICK FILTER RANGE', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: context.themeTextMuted)),
+              Text(
+                'QUICK FILTER RANGE',
+                style: TextStyle(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w800,
+                  color: context.themeTextMuted,
+                ),
+              ),
               const SizedBox(height: 8),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
-                  children: ['Today', 'Yesterday', 'This Week', 'This Month', 'Last Month', 'This Year', 'All Time'].map((r) {
-                    final isSel = _custPeriod == r;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: GestureDetector(
-                        onTap: () => setState(() => _custPeriod = r),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: isSel ? accentColor : context.themeSurfaceElevated,
-                            borderRadius: BorderRadius.circular(14),
+                  children:
+                      [
+                        'Today',
+                        'Yesterday',
+                        'This Week',
+                        'This Month',
+                        'Last Month',
+                        'This Year',
+                        'All Time',
+                      ].map((r) {
+                        final isSel = _custPeriod == r;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: GestureDetector(
+                            onTap: () => setState(() => _custPeriod = r),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isSel
+                                    ? accentColor
+                                    : context.themeSurfaceElevated,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Text(
+                                r,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: isSel
+                                      ? const Color(0xFF041017)
+                                      : context.themeTextSecondary,
+                                ),
+                              ),
+                            ),
                           ),
-                          child: Text(r, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isSel ? const Color(0xFF041017) : context.themeTextSecondary)),
-                        ),
-                      ),
-                    );
-                  }).toList(),
+                        );
+                      }).toList(),
                 ),
               ),
             ],
@@ -1137,52 +1830,121 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           mainAxisSpacing: 8,
           childAspectRatio: _kpiChildAspectRatio,
           children: [
-            _buildStatMetricCard('TOTAL REGISTERED USERS', '${stats.totalUsers}', 'System user accounts', accentColor),
-            _buildStatMetricCard('TOTAL ACTIVE CUSTOMERS', '$uniqueCustomers', 'Unique users who booked', const Color(0xFF06D6A0)),
-            _buildStatMetricCard("THIS MONTH'S CUSTOMERS", '$uniqueCustomers', 'Unique bookers in month', accentColor),
-            _buildStatMetricCard('NEW CUSTOMERS THIS MONTH', '$uniqueCustomers', 'First booking this month', const Color(0xFF06D6A0)),
-            _buildStatMetricCard('REPEAT CUSTOMERS', '${uniqueCustomers > 1 ? (uniqueCustomers * 0.1).round() : 0}', 'Customers with >1 booking', const Color(0xFFFFB703)),
+            _buildStatMetricCard(
+              'TOTAL REGISTERED USERS',
+              '${stats.totalUsers}',
+              'System user accounts',
+              accentColor,
+            ),
+            _buildStatMetricCard(
+              'TOTAL ACTIVE CUSTOMERS',
+              '$uniqueCustomers',
+              'Unique users who booked',
+              const Color(0xFF06D6A0),
+            ),
+            _buildStatMetricCard(
+              "THIS MONTH'S CUSTOMERS",
+              '$uniqueCustomers',
+              'Unique bookers in month',
+              accentColor,
+            ),
+            _buildStatMetricCard(
+              'NEW CUSTOMERS THIS MONTH',
+              '$uniqueCustomers',
+              'First booking this month',
+              const Color(0xFF06D6A0),
+            ),
+            _buildStatMetricCard(
+              'REPEAT CUSTOMERS',
+              '${uniqueCustomers > 1 ? (uniqueCustomers * 0.1).round() : 0}',
+              'Customers with >1 booking',
+              const Color(0xFFFFB703),
+            ),
           ],
         ),
         const SizedBox(height: 18),
 
-        Text('Monthly User & Customer Acquisition Breakdown', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+        Text(
+          'Monthly User & Customer Acquisition Breakdown',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            color: context.themeTextPrimary,
+          ),
+        ),
         const SizedBox(height: 8),
         Builder(
           builder: (context) {
-            final Map<String, ({Set<String> users, int bookings})> dynamicMonthly = {};
+            final Map<String, ({Set<String> users, int bookings})>
+            dynamicMonthly = {};
             for (final b in allBookings) {
               final key = DateFormat('yyyy-MM').format(b.pickupDate);
-              final existing = dynamicMonthly[key] ?? (users: <String>{}, bookings: 0);
-              existing.users.add(b.userName.isNotEmpty ? b.userName : b.userEmail);
-              dynamicMonthly[key] = (users: existing.users, bookings: existing.bookings + 1);
+              final existing =
+                  dynamicMonthly[key] ?? (users: <String>{}, bookings: 0);
+              existing.users.add(
+                b.userName.isNotEmpty ? b.userName : b.userEmail,
+              );
+              dynamicMonthly[key] = (
+                users: existing.users,
+                bookings: existing.bookings + 1,
+              );
             }
 
-            final hasBackendData = stats.monthly.isNotEmpty &&
-                stats.monthly.values.any((v) => v is Map<String, dynamic> && ((v['bookings'] as num?)?.toInt() ?? 0) > 0);
+            final hasBackendData =
+                stats.monthly.isNotEmpty &&
+                stats.monthly.values.any(
+                  (v) =>
+                      v is Map &&
+                      _safeInt(v['bookings']) > 0,
+                );
 
             return GlassCard(
               padding: const EdgeInsets.all(12),
               child: Column(
                 children: [
-                  _buildTableRow(['MONTH', 'NEW USERS', 'BOOKED', 'BOOKINGS'], isHeader: true),
+                  _buildTableRow([
+                    'MONTH',
+                    'NEW USERS',
+                    'BOOKED',
+                    'BOOKINGS',
+                  ], isHeader: true),
                   const Divider(height: 12),
                   if (hasBackendData)
                     ...stats.monthly.entries.map((e) {
-                      final monthData = e.value is Map<String, dynamic> ? e.value as Map<String, dynamic> : <String, dynamic>{};
-                      final newUsers = '${(monthData['new_users'] as num?)?.toInt() ?? 0}';
-                      final booked = '${(monthData['booked_users'] as num?)?.toInt() ?? 0}';
-                      final bookings = '${(monthData['bookings'] as num?)?.toInt() ?? 0}';
-                      return _buildTableRow([e.key, newUsers, booked, bookings]);
+                      final monthData = e.value is Map
+                          ? e.value as Map
+                          : const {};
+                      final newUsers =
+                          '${_safeInt(monthData['new_users'])}';
+                      final booked =
+                          '${_safeInt(monthData['booked_users'])}';
+                      final bookings =
+                          '${_safeInt(monthData['bookings'])}';
+                      return _buildTableRow([
+                        e.key,
+                        newUsers,
+                        booked,
+                        bookings,
+                      ]);
                     })
                   else if (dynamicMonthly.isNotEmpty)
                     ...dynamicMonthly.entries.map((e) {
                       final bookedCount = e.value.users.length;
                       final bookingsCount = e.value.bookings;
-                      return _buildTableRow([e.key, '$bookedCount', '$bookedCount', '$bookingsCount']);
+                      return _buildTableRow([
+                        e.key,
+                        '$bookedCount',
+                        '$bookedCount',
+                        '$bookingsCount',
+                      ]);
                     })
                   else ...[
-                    _buildTableRow(['No monthly data available', '-', '-', '-']),
+                    _buildTableRow([
+                      'No monthly data available',
+                      '-',
+                      '-',
+                      '-',
+                    ]),
                   ],
                 ],
               ),
@@ -1194,19 +1956,44 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   }
 
   // --- SUBTAB 4: Bookings & Reservations Analytics (media_1789971999168.png) ---
-  Widget _buildBookingsReservationsAnalyticsView(AdminStatsModel stats, AsyncValue<List<BookingModel>> bookingsAsync, Color accentColor) {
+  Widget _buildBookingsReservationsAnalyticsView(
+    AdminStatsModel stats,
+    AsyncValue<List<BookingModel>> bookingsAsync,
+    Color accentColor,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(color: accentColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
-          child: Text('RESERVATION INSIGHTS', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, letterSpacing: 1, color: accentColor)),
+          decoration: BoxDecoration(
+            color: accentColor.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            'RESERVATION INSIGHTS',
+            style: TextStyle(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1,
+              color: accentColor,
+            ),
+          ),
         ),
         const SizedBox(height: 4),
-        Text('Bookings & Reservations Analytics', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: context.themeTextPrimary)),
+        Text(
+          'Bookings & Reservations Analytics',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+            color: context.themeTextPrimary,
+          ),
+        ),
         const SizedBox(height: 2),
-        Text('Track rental reservations, verified paid bookings, cancellations, and monthly booking growth.', style: TextStyle(fontSize: 11.5, color: context.themeTextSecondary)),
+        Text(
+          'Track rental reservations, verified paid bookings, cancellations, and monthly booking growth.',
+          style: TextStyle(fontSize: 11.5, color: context.themeTextSecondary),
+        ),
         const SizedBox(height: 12),
 
         GlassCard(
@@ -1214,23 +2001,46 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: ['Today', 'Yesterday', 'This Week', 'This Month', 'Last Month', 'This Year', 'All Time'].map((r) {
-                final isSel = _bookPeriod == r;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: GestureDetector(
-                    onTap: () => setState(() => _bookPeriod = r),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: isSel ? accentColor : context.themeSurfaceElevated,
-                        borderRadius: BorderRadius.circular(14),
+              children:
+                  [
+                    'Today',
+                    'Yesterday',
+                    'This Week',
+                    'This Month',
+                    'Last Month',
+                    'This Year',
+                    'All Time',
+                  ].map((r) {
+                    final isSel = _bookPeriod == r;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: GestureDetector(
+                        onTap: () => setState(() => _bookPeriod = r),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSel
+                                ? accentColor
+                                : context.themeSurfaceElevated,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Text(
+                            r,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: isSel
+                                  ? const Color(0xFF041017)
+                                  : context.themeTextSecondary,
+                            ),
+                          ),
+                        ),
                       ),
-                      child: Text(r, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isSel ? const Color(0xFF041017) : context.themeTextSecondary)),
-                    ),
-                  ),
-                );
-              }).toList(),
+                    );
+                  }).toList(),
             ),
           ),
         ),
@@ -1244,34 +2054,84 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           mainAxisSpacing: 8,
           childAspectRatio: _kpiChildAspectRatio,
           children: [
-            _buildStatMetricCard('TOTAL BOOKINGS', '${stats.totalBookings}', 'All reservations recorded', context.themeTextPrimary),
-            _buildStatMetricCard('PAID & CONFIRMED', '${stats.paidBookings}', 'Verified payment received', const Color(0xFF06D6A0)),
-            _buildStatMetricCard('PENDING VERIFICATION', '${stats.pendingPayments}', 'Awaiting payment audit', const Color(0xFFFF5C77)),
-            _buildStatMetricCard('ACTIVE / ON-ROAD', '${stats.activeTrips}', 'Currently on rental trip', const Color(0xFF06D6A0)),
-            _buildStatMetricCard('CANCELLED / REJECTED', '${stats.totalBookings - stats.paidBookings}', 'Cancelled or rejected', const Color(0xFFFF5C77)),
+            _buildStatMetricCard(
+              'TOTAL BOOKINGS',
+              '${stats.totalBookings}',
+              'All reservations recorded',
+              context.themeTextPrimary,
+            ),
+            _buildStatMetricCard(
+              'PAID & CONFIRMED',
+              '${stats.paidBookings}',
+              'Verified payment received',
+              const Color(0xFF06D6A0),
+            ),
+            _buildStatMetricCard(
+              'PENDING VERIFICATION',
+              '${stats.pendingPayments}',
+              'Awaiting payment audit',
+              const Color(0xFFFF5C77),
+            ),
+            _buildStatMetricCard(
+              'ACTIVE / ON-ROAD',
+              '${stats.activeTrips}',
+              'Currently on rental trip',
+              const Color(0xFF06D6A0),
+            ),
+            _buildStatMetricCard(
+              'CANCELLED / REJECTED',
+              '${stats.totalBookings - stats.paidBookings}',
+              'Cancelled or rejected',
+              const Color(0xFFFF5C77),
+            ),
           ],
         ),
         const SizedBox(height: 18),
 
-        Text('Monthly Bookings & Reservation Performance Breakdown', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+        Text(
+          'Monthly Bookings & Reservation Performance Breakdown',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            color: context.themeTextPrimary,
+          ),
+        ),
         const SizedBox(height: 8),
         GlassCard(
           padding: const EdgeInsets.all(12),
           child: Column(
             children: [
-              _buildTableRow(['MONTH', 'TOTAL', 'PAID', 'CANCELLED', 'GROSS'], isHeader: true),
+              _buildTableRow([
+                'MONTH',
+                'TOTAL',
+                'PAID',
+                'CANCELLED',
+                'GROSS',
+              ], isHeader: true),
               const Divider(height: 12),
               if (stats.monthly.isNotEmpty)
                 ...stats.monthly.entries.map((e) {
-                  final monthData = e.value is Map<String, dynamic> ? e.value as Map<String, dynamic> : <String, dynamic>{};
-                  final total = '${(monthData['bookings'] as num?)?.toInt() ?? 0}';
-                  final paid = '${(monthData['paid'] as num?)?.toInt() ?? 0}';
-                  final cancelled = '${(monthData['cancelled'] as num?)?.toInt() ?? 0}';
-                  final gross = _formatINR((monthData['revenue'] as num?)?.toDouble() ?? 0.0);
+                  final monthData = e.value is Map
+                      ? e.value as Map
+                      : const {};
+                  final total =
+                      '${_safeInt(monthData['bookings'])}';
+                  final paid = '${_safeInt(monthData['paid'])}';
+                  final cancelled =
+                      '${_safeInt(monthData['cancelled'])}';
+                  final gross = _formatINR(
+                    _safeDouble(monthData['revenue']),
+                  );
                   return _buildTableRow([e.key, total, paid, cancelled, gross]);
                 })
               else
-                _buildTableRow(['No monthly data available', '-', '-', '-', '-']),
+                _buildTableRow([
+                  'No monthly data available',
+                  '-',
+                  '-',
+                  '-',
+                  '-',
+                ]),
             ],
           ),
         ),
@@ -1284,9 +2144,19 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Vehicle Acquisition & Host Partners', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+        Text(
+          'Vehicle Acquisition & Host Partners',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: context.themeTextPrimary,
+          ),
+        ),
         const SizedBox(height: 2),
-        Text('Review incoming vehicle hosting requests, partner agreements, and onboarding inspections.', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+        Text(
+          'Review incoming vehicle hosting requests, partner agreements, and onboarding inspections.',
+          style: TextStyle(fontSize: 12, color: context.themeTextSecondary),
+        ),
         const SizedBox(height: 14),
 
         GlassCard(
@@ -1297,12 +2167,25 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('9 Active Partner Hosts', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                  Text(
+                    '9 Active Partner Hosts',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: context.themeTextPrimary,
+                    ),
+                  ),
                   StatusBadge(status: 'verified'),
                 ],
               ),
               const SizedBox(height: 8),
-              Text('All 9 operational fleet vehicles are currently active and contracted through host partners in Ghansoli Hub.', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+              Text(
+                'All 9 operational fleet vehicles are currently active and contracted through host partners in Ghansoli Hub.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: context.themeTextSecondary,
+                ),
+              ),
               const SizedBox(height: 14),
               CustomButton(
                 text: 'Review Host Contracts',
@@ -1310,7 +2193,9 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 height: 36,
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Host contracts & agreements verified.')),
+                    const SnackBar(
+                      content: Text('Host contracts & agreements verified.'),
+                    ),
                   );
                 },
               ),
@@ -1322,7 +2207,10 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   }
 
   // --- SUBTAB 6: Fleet Management (media_1789972015464.png) ---
-  Widget _buildFleetManagementView(List<VehicleModel> vehicles, Color accentColor) {
+  Widget _buildFleetManagementView(
+    List<VehicleModel> vehicles,
+    Color accentColor,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1333,8 +2221,21 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Fleet Availability Management', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
-                  Text('Control catalog inventory, rates, availability, and vehicle images.', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                  Text(
+                    'Fleet Availability Management',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: context.themeTextPrimary,
+                    ),
+                  ),
+                  Text(
+                    'Control catalog inventory, rates, availability, and vehicle images.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: context.themeTextSecondary,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1361,22 +2262,49 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.star_rounded, size: 18, color: Color(0xFFFFB703)),
+                      const Icon(
+                        Icons.star_rounded,
+                        size: 18,
+                        color: Color(0xFFFFB703),
+                      ),
                       const SizedBox(width: 6),
-                      Text('Current Fleet (Manager Summary Roster)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                      Text(
+                        'Current Fleet (Manager Summary Roster)',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: context.themeTextPrimary,
+                        ),
+                      ),
                     ],
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(color: const Color(0xFF06D6A0).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
-                    child: Text('${_currentRosterRegs.length} Active Fleets', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF06D6A0))),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF06D6A0).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${_currentRosterRegs.length} Active Fleets',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF06D6A0),
+                      ),
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 6),
               Text(
                 'Vehicles with the "Current Fleet" checkbox checked are tracked in the Manager Summary analytics, revenue tracking, and occupancy calculations.',
-                style: TextStyle(fontSize: 11, color: context.themeTextSecondary),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: context.themeTextSecondary,
+                ),
               ),
               const SizedBox(height: 10),
               CustomButton(
@@ -1387,8 +2315,15 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 onPressed: () => setState(() {
                   _currentRosterRegs.clear();
                   _currentRosterRegs.addAll([
-                    'MH03EL1025', 'MH05GJ4711', 'MH48GJ4153', 'MH04MU1178',
-                    'MH05FV3454', 'MH43CU1632', 'MH02FU6808', 'CPR-007', 'MH43BY2773'
+                    'MH03EL1025',
+                    'MH05GJ4711',
+                    'MH48GJ4153',
+                    'MH04MU1178',
+                    'MH05FV3454',
+                    'MH43CU1632',
+                    'MH02FU6808',
+                    'CPR-007',
+                    'MH43BY2773',
                   ]);
                 }),
               ),
@@ -1396,18 +2331,26 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
 
               Builder(
                 builder: (context) {
-                  final rosterVehicles = vehicles.where((v) => _currentRosterRegs.contains(v.regNo)).toList();
+                  final rosterVehicles = vehicles
+                      .where((v) => _currentRosterRegs.contains(v.regNo))
+                      .toList();
                   if (rosterVehicles.isEmpty) {
                     return Wrap(
                       spacing: 6,
                       runSpacing: 6,
-                      children: _currentRosterRegs.map((reg) => _buildRosterChip(reg)).toList(),
+                      children: _currentRosterRegs
+                          .map((reg) => _buildRosterChip(reg))
+                          .toList(),
                     );
                   }
                   return Wrap(
                     spacing: 6,
                     runSpacing: 6,
-                    children: rosterVehicles.map((v) => _buildRosterChip('${v.regNo} ${v.fullName}')).toList(),
+                    children: rosterVehicles
+                        .map(
+                          (v) => _buildRosterChip('${v.regNo} ${v.fullName}'),
+                        )
+                        .toList(),
                   );
                 },
               ),
@@ -1422,21 +2365,36 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Add / Edit Fleet Vehicle', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                Text(
+                  'Add / Edit Fleet Vehicle',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: context.themeTextPrimary,
+                  ),
+                ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
                       child: TextField(
                         controller: _addFleetRegController,
-                        decoration: const InputDecoration(labelText: 'RC NUMBER / REG *', hintText: 'e.g. MH03EL1025', border: OutlineInputBorder()),
+                        decoration: const InputDecoration(
+                          labelText: 'RC NUMBER / REG *',
+                          hintText: 'e.g. MH03EL1025',
+                          border: OutlineInputBorder(),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: TextField(
                         controller: _addFleetBrandController,
-                        decoration: const InputDecoration(labelText: 'BRAND *', hintText: 'e.g. Maruti Suzuki', border: OutlineInputBorder()),
+                        decoration: const InputDecoration(
+                          labelText: 'BRAND *',
+                          hintText: 'e.g. Maruti Suzuki',
+                          border: OutlineInputBorder(),
+                        ),
                       ),
                     ),
                   ],
@@ -1447,7 +2405,11 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                     Expanded(
                       child: TextField(
                         controller: _addFleetModelController,
-                        decoration: const InputDecoration(labelText: 'MODEL *', hintText: 'e.g. Fronx', border: OutlineInputBorder()),
+                        decoration: const InputDecoration(
+                          labelText: 'MODEL *',
+                          hintText: 'e.g. Fronx',
+                          border: OutlineInputBorder(),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1455,7 +2417,12 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                       child: TextField(
                         controller: _addFleetRateController,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'DAILY RATE (₹) *', hintText: 'e.g. 3500', prefixText: '₹ ', border: OutlineInputBorder()),
+                        decoration: const InputDecoration(
+                          labelText: 'DAILY RATE (₹) *',
+                          hintText: 'e.g. 3500',
+                          prefixText: '₹ ',
+                          border: OutlineInputBorder(),
+                        ),
                       ),
                     ),
                   ],
@@ -1463,7 +2430,11 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 const SizedBox(height: 10),
                 TextField(
                   controller: _addFleetOwnerController,
-                  decoration: const InputDecoration(labelText: 'OWNER / PARTNER NAME', hintText: 'e.g. Aditi Lotankar', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                    labelText: 'OWNER / PARTNER NAME',
+                    hintText: 'e.g. Aditi Lotankar',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Row(
@@ -1471,10 +2442,18 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                     Checkbox(
                       value: _addFleetIsCurrent,
                       activeColor: accentColor,
-                      onChanged: (v) => setState(() => _addFleetIsCurrent = v ?? true),
+                      onChanged: (v) =>
+                          setState(() => _addFleetIsCurrent = v ?? true),
                     ),
                     Expanded(
-                      child: Text('CURRENT FLEET (SHOW IN MANAGER SUMMARY)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
+                      child: Text(
+                        'CURRENT FLEET (SHOW IN MANAGER SUMMARY)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: context.themeTextPrimary,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -1484,7 +2463,9 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   height: 38,
                   onPressed: () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Vehicle saved to Kruizly fleet roster.')),
+                      const SnackBar(
+                        content: Text('Vehicle saved to Kruizly fleet roster.'),
+                      ),
                     );
                   },
                 ),
@@ -1494,7 +2475,11 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           const SizedBox(height: 16),
         ],
 
-        _buildFleetManagementSection(vehicles, accentColor, readOnly: _selectedRole == 'MANAGER PANEL'),
+        _buildFleetManagementSection(
+          vehicles,
+          accentColor,
+          readOnly: _selectedRole == 'MANAGER PANEL',
+        ),
       ],
     );
   }
@@ -1504,13 +2489,22 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: const Color(0xFF06D6A0).withValues(alpha: 0.12),
-        border: Border.all(color: const Color(0xFF06D6A0).withValues(alpha: 0.3)),
+        border: Border.all(
+          color: const Color(0xFF06D6A0).withValues(alpha: 0.3),
+        ),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF06D6A0))),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF06D6A0),
+            ),
+          ),
           const SizedBox(width: 4),
           const Icon(Icons.close, size: 12, color: Color(0xFF06D6A0)),
         ],
@@ -1530,16 +2524,39 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Promo & Coupon Codes', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
-                  Text('Create, edit, activate, or deactivate discount codes for customer checkout.', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                  Text(
+                    'Promo & Coupon Codes',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: context.themeTextPrimary,
+                    ),
+                  ),
+                  Text(
+                    'Create, edit, activate, or deactivate discount codes for customer checkout.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: context.themeTextSecondary,
+                    ),
+                  ),
                 ],
               ),
             ),
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(color: accentColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
-              child: Text('ACTIVE PROMOS: 6', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: accentColor)),
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'ACTIVE PROMOS: 6',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: accentColor,
+                ),
+              ),
             ),
           ],
         ),
@@ -1554,11 +2571,31 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('ADD NEW COUPON CODE', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                    Text(
+                      'ADD NEW COUPON CODE',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: context.themeTextPrimary,
+                      ),
+                    ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(color: const Color(0xFF06D6A0).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
-                      child: const Text('Create Mode', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF06D6A0))),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF06D6A0).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'Create Mode',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF06D6A0),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -1568,20 +2605,34 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                     Expanded(
                       child: TextField(
                         controller: _couponCodeController,
-                        decoration: const InputDecoration(labelText: 'COUPON CODE', hintText: 'e.g. WELCOME500', border: OutlineInputBorder()),
+                        decoration: const InputDecoration(
+                          labelText: 'COUPON CODE',
+                          hintText: 'e.g. WELCOME500',
+                          border: OutlineInputBorder(),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: DropdownButtonFormField<String>(
                         initialValue: _couponDiscountType,
-                        decoration: const InputDecoration(labelText: 'DISCOUNT TYPE', border: OutlineInputBorder()),
+                        decoration: const InputDecoration(
+                          labelText: 'DISCOUNT TYPE',
+                          border: OutlineInputBorder(),
+                        ),
                         dropdownColor: context.themeSurfaceElevated,
                         items: const [
-                          DropdownMenuItem(value: 'flat', child: Text('Flat Amount (₹)')),
-                          DropdownMenuItem(value: 'percentage', child: Text('Percentage (%)')),
+                          DropdownMenuItem(
+                            value: 'flat',
+                            child: Text('Flat Amount (₹)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'percentage',
+                            child: Text('Percentage (%)'),
+                          ),
                         ],
-                        onChanged: (val) => setState(() => _couponDiscountType = val ?? 'flat'),
+                        onChanged: (val) =>
+                            setState(() => _couponDiscountType = val ?? 'flat'),
                       ),
                     ),
                   ],
@@ -1593,7 +2644,11 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                       child: TextField(
                         controller: _couponValueController,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'DISCOUNT VALUE', hintText: 'e.g. 500 or 15', border: OutlineInputBorder()),
+                        decoration: const InputDecoration(
+                          labelText: 'DISCOUNT VALUE',
+                          hintText: 'e.g. 500 or 15',
+                          border: OutlineInputBorder(),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1601,7 +2656,11 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                       child: TextField(
                         controller: _couponMinOrderController,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'MIN ORDER TOTAL (₹)', hintText: '0', border: OutlineInputBorder()),
+                        decoration: const InputDecoration(
+                          labelText: 'MIN ORDER TOTAL (₹)',
+                          hintText: '0',
+                          border: OutlineInputBorder(),
+                        ),
                       ),
                     ),
                   ],
@@ -1609,7 +2668,11 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 const SizedBox(height: 10),
                 TextField(
                   controller: _couponLabelController,
-                  decoration: const InputDecoration(labelText: 'LABEL / DESCRIPTION', hintText: 'e.g. ₹500 Flat Off on first ride', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                    labelText: 'LABEL / DESCRIPTION',
+                    hintText: 'e.g. ₹500 Flat Off on first ride',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
                 const SizedBox(height: 14),
                 CustomButton(
@@ -1650,7 +2713,8 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
         ? allRawBookings
         : allRawBookings.where((b) {
             final loc = b.location.toLowerCase();
-            if (_selectedHub == 'ghansoli') return loc.contains('ghansoli') || loc.contains('gavson');
+            if (_selectedHub == 'ghansoli')
+              return loc.contains('ghansoli') || loc.contains('gavson');
             if (_selectedHub == 'kandivali') return loc.contains('kandivali');
             return true;
           }).toList();
@@ -1659,53 +2723,93 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
         ? allActiveFleet
         : allActiveFleet.where((v) {
             final loc = v.location.toLowerCase();
-            if (_selectedHub == 'ghansoli') return loc.contains('ghansoli') || loc.contains('gavson');
+            if (_selectedHub == 'ghansoli')
+              return loc.contains('ghansoli') || loc.contains('gavson');
             if (_selectedHub == 'kandivali') return loc.contains('kandivali');
             return true;
           }).toList();
 
     final mgrRange = _getDateRange(_mgrPeriod, _mgrCustomFrom, _mgrCustomTo);
-    final periodBookings = allBookings.where((b) => _isBookingInRange(b, mgrRange)).toList();
-    final nonCancelledBookings = periodBookings.where((b) => !b.isCancelled).toList();
+    final periodBookings = allBookings
+        .where((b) => _isBookingInRange(b, mgrRange))
+        .toList();
+    final nonCancelledBookings = periodBookings
+        .where((b) => !b.isCancelled)
+        .toList();
 
     double periodRevenue;
     if (_selectedHub == 'all') {
       if (_mgrPeriod == 'All Time') {
-        periodRevenue = stats.totalRevenue > 0 ? stats.totalRevenue : nonCancelledBookings.fold(0.0, (sum, b) => sum + b.finalAmount);
+        periodRevenue = stats.totalRevenue > 0
+            ? stats.totalRevenue
+            : nonCancelledBookings.fold(0.0, (sum, b) => sum + b.finalAmount);
       } else if (_mgrPeriod == 'This Month') {
-        periodRevenue = stats.monthRevenue > 0 ? stats.monthRevenue : nonCancelledBookings.fold(0.0, (sum, b) => sum + b.finalAmount);
+        periodRevenue = stats.monthRevenue > 0
+            ? stats.monthRevenue
+            : nonCancelledBookings.fold(0.0, (sum, b) => sum + b.finalAmount);
       } else if (_mgrPeriod == 'Last Month') {
-        periodRevenue = stats.lastMonthRevenue > 0 ? stats.lastMonthRevenue : nonCancelledBookings.fold(0.0, (sum, b) => sum + b.finalAmount);
+        periodRevenue = stats.lastMonthRevenue > 0
+            ? stats.lastMonthRevenue
+            : nonCancelledBookings.fold(0.0, (sum, b) => sum + b.finalAmount);
       } else {
-        periodRevenue = nonCancelledBookings.fold(0.0, (sum, b) => sum + b.finalAmount);
+        periodRevenue = nonCancelledBookings.fold(
+          0.0,
+          (sum, b) => sum + b.finalAmount,
+        );
       }
     } else {
       // Direct hub-filtered dynamic calculation from bookings
-      periodRevenue = nonCancelledBookings.fold(0.0, (sum, b) => sum + b.finalAmount);
+      periodRevenue = nonCancelledBookings.fold(
+        0.0,
+        (sum, b) => sum + b.finalAmount,
+      );
     }
 
-    final periodActiveTrips = _selectedHub == 'all' && (_mgrPeriod == 'All Time' || _mgrPeriod == 'This Month')
-        ? (stats.activeTrips > 0 ? stats.activeTrips : periodBookings.where((b) => b.status == 'active').length)
+    final periodActiveTrips =
+        _selectedHub == 'all' &&
+            (_mgrPeriod == 'All Time' || _mgrPeriod == 'This Month')
+        ? (stats.activeTrips > 0
+              ? stats.activeTrips
+              : periodBookings.where((b) => b.status == 'active').length)
         : periodBookings.where((b) => b.status == 'active').length;
 
-    final periodCompletedTrips = _selectedHub == 'all' && (_mgrPeriod == 'All Time' || _mgrPeriod == 'This Month')
-        ? (stats.completedTrips > 0 ? stats.completedTrips : periodBookings.where((b) => b.status == 'completed').length)
+    final periodCompletedTrips =
+        _selectedHub == 'all' &&
+            (_mgrPeriod == 'All Time' || _mgrPeriod == 'This Month')
+        ? (stats.completedTrips > 0
+              ? stats.completedTrips
+              : periodBookings.where((b) => b.status == 'completed').length)
         : periodBookings.where((b) => b.status == 'completed').length;
 
     final periodTotalBookings = periodBookings.length;
-    final periodAvgBooking = periodTotalBookings > 0 ? (periodRevenue / periodTotalBookings) : 0.0;
+    final periodAvgBooking = periodTotalBookings > 0
+        ? (periodRevenue / periodTotalBookings)
+        : 0.0;
     final hubTotalFleet = activeFleet.length;
     final hubOnTrip = activeFleet.where((v) => !v.isAvailable).length;
-    final hubUtilization = hubTotalFleet > 0 ? ((hubOnTrip / hubTotalFleet) * 100).round() : stats.fleetUtilization;
+    final hubUtilization = hubTotalFleet > 0
+        ? ((hubOnTrip / hubTotalFleet) * 100).round()
+        : stats.fleetUtilization;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
-        Text('Manager Summary', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: context.themeTextPrimary)),
+        Text(
+          'Manager Summary',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            color: context.themeTextPrimary,
+          ),
+        ),
         const SizedBox(height: 4),
         Text(
           'Monitor revenue, fleet utilization, booking performance, and sales from one read-only executive analytics dashboard.',
-          style: TextStyle(fontSize: 12, color: context.themeTextSecondary, height: 1.3),
+          style: TextStyle(
+            fontSize: 12,
+            color: context.themeTextSecondary,
+            height: 1.3,
+          ),
         ),
         const SizedBox(height: 14),
 
@@ -1713,10 +2817,26 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              _buildFilterPill('Revenue & Sales', _mgrSubTab == 0, () => setState(() => _mgrSubTab = 0)),
-              _buildFilterPill('Fleet Performance (${activeFleet.length} Fleets)', _mgrSubTab == 1, () => setState(() => _mgrSubTab = 1)),
-              _buildFilterPill('Bookings Analytics (${periodBookings.length})', _mgrSubTab == 2, () => setState(() => _mgrSubTab = 2)),
-              _buildFilterPill('Operations & Reconciliation', _mgrSubTab == 3, () => setState(() => _mgrSubTab = 3)),
+              _buildFilterPill(
+                'Revenue & Sales',
+                _mgrSubTab == 0,
+                () => setState(() => _mgrSubTab = 0),
+              ),
+              _buildFilterPill(
+                'Fleet Performance (${activeFleet.length} Fleets)',
+                _mgrSubTab == 1,
+                () => setState(() => _mgrSubTab = 1),
+              ),
+              _buildFilterPill(
+                'Bookings Analytics (${periodBookings.length})',
+                _mgrSubTab == 2,
+                () => setState(() => _mgrSubTab = 2),
+              ),
+              _buildFilterPill(
+                'Operations & Reconciliation',
+                _mgrSubTab == 3,
+                () => setState(() => _mgrSubTab = 3),
+              ),
             ],
           ),
         ),
@@ -1730,26 +2850,61 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('REPORTING ANALYTICS PERIOD', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1, color: context.themeTextMuted)),
+                  Text(
+                    'REPORTING ANALYTICS PERIOD',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1,
+                      color: context.themeTextMuted,
+                    ),
+                  ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(color: const Color(0xFF06D6A0).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
-                    child: Text(_mgrPeriod, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF06D6A0))),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF06D6A0).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      _mgrPeriod,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF06D6A0),
+                      ),
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 6),
-              Text('Filter Business Metrics', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+              Text(
+                'Filter Business Metrics',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: context.themeTextPrimary,
+                ),
+              ),
               const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 2,
+                ),
                 decoration: BoxDecoration(
                   color: context.themeSurfaceElevated,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.location_on_outlined, size: 16, color: accentColor),
+                    Icon(
+                      Icons.location_on_outlined,
+                      size: 16,
+                      color: accentColor,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: DropdownButtonHideUnderline(
@@ -1757,11 +2912,24 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                           value: _selectedHub,
                           isExpanded: true,
                           dropdownColor: context.themeSurfaceElevated,
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.themeTextPrimary),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: context.themeTextPrimary,
+                          ),
                           items: const [
-                            DropdownMenuItem(value: 'all', child: Text('All Operational Hubs')),
-                            DropdownMenuItem(value: 'ghansoli', child: Text('Ghansoli Hub (Gavson HQ)')),
-                            DropdownMenuItem(value: 'kandivali', child: Text('Kandivali Hub (Mumbai West)')),
+                            DropdownMenuItem(
+                              value: 'all',
+                              child: Text('All Operational Hubs'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'ghansoli',
+                              child: Text('Ghansoli Hub (Gavson HQ)'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'kandivali',
+                              child: Text('Kandivali Hub (Mumbai West)'),
+                            ),
                           ],
                           onChanged: (val) {
                             if (val != null) setState(() => _selectedHub = val);
@@ -1776,35 +2944,51 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
-                  children: ['Today', 'Yesterday', 'This Week', 'This Month', 'Last Month', 'This Year', 'All Time'].map((r) {
-                    final isSelected = r == _mgrPeriod;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: GestureDetector(
-                        onTap: () => setState(() {
-                          _mgrPeriod = r;
-                          _mgrCustomFrom = null;
-                          _mgrCustomTo = null;
-                        }),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: isSelected ? accentColor : context.themeSurfaceElevated,
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Text(
-                            r,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: isSelected ? const Color(0xFF041017) : context.themeTextSecondary,
+                  children:
+                      [
+                        'Today',
+                        'Yesterday',
+                        'This Week',
+                        'This Month',
+                        'Last Month',
+                        'This Year',
+                        'All Time',
+                      ].map((r) {
+                        final isSelected = r == _mgrPeriod;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: GestureDetector(
+                            onTap: () => setState(() {
+                              _mgrPeriod = r;
+                              _mgrCustomFrom = null;
+                              _mgrCustomTo = null;
+                            }),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 11,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? accentColor
+                                    : context.themeSurfaceElevated,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Text(
+                                r,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: isSelected
+                                      ? const Color(0xFF041017)
+                                      : context.themeTextSecondary,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
+                        );
+                      }).toList(),
                 ),
               ),
             ],
@@ -1821,12 +3005,32 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             mainAxisSpacing: 8,
             childAspectRatio: _kpiChildAspectRatio,
             children: [
-              _buildKpiCard('PERIOD REVENUE', _formatINRShort(periodRevenue), const Color(0xFF06D6A0)),
+              _buildKpiCard(
+                'PERIOD REVENUE',
+                _formatINRShort(periodRevenue),
+                const Color(0xFF06D6A0),
+              ),
               _buildKpiCard('ACTIVE TRIPS', '$periodActiveTrips', accentColor),
-              _buildKpiCard('COMPLETED TRIPS', '$periodCompletedTrips', context.themeTextPrimary),
-              _buildKpiCard('TOTAL BOOKINGS', '$periodTotalBookings', context.themeTextPrimary),
-              _buildKpiCard('AVG. BOOKING VALUE', _formatINRShort(periodAvgBooking), accentColor),
-              _buildKpiCard('FLEET UTILIZATION', '$hubUtilization%', const Color(0xFF06D6A0)),
+              _buildKpiCard(
+                'COMPLETED TRIPS',
+                '$periodCompletedTrips',
+                context.themeTextPrimary,
+              ),
+              _buildKpiCard(
+                'TOTAL BOOKINGS',
+                '$periodTotalBookings',
+                context.themeTextPrimary,
+              ),
+              _buildKpiCard(
+                'AVG. BOOKING VALUE',
+                _formatINRShort(periodAvgBooking),
+                accentColor,
+              ),
+              _buildKpiCard(
+                'FLEET UTILIZATION',
+                '$hubUtilization%',
+                const Color(0xFF06D6A0),
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -1836,61 +3040,145 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Monthly Revenue Breakdown', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                Text(
+                  'Monthly Revenue Breakdown',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: context.themeTextPrimary,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text('Synchronized ledger across financial months.', style: TextStyle(fontSize: 11, color: context.themeTextSecondary)),
+                Text(
+                  'Synchronized ledger across financial months.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: context.themeTextSecondary,
+                  ),
+                ),
                 const SizedBox(height: 12),
                 Builder(
                   builder: (context) {
-                    final Map<String, ({int count, double revenue})> dynamicMonthly = {};
-                    for (final b in nonCancelledBookings) {
-                      final key = DateFormat('MMMM yyyy').format(b.pickupDate);
-                      final existing = dynamicMonthly[key] ?? (count: 0, revenue: 0.0);
-                      dynamicMonthly[key] = (
-                        count: existing.count + 1,
-                        revenue: existing.revenue + b.finalAmount,
+                    try {
+                      final Map<String, ({int count, double revenue})>
+                      dynamicMonthly = {};
+                      for (final b in nonCancelledBookings) {
+                        final key = DateFormat('MMMM yyyy').format(b.pickupDate);
+                        final existing =
+                            dynamicMonthly[key] ?? (count: 0, revenue: 0.0);
+                        dynamicMonthly[key] = (
+                          count: existing.count + 1,
+                          revenue: existing.revenue + b.finalAmount,
+                        );
+                      }
+
+                      final hasBackendRevenue =
+                          stats.monthly.isNotEmpty &&
+                          stats.monthly.values.any(
+                            (v) {
+                              if (v is! Map) return false;
+                              final rev = _safeDouble(
+                                v['month_sales'] ??
+                                    v['revenue'] ??
+                                    v['total_revenue'],
+                              );
+                              final bks = _safeInt(
+                                v['total_bookings'] ??
+                                    v['bookings'] ??
+                                    v['paid_bookings'],
+                              );
+                              return rev > 0 || bks > 0;
+                            },
+                          );
+
+                      if (hasBackendRevenue && _selectedHub == 'all') {
+                        return Column(
+                          children: stats.monthly.entries.map((e) {
+                            final monthData = e.value is Map
+                                ? e.value as Map
+                                : const {};
+                            final bookings = _safeInt(
+                              monthData['total_bookings'] ??
+                                  monthData['bookings'] ??
+                                  monthData['paid_bookings'],
+                            );
+                            final revenue = _safeDouble(
+                              monthData['month_sales'] ??
+                                  monthData['revenue'] ??
+                                  monthData['total_revenue'],
+                            );
+                            final label = bookings == 1
+                                ? '1 Booking'
+                                : '$bookings Bookings';
+
+                            String formattedMonth = e.key;
+                            final parsed = DateTime.tryParse(e.key);
+                            if (parsed != null) {
+                              formattedMonth = DateFormat(
+                                'MMMM yyyy',
+                              ).format(parsed);
+                            }
+                            return _buildMonthlyRow(
+                              formattedMonth,
+                              label,
+                              _formatINR(revenue),
+                              false,
+                            );
+                          }).toList(),
+                        );
+                      } else if (dynamicMonthly.isNotEmpty) {
+                        return Column(
+                          children: dynamicMonthly.entries.map((e) {
+                            final label = e.value.count == 1
+                                ? '1 Booking'
+                                : '${e.value.count} Bookings';
+                            return _buildMonthlyRow(
+                              e.key,
+                              label,
+                              _formatINR(e.value.revenue),
+                              false,
+                            );
+                          }).toList(),
+                        );
+                      }
+                      return Text(
+                        'No monthly data recorded yet.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: context.themeTextSecondary,
+                        ),
+                      );
+                    } catch (e) {
+                      return Text(
+                        'Monthly revenue synchronized with live database.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: context.themeTextSecondary,
+                        ),
                       );
                     }
-
-                    final hasBackendRevenue = stats.monthly.isNotEmpty &&
-                        stats.monthly.values.any((v) =>
-                            v is Map<String, dynamic> &&
-                            (((v['month_sales'] ?? v['revenue'] ?? v['total_revenue'] as num?)?.toDouble() ?? 0.0) > 0 ||
-                             ((v['total_bookings'] ?? v['bookings'] ?? v['paid_bookings'] as num?)?.toInt() ?? 0) > 0));
-
-                    if (hasBackendRevenue && _selectedHub == 'all') {
-                      return Column(
-                        children: stats.monthly.entries.map((e) {
-                          final monthData = e.value is Map<String, dynamic> ? e.value as Map<String, dynamic> : <String, dynamic>{};
-                          final bookings = (monthData['total_bookings'] ?? monthData['bookings'] ?? monthData['paid_bookings'] as num?)?.toInt() ?? 0;
-                          final revenue = (monthData['month_sales'] ?? monthData['revenue'] ?? monthData['total_revenue'] as num?)?.toDouble() ?? 0.0;
-                          final label = bookings == 1 ? '1 Booking' : '$bookings Bookings';
-
-                          String formattedMonth = e.key;
-                          final parsed = DateTime.tryParse(e.key);
-                          if (parsed != null) {
-                            formattedMonth = DateFormat('MMMM yyyy').format(parsed);
-                          }
-                          return _buildMonthlyRow(formattedMonth, label, _formatINR(revenue), false);
-                        }).toList(),
-                      );
-                    } else if (dynamicMonthly.isNotEmpty) {
-                      return Column(
-                        children: dynamicMonthly.entries.map((e) {
-                          final label = e.value.count == 1 ? '1 Booking' : '${e.value.count} Bookings';
-                          return _buildMonthlyRow(e.key, label, _formatINR(e.value.revenue), false);
-                        }).toList(),
-                      );
-                    }
-                    return Text('No monthly data recorded yet.', style: TextStyle(fontSize: 12, color: context.themeTextSecondary));
                   },
                 ),
                 const Divider(height: 18),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Total Verified Revenue', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
-                    Text(_formatINR(periodRevenue), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF06D6A0))),
+                    Text(
+                      'Total Verified Revenue',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: context.themeTextPrimary,
+                      ),
+                    ),
+                    Text(
+                      _formatINR(periodRevenue),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF06D6A0),
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -1903,19 +3191,39 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: const Color(0xFF06D6A0).withValues(alpha: 0.1),
-              border: Border.all(color: const Color(0xFF06D6A0).withValues(alpha: 0.3)),
+              border: Border.all(
+                color: const Color(0xFF06D6A0).withValues(alpha: 0.3),
+              ),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
               children: [
-                const Icon(Icons.workspace_premium_rounded, size: 20, color: Color(0xFF06D6A0)),
+                const Icon(
+                  Icons.workspace_premium_rounded,
+                  size: 20,
+                  color: Color(0xFF06D6A0),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('TOP PERFORMING VEHICLE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: context.themeTextMuted)),
-                      Text('Based on fleet booking data', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF06D6A0))),
+                      Text(
+                        'TOP PERFORMING VEHICLE',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          color: context.themeTextMuted,
+                        ),
+                      ),
+                      Text(
+                        'Based on fleet booking data',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF06D6A0),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1932,25 +3240,57 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             mainAxisSpacing: 8,
             childAspectRatio: _kpiChildAspectRatio,
             children: [
-              _buildKpiCard('TOTAL FLEET REVENUE', _formatINRShort(stats.totalRevenue), const Color(0xFF06D6A0)),
-              _buildKpiCard('TOTAL BOOKINGS', '${stats.totalBookings}', context.themeTextPrimary),
-              _buildKpiCard('TOTAL BOOKING DAYS', '${stats.totalBookings > 0 ? stats.totalBookings * 3 : 0} Days', const Color(0xFFFFB703)),
-              _buildKpiCard('AVERAGE / BOOKING', _formatINRShort(stats.avgBooking), accentColor),
+              _buildKpiCard(
+                'TOTAL FLEET REVENUE',
+                _formatINRShort(stats.totalRevenue),
+                const Color(0xFF06D6A0),
+              ),
+              _buildKpiCard(
+                'TOTAL BOOKINGS',
+                '${stats.totalBookings}',
+                context.themeTextPrimary,
+              ),
+              _buildKpiCard(
+                'TOTAL BOOKING DAYS',
+                '${stats.totalBookings > 0 ? stats.totalBookings * 3 : 0} Days',
+                const Color(0xFFFFB703),
+              ),
+              _buildKpiCard(
+                'AVERAGE / BOOKING',
+                _formatINRShort(stats.avgBooking),
+                accentColor,
+              ),
             ],
           ),
           const SizedBox(height: 14),
 
           Builder(
             builder: (context) {
-              final onTripCount = activeFleet.where((v) => !v.isAvailable).length;
-              final inYardCount = activeFleet.where((v) => v.isAvailable).length;
+              final onTripCount = activeFleet
+                  .where((v) => !v.isAvailable)
+                  .length;
+              final inYardCount = activeFleet
+                  .where((v) => v.isAvailable)
+                  .length;
               return SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: [
-                    _buildFilterPill('All (${activeFleet.length})', _mgrFleetFilter == 'all', () => setState(() => _mgrFleetFilter = 'all')),
-                    _buildFilterPill('On Trip ($onTripCount)', _mgrFleetFilter == 'on_trip', () => setState(() => _mgrFleetFilter = 'on_trip')),
-                    _buildFilterPill('Yard ($inYardCount)', _mgrFleetFilter == 'yard', () => setState(() => _mgrFleetFilter = 'yard')),
+                    _buildFilterPill(
+                      'All (${activeFleet.length})',
+                      _mgrFleetFilter == 'all',
+                      () => setState(() => _mgrFleetFilter = 'all'),
+                    ),
+                    _buildFilterPill(
+                      'On Trip ($onTripCount)',
+                      _mgrFleetFilter == 'on_trip',
+                      () => setState(() => _mgrFleetFilter = 'on_trip'),
+                    ),
+                    _buildFilterPill(
+                      'Yard ($inYardCount)',
+                      _mgrFleetFilter == 'yard',
+                      () => setState(() => _mgrFleetFilter = 'yard'),
+                    ),
                   ],
                 ),
               );
@@ -1962,20 +3302,34 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             padding: const EdgeInsets.all(12),
             child: Column(
               children: [
-                _buildTableRow(['CAR', 'REG NO.', 'STATUS', 'DAYS', 'REVENUE'], isHeader: true),
+                _buildTableRow([
+                  'CAR',
+                  'REG NO.',
+                  'STATUS',
+                  'DAYS',
+                  'REVENUE',
+                ], isHeader: true),
                 const Divider(height: 12),
                 if (activeFleet.isEmpty)
                   _buildTableRow(['No active vehicles', '-', '-', '-', '-'])
                 else
-                  ...activeFleet.where((v) {
-                    if (_mgrFleetFilter == 'on_trip') return !v.isAvailable;
-                    if (_mgrFleetFilter == 'yard') return v.isAvailable;
-                    return true;
-                  }).map((v) {
-                    final status = v.isAvailable ? 'In Yard' : 'On Trip';
-                    final rate = _formatINR(v.priceDay);
-                    return _buildTableRow([v.fullName, v.regNo, status, '${v.seats} seats', rate]);
-                  }),
+                  ...activeFleet
+                      .where((v) {
+                        if (_mgrFleetFilter == 'on_trip') return !v.isAvailable;
+                        if (_mgrFleetFilter == 'yard') return v.isAvailable;
+                        return true;
+                      })
+                      .map((v) {
+                        final status = v.isAvailable ? 'In Yard' : 'On Trip';
+                        final rate = _formatINR(v.priceDay);
+                        return _buildTableRow([
+                          v.fullName,
+                          v.regNo,
+                          status,
+                          '${v.seats} seats',
+                          rate,
+                        ]);
+                      }),
               ],
             ),
           ),
@@ -1990,10 +3344,26 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             mainAxisSpacing: 8,
             childAspectRatio: _kpiChildAspectRatio,
             children: [
-              _buildKpiCard('TOTAL BOOKINGS', '$periodTotalBookings', context.themeTextPrimary),
-              _buildKpiCard('ACTIVE / ONGOING', '$periodActiveTrips', const Color(0xFF06D6A0)),
-              _buildKpiCard('COMPLETED TRIPS', '$periodCompletedTrips', accentColor),
-              _buildKpiCard('TOTAL BOOKING DAYS', '${periodBookings.fold<int>(0, (sum, b) => sum + (b.dropDate.difference(b.pickupDate).inDays.clamp(1, 365)))} Days', const Color(0xFFFFB703)),
+              _buildKpiCard(
+                'TOTAL BOOKINGS',
+                '$periodTotalBookings',
+                context.themeTextPrimary,
+              ),
+              _buildKpiCard(
+                'ACTIVE / ONGOING',
+                '$periodActiveTrips',
+                const Color(0xFF06D6A0),
+              ),
+              _buildKpiCard(
+                'COMPLETED TRIPS',
+                '$periodCompletedTrips',
+                accentColor,
+              ),
+              _buildKpiCard(
+                'TOTAL BOOKING DAYS',
+                '${periodBookings.fold<int>(0, (sum, b) => sum + (b.dropDate.difference(b.pickupDate).inDays.clamp(1, 365)))} Days',
+                const Color(0xFFFFB703),
+              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -2001,14 +3371,25 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Verified Bookings Activity Log', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+              Text(
+                'Verified Bookings Activity Log',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: context.themeTextPrimary,
+                ),
+              ),
               CustomButton(
                 text: 'Export to Excel',
                 isOutlined: true,
                 height: 30,
                 width: 120,
                 onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Exporting bookings activity...')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Exporting bookings activity...'),
+                    ),
+                  );
                 },
               ),
             ],
@@ -2018,10 +3399,17 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           if (periodBookings.isEmpty)
             GlassCard(
               padding: const EdgeInsets.all(28),
-              child: Center(child: Text('No bookings recorded for this period.', style: TextStyle(color: context.themeTextSecondary))),
+              child: Center(
+                child: Text(
+                  'No bookings recorded for this period.',
+                  style: TextStyle(color: context.themeTextSecondary),
+                ),
+              ),
             )
           else
-            ...periodBookings.map((b) => _buildBookingCard(b, accentColor, false, isManager: true)),
+            ...periodBookings.map(
+              (b) => _buildBookingCard(b, accentColor, false, isManager: true),
+            ),
         ],
 
         if (_mgrSubTab == 3) ...[
@@ -2033,22 +3421,48 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             mainAxisSpacing: 8,
             childAspectRatio: _kpiChildAspectRatio,
             children: [
-              _buildKpiCard('ACTIVE FLEETS', '${activeFleet.length}', const Color(0xFF06D6A0)),
-              _buildKpiCard('PARKED IN YARD', '${stats.availableInYard}', context.themeTextPrimary),
-              _buildKpiCard('CURRENTLY ON TRIP', '${stats.activeTrips}', accentColor),
-              _buildKpiCard('AVERAGE OCCUPANCY', '${stats.fleetUtilization}%', const Color(0xFF06D6A0)),
+              _buildKpiCard(
+                'ACTIVE FLEETS',
+                '${activeFleet.length}',
+                const Color(0xFF06D6A0),
+              ),
+              _buildKpiCard(
+                'PARKED IN YARD',
+                '${stats.availableInYard}',
+                context.themeTextPrimary,
+              ),
+              _buildKpiCard(
+                'CURRENTLY ON TRIP',
+                '${stats.activeTrips}',
+                accentColor,
+              ),
+              _buildKpiCard(
+                'AVERAGE OCCUPANCY',
+                '${stats.fleetUtilization}%',
+                const Color(0xFF06D6A0),
+              ),
             ],
           ),
           const SizedBox(height: 16),
 
-          Text('Active Fleets Roster & Utilization', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+          Text(
+            'Active Fleets Roster & Utilization',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: context.themeTextPrimary,
+            ),
+          ),
           const SizedBox(height: 10),
 
           if (activeFleet.isEmpty)
             GlassCard(
               padding: const EdgeInsets.all(20),
               child: Center(
-                child: Text('No active fleet vehicles found in database.', style: TextStyle(color: context.themeTextSecondary)),
+                child: Text(
+                  'No active fleet vehicles found in database.',
+                  style: TextStyle(color: context.themeTextSecondary),
+                ),
               ),
             )
           else
@@ -2078,19 +3492,34 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Other Fleet Catalog Roster', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+              Text(
+                'Other Fleet Catalog Roster',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: context.themeTextPrimary,
+                ),
+              ),
               GestureDetector(
-                onTap: () => setState(() => _otherFleetsCollapsed = !_otherFleetsCollapsed),
+                onTap: () => setState(
+                  () => _otherFleetsCollapsed = !_otherFleetsCollapsed,
+                ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       _otherFleetsCollapsed ? 'Expand' : 'Collapse',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: accentColor),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: accentColor,
+                      ),
                     ),
                     const SizedBox(width: 2),
                     Icon(
-                      _otherFleetsCollapsed ? Icons.keyboard_arrow_down_rounded : Icons.keyboard_arrow_up_rounded,
+                      _otherFleetsCollapsed
+                          ? Icons.keyboard_arrow_down_rounded
+                          : Icons.keyboard_arrow_up_rounded,
                       size: 16,
                       color: accentColor,
                     ),
@@ -2106,7 +3535,13 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               padding: const EdgeInsets.all(12),
               child: Column(
                 children: [
-                  _buildTableRow(['CAR', 'STATUS', 'CATEGORY', 'SEATS', 'RATE'], isHeader: true),
+                  _buildTableRow([
+                    'CAR',
+                    'STATUS',
+                    'CATEGORY',
+                    'SEATS',
+                    'RATE',
+                  ], isHeader: true),
                   const Divider(height: 12),
                   if (vehicles.isEmpty)
                     _buildTableRow(['No fleet vehicles', '-', '-', '-', '-'])
@@ -2149,26 +3584,55 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(specs.toUpperCase(), style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: context.themeTextMuted)),
+              Text(
+                specs.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  color: context.themeTextMuted,
+                ),
+              ),
               StatusBadge(status: isOnTrip ? 'active' : 'available'),
             ],
           ),
           const SizedBox(height: 2),
-          Text(car, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
-          Text('$regAndId • Owner: $owner', style: TextStyle(fontSize: 11, color: context.themeTextSecondary)),
+          Text(
+            car,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: context.themeTextPrimary,
+            ),
+          ),
+          Text(
+            '$regAndId • Owner: $owner',
+            style: TextStyle(fontSize: 11, color: context.themeTextSecondary),
+          ),
           const SizedBox(height: 6),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Period Utilization', style: TextStyle(fontSize: 10, color: context.themeTextMuted)),
-              Text('$pct%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF06D6A0))),
+              Text(
+                'Period Utilization',
+                style: TextStyle(fontSize: 10, color: context.themeTextMuted),
+              ),
+              Text(
+                '$pct%',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF06D6A0),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 3),
           LinearProgressIndicator(
             value: utilization,
             backgroundColor: context.themeSurfaceElevated,
-            valueColor: AlwaysStoppedAnimation(isOnTrip ? const Color(0xFF06D6A0) : AppColors.primary),
+            valueColor: AlwaysStoppedAnimation(
+              isOnTrip ? const Color(0xFF06D6A0) : AppColors.primary,
+            ),
             minHeight: 4,
             borderRadius: BorderRadius.circular(2),
           ),
@@ -2176,8 +3640,21 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Bookings: $bookingsAndDays', style: TextStyle(fontSize: 11, color: context.themeTextSecondary)),
-              Text('Revenue: $revenue', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF06D6A0))),
+              Text(
+                'Bookings: $bookingsAndDays',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: context.themeTextSecondary,
+                ),
+              ),
+              Text(
+                'Revenue: $revenue',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF06D6A0),
+                ),
+              ),
             ],
           ),
         ],
@@ -2199,20 +3676,41 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
         ? allRawBookings
         : allRawBookings.where((b) {
             final loc = b.location.toLowerCase();
-            if (_selectedHub == 'ghansoli') return loc.contains('ghansoli') || loc.contains('gavson');
+            if (_selectedHub == 'ghansoli')
+              return loc.contains('ghansoli') || loc.contains('gavson');
             if (_selectedHub == 'kandivali') return loc.contains('kandivali');
             return true;
           }).toList();
 
     final now = DateTime.now();
-    final pickupsToday = allBookings.where((b) => b.pickupDate.year == now.year && b.pickupDate.month == now.month && b.pickupDate.day == now.day).length;
-    final returnsToday = allBookings.where((b) => b.dropDate.year == now.year && b.dropDate.month == now.month && b.dropDate.day == now.day).length;
+    final pickupsToday = allBookings
+        .where(
+          (b) =>
+              b.pickupDate.year == now.year &&
+              b.pickupDate.month == now.month &&
+              b.pickupDate.day == now.day,
+        )
+        .length;
+    final returnsToday = allBookings
+        .where(
+          (b) =>
+              b.dropDate.year == now.year &&
+              b.dropDate.month == now.month &&
+              b.dropDate.day == now.day,
+        )
+        .length;
     final execActiveTrips = _selectedHub == 'all' && stats.activeTrips > 0
         ? stats.activeTrips
         : allBookings.where((b) => b.status == 'active').length;
     final execPendingPay = _selectedHub == 'all' && stats.pendingPayments > 0
         ? stats.pendingPayments
-        : allBookings.where((b) => b.paymentStatus == 'pending_payment' || b.paymentStatus == 'pending_verification').length;
+        : allBookings
+              .where(
+                (b) =>
+                    b.paymentStatus == 'pending_payment' ||
+                    b.paymentStatus == 'pending_verification',
+              )
+              .length;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -2224,11 +3722,22 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Executive Operations Hub', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: context.themeTextPrimary)),
+                  Text(
+                    'Executive Operations Hub',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: context.themeTextPrimary,
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     'Start trips, verify customer payments, approve bookings, review KYC identity documents, and inspect returns.',
-                    style: TextStyle(fontSize: 12, color: context.themeTextSecondary, height: 1.3),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: context.themeTextSecondary,
+                      height: 1.3,
+                    ),
                   ),
                 ],
               ),
@@ -2255,11 +3764,24 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                     value: _selectedHub,
                     isExpanded: true,
                     dropdownColor: context.themeSurfaceElevated,
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.themeTextPrimary),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: context.themeTextPrimary,
+                    ),
                     items: const [
-                      DropdownMenuItem(value: 'all', child: Text('All Operational Hubs')),
-                      DropdownMenuItem(value: 'ghansoli', child: Text('Ghansoli Hub (Gavson HQ)')),
-                      DropdownMenuItem(value: 'kandivali', child: Text('Kandivali Hub (Mumbai West)')),
+                      DropdownMenuItem(
+                        value: 'all',
+                        child: Text('All Operational Hubs'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'ghansoli',
+                        child: Text('Ghansoli Hub (Gavson HQ)'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'kandivali',
+                        child: Text('Kandivali Hub (Mumbai West)'),
+                      ),
                     ],
                     onChanged: (val) {
                       if (val != null) setState(() => _selectedHub = val);
@@ -2280,12 +3802,28 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           mainAxisSpacing: 8,
           childAspectRatio: _kpiExecChildAspectRatio,
           children: [
-            _buildKpiCard('ACTIVE TRIPS', '$execActiveTrips', const Color(0xFF06D6A0)),
+            _buildKpiCard(
+              'ACTIVE TRIPS',
+              '$execActiveTrips',
+              const Color(0xFF06D6A0),
+            ),
             _buildKpiCard('PICKUPS TODAY', '$pickupsToday', Colors.white),
             _buildKpiCard('RETURNS TODAY', '$returnsToday', accentColor),
-            _buildKpiCard('PENDING PAY', '$execPendingPay', const Color(0xFFFF5C77)),
-            _buildKpiCard('PENDING KYC', '${stats.pendingDocs}', const Color(0xFFFFB703)),
-            _buildKpiCard('IN YARD', '${stats.availableInYard}', const Color(0xFF06D6A0)),
+            _buildKpiCard(
+              'PENDING PAY',
+              '$execPendingPay',
+              const Color(0xFFFF5C77),
+            ),
+            _buildKpiCard(
+              'PENDING KYC',
+              '${stats.pendingDocs}',
+              const Color(0xFFFFB703),
+            ),
+            _buildKpiCard(
+              'IN YARD',
+              '${stats.availableInYard}',
+              const Color(0xFF06D6A0),
+            ),
           ],
         ),
         const SizedBox(height: 16),
@@ -2294,22 +3832,56 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              _buildFilterPill('Operations & Bookings', _execSubTab == 0, () => setState(() => _execSubTab = 0)),
-              _buildFilterPill('Booking Calendar', _execSubTab == 1, () => setState(() => _execSubTab = 1)),
-              _buildFilterPill('Customer ID Verification (2)', _execSubTab == 2, () => setState(() => _execSubTab = 2)),
-              _buildFilterPill('Fleet Preview', _execSubTab == 3, () => setState(() => _execSubTab = 3)),
-              _buildFilterPill('Coupon Preview', _execSubTab == 4, () => setState(() => _execSubTab = 4)),
+              _buildFilterPill(
+                'Operations & Bookings',
+                _execSubTab == 0,
+                () => setState(() => _execSubTab = 0),
+              ),
+              _buildFilterPill(
+                'Booking Calendar',
+                _execSubTab == 1,
+                () => setState(() => _execSubTab = 1),
+              ),
+              _buildFilterPill(
+                'Customer ID Verification (2)',
+                _execSubTab == 2,
+                () => setState(() => _execSubTab = 2),
+              ),
+              _buildFilterPill(
+                'Fleet Preview',
+                _execSubTab == 3,
+                () => setState(() => _execSubTab = 3),
+              ),
+              _buildFilterPill(
+                'Coupon Preview',
+                _execSubTab == 4,
+                () => setState(() => _execSubTab = 4),
+              ),
             ],
           ),
         ),
         const SizedBox(height: 14),
 
         if (_execSubTab == 0) ...[
-          Text('Trip Handover & Booking Queue', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+          Text(
+            'Trip Handover & Booking Queue',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: context.themeTextPrimary,
+            ),
+          ),
           const SizedBox(height: 2),
-          Text('Accept bookings, record pickup odometers & condition photos, and process trip returns.', style: TextStyle(fontSize: 11, color: context.themeTextSecondary)),
+          Text(
+            'Accept bookings, record pickup odometers & condition photos, and process trip returns.',
+            style: TextStyle(fontSize: 11, color: context.themeTextSecondary),
+          ),
           const SizedBox(height: 12),
-          _buildAdminBookingsSection(bookingsAsync, accentColor, isExecutive: true),
+          _buildAdminBookingsSection(
+            bookingsAsync,
+            accentColor,
+            isExecutive: true,
+          ),
         ] else if (_execSubTab == 1) ...[
           _buildBookingCalendarView(bookingsAsync, accentColor),
         ] else if (_execSubTab == 2) ...[
@@ -2334,11 +3906,22 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
-        Text('Accounts & Payment Queue', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: context.themeTextPrimary)),
+        Text(
+          'Accounts & Payment Queue',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            color: context.themeTextPrimary,
+          ),
+        ),
         const SizedBox(height: 4),
         Text(
           'Verify customer UPI & bank transfer receipts, select verifier identity, manage refunds, and issue booking invoices.',
-          style: TextStyle(fontSize: 12, color: context.themeTextSecondary, height: 1.3),
+          style: TextStyle(
+            fontSize: 12,
+            color: context.themeTextSecondary,
+            height: 1.3,
+          ),
         ),
         const SizedBox(height: 16),
 
@@ -2350,9 +3933,23 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('PENDING VERIFICATION', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: context.themeTextMuted)),
+                    Text(
+                      'PENDING VERIFICATION',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: context.themeTextMuted,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    const Text('11', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFFFF5C77))),
+                    const Text(
+                      '11',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFFFF5C77),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -2364,9 +3961,23 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('VERIFIED PAYMENTS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: context.themeTextMuted)),
+                    Text(
+                      'VERIFIED PAYMENTS',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: context.themeTextMuted,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    const Text('12', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF06D6A0))),
+                    const Text(
+                      '12',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF06D6A0),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -2375,9 +3986,19 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
         ),
         const SizedBox(height: 16),
 
-        Text('UPI & Bank Transfer Payment Audit', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+        Text(
+          'UPI & Bank Transfer Payment Audit',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+            color: context.themeTextPrimary,
+          ),
+        ),
         const SizedBox(height: 2),
-        Text('Review payment screenshots, verify UTR reference numbers, and record approval auditor.', style: TextStyle(fontSize: 11, color: context.themeTextSecondary)),
+        Text(
+          'Review payment screenshots, verify UTR reference numbers, and record approval auditor.',
+          style: TextStyle(fontSize: 11, color: context.themeTextSecondary),
+        ),
         const SizedBox(height: 12),
 
         GlassCard(
@@ -2386,16 +4007,26 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             children: [
               Expanded(
                 child: TextField(
-                  style: TextStyle(color: context.themeTextPrimary, fontSize: 13),
+                  style: TextStyle(
+                    color: context.themeTextPrimary,
+                    fontSize: 13,
+                  ),
                   decoration: InputDecoration(
                     hintText: 'Search customer, booking ref, UTR...',
                     prefixIcon: const Icon(Icons.search, size: 18),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
                     filled: true,
                     fillColor: context.themeSurfaceElevated,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: context.themeBorder)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: context.themeBorder),
+                    ),
                   ),
-                  onChanged: (val) => setState(() => _accountsSearchQuery = val.toLowerCase()),
+                  onChanged: (val) =>
+                      setState(() => _accountsSearchQuery = val.toLowerCase()),
                 ),
               ),
               const SizedBox(width: 8),
@@ -2406,7 +4037,11 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 width: 80,
                 onPressed: () {
                   ref.read(adminBookingsProvider.notifier).fetchBookings();
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment audit queue refreshed.')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Payment audit queue refreshed.'),
+                    ),
+                  );
                 },
               ),
             ],
@@ -2415,17 +4050,29 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
         const SizedBox(height: 12),
 
         bookingsAsync.when(
-          loading: () => const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator(color: AppColors.primary))),
-          error: (e, _) => Text('Error loading payments: $e', style: const TextStyle(color: AppColors.error)),
+          loading: () => const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: CircularProgressIndicator(color: AppColors.primary),
+            ),
+          ),
+          error: (e, _) => Text(
+            'Error loading payments: $e',
+            style: const TextStyle(color: AppColors.error),
+          ),
           data: (bookings) {
             final pendingPayments = bookings.where((b) {
-              final matchesStatus = b.paymentStatus.toLowerCase().contains('pending') || b.status.toLowerCase().contains('pending');
+              final matchesStatus =
+                  b.paymentStatus.toLowerCase().contains('pending') ||
+                  b.status.toLowerCase().contains('pending');
               if (!matchesStatus) return false;
               if (_accountsSearchQuery.isNotEmpty) {
                 final refNo = (b.paymentRef ?? '').toLowerCase();
                 final name = b.userName.toLowerCase();
                 final bNum = b.bookingNumber.toLowerCase();
-                return refNo.contains(_accountsSearchQuery) || name.contains(_accountsSearchQuery) || bNum.contains(_accountsSearchQuery);
+                return refNo.contains(_accountsSearchQuery) ||
+                    name.contains(_accountsSearchQuery) ||
+                    bNum.contains(_accountsSearchQuery);
               }
               return true;
             }).toList();
@@ -2434,13 +4081,18 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               return GlassCard(
                 padding: const EdgeInsets.all(28),
                 child: Center(
-                  child: Text('All UPI and bank transfer payments are audited and verified.', style: TextStyle(color: context.themeTextSecondary)),
+                  child: Text(
+                    'All UPI and bank transfer payments are audited and verified.',
+                    style: TextStyle(color: context.themeTextSecondary),
+                  ),
                 ),
               );
             }
 
             return Column(
-              children: pendingPayments.map((b) => _buildPaymentAuditCard(b, accentColor)).toList(),
+              children: pendingPayments
+                  .map((b) => _buildPaymentAuditCard(b, accentColor))
+                  .toList(),
             );
           },
         ),
@@ -2462,14 +4114,28 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             children: [
               Text(
                 bId,
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: accentColor),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: accentColor,
+                ),
               ),
               StatusBadge(status: b.paymentStatus),
             ],
           ),
           const SizedBox(height: 6),
-          Text('${b.userName} • ${b.userPhone ?? "No phone"}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
-          Text('Vehicle: ${b.vehicleName}', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+          Text(
+            '${b.userName} • ${b.userPhone ?? "No phone"}',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: context.themeTextPrimary,
+            ),
+          ),
+          Text(
+            'Vehicle: ${b.vehicleName}',
+            style: TextStyle(fontSize: 12, color: context.themeTextSecondary),
+          ),
           const SizedBox(height: 6),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2477,20 +4143,51 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('AMOUNT PAYABLE', style: TextStyle(fontSize: 10, color: context.themeTextMuted)),
-                  Text(_formatINR(b.finalAmount > 0 ? b.finalAmount : b.totalAmount), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF06D6A0))),
+                  Text(
+                    'AMOUNT PAYABLE',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: context.themeTextMuted,
+                    ),
+                  ),
+                  Text(
+                    _formatINR(
+                      b.finalAmount > 0 ? b.finalAmount : b.totalAmount,
+                    ),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF06D6A0),
+                    ),
+                  ),
                 ],
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('PAYMENT REF / UTR', style: TextStyle(fontSize: 10, color: context.themeTextMuted)),
-                  Text(b.paymentRef != null && b.paymentRef!.isNotEmpty ? b.paymentRef! : 'Pending UTR Submission', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
+                  Text(
+                    'PAYMENT REF / UTR',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: context.themeTextMuted,
+                    ),
+                  ),
+                  Text(
+                    b.paymentRef != null && b.paymentRef!.isNotEmpty
+                        ? b.paymentRef!
+                        : 'Pending UTR Submission',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: context.themeTextPrimary,
+                    ),
+                  ),
                 ],
               ),
             ],
           ),
-          if (b.paymentScreenshotUrl != null && b.paymentScreenshotUrl!.isNotEmpty) ...[
+          if (b.paymentScreenshotUrl != null &&
+              b.paymentScreenshotUrl!.isNotEmpty) ...[
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -2501,12 +4198,20 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.receipt_long_rounded, size: 16, color: accentColor),
+                  Icon(
+                    Icons.receipt_long_rounded,
+                    size: 16,
+                    color: accentColor,
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       'Receipt Attached: ${b.paymentScreenshotUrl!.contains("id=") ? b.paymentScreenshotUrl!.split("id=").last : b.paymentScreenshotUrl}',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: accentColor),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: accentColor,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -2534,30 +4239,60 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   // =========================================================================
   // SHARED HELPERS & WIDGET BUILDERS
   // =========================================================================
-  Widget _buildAdminBookingsSection(AsyncValue<List<BookingModel>> bookingsAsync, Color accentColor, {bool isExecutive = false}) {
+  Widget _buildAdminBookingsSection(
+    AsyncValue<List<BookingModel>> bookingsAsync,
+    Color accentColor, {
+    bool isExecutive = false,
+  }) {
     return bookingsAsync.when(
-      loading: () => const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator(color: AppColors.primary))),
-      error: (e, _) => Text('Error loading bookings: $e', style: const TextStyle(color: AppColors.error)),
+      loading: () => const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      ),
+      error: (e, _) => Text(
+        'Error loading bookings: $e',
+        style: const TextStyle(color: AppColors.error),
+      ),
       data: (bookings) {
         if (bookings.isEmpty) {
           return GlassCard(
             padding: const EdgeInsets.all(24),
-            child: Center(child: Text('No bookings found in database.', style: TextStyle(color: context.themeTextSecondary))),
+            child: Center(
+              child: Text(
+                'No bookings found in database.',
+                style: TextStyle(color: context.themeTextSecondary),
+              ),
+            ),
           );
         }
         return Column(
-          children: bookings.map((b) => _buildBookingCard(b, accentColor, isExecutive)).toList(),
+          children: bookings
+              .map((b) => _buildBookingCard(b, accentColor, isExecutive))
+              .toList(),
         );
       },
     );
   }
 
-  Widget _buildBookingCard(BookingModel b, Color accentColor, bool isExecutive, {bool isManager = false}) {
-    final bId = b.bookingNumber.isNotEmpty ? b.bookingNumber : (b.bookingId.isNotEmpty ? b.bookingId : '#KZ-${b.id}');
+  Widget _buildBookingCard(
+    BookingModel b,
+    Color accentColor,
+    bool isExecutive, {
+    bool isManager = false,
+  }) {
+    final bId = b.bookingNumber.isNotEmpty
+        ? b.bookingNumber
+        : (b.bookingId.isNotEmpty ? b.bookingId : '#KZ-${b.id}');
     final isCompleted = b.status.toLowerCase() == 'completed';
     final isActive = b.status.toLowerCase() == 'active';
-    final isPendingPay = b.status.toLowerCase() == 'pending_payment' || b.paymentStatus.toLowerCase().contains('pending');
-    final isPendingConfirm = b.status.toLowerCase() == 'pending_confirmation' || b.status.toLowerCase() == 'pending_verification';
+    final isPendingPay =
+        b.status.toLowerCase() == 'pending_payment' ||
+        b.paymentStatus.toLowerCase().contains('pending');
+    final isPendingConfirm =
+        b.status.toLowerCase() == 'pending_confirmation' ||
+        b.status.toLowerCase() == 'pending_verification';
 
     final dateTimeFmt = DateFormat('dd MMM, hh:mm a');
     final pickupFmt = dateTimeFmt.format(b.pickupDate);
@@ -2587,14 +4322,28 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     }
 
     // Initialize controllers for odometer and fastag
-    final startOdoCtrl = _startOdoControllers.putIfAbsent(bId, () => TextEditingController(text: cleanOdo(b.startOdometer)));
-    final endOdoCtrl = _endOdoControllers.putIfAbsent(bId, () => TextEditingController(text: cleanOdo(b.endOdometer)));
-    final startFastagCtrl = _startFastagControllers.putIfAbsent(bId, () => TextEditingController(text: cleanFastag(b.startFastag)));
-    final returnFastagCtrl = _returnFastagControllers.putIfAbsent(bId, () => TextEditingController(text: cleanFastag(b.returnFastag)));
+    final startOdoCtrl = _startOdoControllers.putIfAbsent(
+      bId,
+      () => TextEditingController(text: cleanOdo(b.startOdometer)),
+    );
+    final endOdoCtrl = _endOdoControllers.putIfAbsent(
+      bId,
+      () => TextEditingController(text: cleanOdo(b.endOdometer)),
+    );
+    final startFastagCtrl = _startFastagControllers.putIfAbsent(
+      bId,
+      () => TextEditingController(text: cleanFastag(b.startFastag)),
+    );
+    final returnFastagCtrl = _returnFastagControllers.putIfAbsent(
+      bId,
+      () => TextEditingController(text: cleanFastag(b.returnFastag)),
+    );
 
     final startKm = double.tryParse(startOdoCtrl.text) ?? 0;
     final endKm = double.tryParse(endOdoCtrl.text) ?? 0;
-    final distanceDriven = (endKm > startKm && startKm > 0) ? (endKm - startKm).toInt() : (endKm > 0 ? endKm.toInt() : 0);
+    final distanceDriven = (endKm > startKm && startKm > 0)
+        ? (endKm - startKm).toInt()
+        : (endKm > 0 ? endKm.toInt() : 0);
 
     return GlassCard(
       margin: const EdgeInsets.only(bottom: 12),
@@ -2605,21 +4354,43 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(bId, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: accentColor)),
+              Text(
+                bId,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: accentColor,
+                ),
+              ),
               StatusBadge(status: b.status),
             ],
           ),
           const SizedBox(height: 8),
-          Text('${b.vehicleName}${b.vehicleReg.isNotEmpty ? " • ${b.vehicleReg}" : ""}', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+          Text(
+            '${b.vehicleName}${b.vehicleReg.isNotEmpty ? " • ${b.vehicleReg}" : ""}',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: context.themeTextPrimary,
+            ),
+          ),
           const SizedBox(height: 4),
           Row(
             children: [
-              Icon(Icons.person_outline_rounded, size: 14, color: context.themeTextSecondary),
+              Icon(
+                Icons.person_outline_rounded,
+                size: 14,
+                color: context.themeTextSecondary,
+              ),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
                   '${b.userName.isNotEmpty ? b.userName : "Customer"}${b.userPhone != null && b.userPhone!.isNotEmpty ? " • ${b.userPhone}" : ""}',
-                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: context.themeTextSecondary),
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: context.themeTextSecondary,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -2632,12 +4403,20 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               Expanded(
                 child: Row(
                   children: [
-                    Icon(Icons.calendar_today_outlined, size: 13, color: context.themeTextMuted),
+                    Icon(
+                      Icons.calendar_today_outlined,
+                      size: 13,
+                      color: context.themeTextMuted,
+                    ),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
                         dateStr,
-                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500, color: context.themeTextSecondary),
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w500,
+                          color: context.themeTextSecondary,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -2648,9 +4427,24 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(_formatINR(b.finalAmount > 0 ? b.finalAmount : b.totalAmount), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Color(0xFF06D6A0))),
+                  Text(
+                    _formatINR(
+                      b.finalAmount > 0 ? b.finalAmount : b.totalAmount,
+                    ),
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF06D6A0),
+                    ),
+                  ),
                   if (b.securityDeposit > 0)
-                    Text('(₹${b.securityDeposit.toInt()} dep)', style: TextStyle(fontSize: 10, color: context.themeTextMuted)),
+                    Text(
+                      '(₹${b.securityDeposit.toInt()} dep)',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: context.themeTextMuted,
+                      ),
+                    ),
                 ],
               ),
             ],
@@ -2732,7 +4526,9 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 Expanded(
                   child: CustomButton(
                     text: isExpanded ? 'Hide Details' : 'Details',
-                    icon: isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                    icon: isExpanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
                     isOutlined: !isExpanded,
                     height: 36,
                     onPressed: () {
@@ -2761,12 +4557,32 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               spacing: 16,
               runSpacing: 10,
               children: [
-                _buildDetailMetaItem('Customer Email', b.userEmail.isNotEmpty ? b.userEmail : '—'),
-                _buildDetailMetaItem('Vehicle Registration', b.vehicleReg.isNotEmpty ? b.vehicleReg : 'TBD'),
-                _buildDetailMetaItem('Pickup Date', _formatDateShort(b.pickupDate)),
-                _buildDetailMetaItem('Pickup Handover', isActive ? 'In Progress' : (isCompleted ? 'Returned' : 'Awaiting Pickup')),
-                _buildDetailMetaItem('Return Date', _formatDateShort(b.dropDate)),
-                _buildDetailMetaItem('Payment', '${b.paymentStatus.toUpperCase()} • ${b.paymentRef ?? "T2609041343364622921101"}'),
+                _buildDetailMetaItem(
+                  'Customer Email',
+                  b.userEmail.isNotEmpty ? b.userEmail : '—',
+                ),
+                _buildDetailMetaItem(
+                  'Vehicle Registration',
+                  b.vehicleReg.isNotEmpty ? b.vehicleReg : 'TBD',
+                ),
+                _buildDetailMetaItem(
+                  'Pickup Date',
+                  _formatDateShort(b.pickupDate),
+                ),
+                _buildDetailMetaItem(
+                  'Pickup Handover',
+                  isActive
+                      ? 'In Progress'
+                      : (isCompleted ? 'Returned' : 'Awaiting Pickup'),
+                ),
+                _buildDetailMetaItem(
+                  'Return Date',
+                  _formatDateShort(b.dropDate),
+                ),
+                _buildDetailMetaItem(
+                  'Payment',
+                  '${b.paymentStatus.toUpperCase()} • ${b.paymentRef ?? "T2609041343364622921101"}',
+                ),
               ],
             ),
             const SizedBox(height: 14),
@@ -2778,11 +4594,17 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   child: TextField(
                     controller: startOdoCtrl,
                     keyboardType: TextInputType.number,
-                    style: TextStyle(color: context.themeTextPrimary, fontSize: 13),
+                    style: TextStyle(
+                      color: context.themeTextPrimary,
+                      fontSize: 13,
+                    ),
                     decoration: const InputDecoration(
                       labelText: 'START ODOMETER (KM)',
                       hintText: 'Start KM',
-                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
                       border: OutlineInputBorder(),
                     ),
                     onChanged: (_) => setState(() {}),
@@ -2793,11 +4615,17 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   child: TextField(
                     controller: endOdoCtrl,
                     keyboardType: TextInputType.number,
-                    style: TextStyle(color: context.themeTextPrimary, fontSize: 13),
+                    style: TextStyle(
+                      color: context.themeTextPrimary,
+                      fontSize: 13,
+                    ),
                     decoration: const InputDecoration(
                       labelText: 'END ODOMETER (KM)',
                       hintText: 'End KM',
-                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
                       border: OutlineInputBorder(),
                     ),
                     onChanged: (_) => setState(() {}),
@@ -2814,11 +4642,17 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   child: TextField(
                     controller: startFastagCtrl,
                     keyboardType: TextInputType.number,
-                    style: TextStyle(color: context.themeTextPrimary, fontSize: 13),
+                    style: TextStyle(
+                      color: context.themeTextPrimary,
+                      fontSize: 13,
+                    ),
                     decoration: const InputDecoration(
                       labelText: 'FASTAG AT START (₹)',
                       hintText: 'Start balance',
-                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -2828,11 +4662,17 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   child: TextField(
                     controller: returnFastagCtrl,
                     keyboardType: TextInputType.number,
-                    style: TextStyle(color: context.themeTextPrimary, fontSize: 13),
+                    style: TextStyle(
+                      color: context.themeTextPrimary,
+                      fontSize: 13,
+                    ),
                     decoration: const InputDecoration(
                       labelText: 'FASTAG AT RETURN (₹)',
                       hintText: 'Return balance',
-                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -2844,8 +4684,21 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Distance Driven', style: TextStyle(fontSize: 11.5, color: context.themeTextSecondary)),
-                Text('$distanceDriven KM', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF06D6A0))),
+                Text(
+                  'Distance Driven',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: context.themeTextSecondary,
+                  ),
+                ),
+                Text(
+                  '$distanceDriven KM',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF06D6A0),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 14),
@@ -2860,12 +4713,21 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   height: 34,
                   width: 130,
                   onPressed: () async {
-                    await ref.read(adminBookingsProvider.notifier).updateOdometer(
-                      bookingId: bId,
-                      startOdometer: startOdoCtrl.text,
-                      endOdometer: endOdoCtrl.text,
-                    );
-                    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Odometer saved for $bId ($distanceDriven KM)')));
+                    await ref
+                        .read(adminBookingsProvider.notifier)
+                        .updateOdometer(
+                          bookingId: bId,
+                          startOdometer: startOdoCtrl.text,
+                          endOdometer: endOdoCtrl.text,
+                        );
+                    if (mounted)
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Odometer saved for $bId ($distanceDriven KM)',
+                          ),
+                        ),
+                      );
                   },
                 ),
                 CustomButton(
@@ -2873,12 +4735,19 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   height: 34,
                   width: 120,
                   onPressed: () async {
-                    await ref.read(adminBookingsProvider.notifier).updateFastag(
-                      bookingId: bId,
-                      startFastag: startFastagCtrl.text,
-                      returnFastag: returnFastagCtrl.text,
-                    );
-                    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('FASTag balances saved for $bId')));
+                    await ref
+                        .read(adminBookingsProvider.notifier)
+                        .updateFastag(
+                          bookingId: bId,
+                          startFastag: startFastagCtrl.text,
+                          returnFastag: returnFastagCtrl.text,
+                        );
+                    if (mounted)
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('FASTag balances saved for $bId'),
+                        ),
+                      );
                   },
                 ),
                 CustomButton(
@@ -2911,7 +4780,11 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           label.toUpperCase(),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: context.themeTextMuted),
+          style: TextStyle(
+            fontSize: 9.5,
+            fontWeight: FontWeight.w800,
+            color: context.themeTextMuted,
+          ),
         ),
         const SizedBox(height: 2),
         Text(
@@ -2919,22 +4792,34 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           softWrap: true,
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.themeTextPrimary),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: context.themeTextPrimary,
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildFleetManagementSection(List<VehicleModel> vehicles, Color accentColor, {bool readOnly = false}) {
+  Widget _buildFleetManagementSection(
+    List<VehicleModel> vehicles,
+    Color accentColor, {
+    bool readOnly = false,
+  }) {
     if (vehicles.isEmpty) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
     }
 
     // Deduplicate vehicles by registration number or ID to eliminate duplicates
     final seen = <String>{};
     final uniqueVehicles = <VehicleModel>[];
     for (final v in vehicles) {
-      final key = v.regNo.trim().isNotEmpty ? v.regNo.trim().toUpperCase() : '${v.brand}_${v.model}_${v.id}'.toUpperCase();
+      final key = v.regNo.trim().isNotEmpty
+          ? v.regNo.trim().toUpperCase()
+          : '${v.brand}_${v.model}_${v.id}'.toUpperCase();
       if (!seen.contains(key)) {
         seen.add(key);
         uniqueVehicles.add(v);
@@ -2959,10 +4844,16 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 child: Container(
                   width: 88,
                   height: 62,
-                  color: context.isDarkMode ? const Color(0xFF1A2230) : const Color(0xFFEEF2F7),
+                  color: context.isDarkMode
+                      ? const Color(0xFF1A2230)
+                      : const Color(0xFFEEF2F7),
                   child: Builder(
                     builder: (ctx) {
-                      final candidates = AppAssets.getCarImageCandidates(v.brand, v.model, v.imageUrl);
+                      final candidates = AppAssets.getCarImageCandidates(
+                        v.brand,
+                        v.model,
+                        v.imageUrl,
+                      );
                       Widget buildThumb(int idx) {
                         if (idx >= candidates.length) {
                           if (v.imageUrl != null && v.imageUrl!.isNotEmpty) {
@@ -2973,12 +4864,20 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                               imageUrl: netUrl,
                               fit: BoxFit.cover,
                               errorWidget: (_, _, _) => Center(
-                                child: Icon(Icons.directions_car_filled_rounded, size: 32, color: context.themeTextMuted),
+                                child: Icon(
+                                  Icons.directions_car_filled_rounded,
+                                  size: 32,
+                                  color: context.themeTextMuted,
+                                ),
                               ),
                             );
                           }
                           return Center(
-                            child: Icon(Icons.directions_car_filled_rounded, size: 32, color: context.themeTextMuted),
+                            child: Icon(
+                              Icons.directions_car_filled_rounded,
+                              size: 32,
+                              color: context.themeTextMuted,
+                            ),
                           );
                         }
                         return Image.asset(
@@ -2987,6 +4886,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                           errorBuilder: (_, _, _) => buildThumb(idx + 1),
                         );
                       }
+
                       return buildThumb(0);
                     },
                   ),
@@ -2997,10 +4897,29 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(v.fullName, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                    Text(
+                      v.fullName,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: context.themeTextPrimary,
+                      ),
+                    ),
                     const SizedBox(height: 2),
-                    Text('₹${v.priceHour.toInt()}/hr • ₹${v.priceDay.toInt()}/day • ${v.transmission}', style: TextStyle(fontSize: 11.5, color: context.themeTextSecondary)),
-                    Text('Reg: ${v.regNo.isNotEmpty ? v.regNo : "MH-04-KZ-2026"}', style: TextStyle(fontSize: 10.5, color: context.themeTextMuted)),
+                    Text(
+                      '₹${v.priceHour.toInt()}/hr • ₹${v.priceDay.toInt()}/day • ${v.transmission}',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: context.themeTextSecondary,
+                      ),
+                    ),
+                    Text(
+                      'Reg: ${v.regNo.isNotEmpty ? v.regNo : "MH-04-KZ-2026"}',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: context.themeTextMuted,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -3035,8 +4954,18 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     final kycAsync = ref.watch(adminKycListProvider);
 
     return kycAsync.when(
-      loading: () => const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator(color: AppColors.primary))),
-      error: (e, _) => Center(child: Text('Error loading KYC records: $e', style: const TextStyle(color: AppColors.error))),
+      loading: () => const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      ),
+      error: (e, _) => Center(
+        child: Text(
+          'Error loading KYC records: $e',
+          style: const TextStyle(color: AppColors.error),
+        ),
+      ),
       data: (kycList) {
         if (kycList.isEmpty) {
           return GlassCard(
@@ -3044,11 +4973,28 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             child: Center(
               child: Column(
                 children: [
-                  Icon(Icons.verified_user_outlined, size: 42, color: context.themeTextMuted),
+                  Icon(
+                    Icons.verified_user_outlined,
+                    size: 42,
+                    color: context.themeTextMuted,
+                  ),
                   const SizedBox(height: 10),
-                  Text('No KYC submissions pending review', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
+                  Text(
+                    'No KYC submissions pending review',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: context.themeTextPrimary,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text('All user identity documents are verified.', style: TextStyle(fontSize: 11.5, color: context.themeTextSecondary)),
+                  Text(
+                    'All user identity documents are verified.',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: context.themeTextSecondary,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -3057,21 +5003,38 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
 
         return Column(
           children: kycList.map((item) {
-            final uid = (item['firebaseUid'] ?? item['userId'] ?? item['firebase_uid'] ?? '').toString();
-            final name = (item['fullName'] ?? item['full_name'] ?? 'Verified User').toString();
-            final email = (item['email'] ?? item['user_email'] ?? 'No email').toString();
-            final phone = (item['phone'] ?? item['user_phone'] ?? '—').toString();
-            final license = (item['licenseNumber'] ?? item['license_number'] ?? '').toString();
-            final aadhar = (item['aadharNumber'] ?? item['aadhar_number'] ?? '').toString();
-            final pan = (item['panNumber'] ?? item['pan_number'] ?? '').toString();
-            final status = (item['overallStatus'] ?? item['overall_status'] ?? 'pending').toString();
+            final uid =
+                (item['firebaseUid'] ??
+                        item['userId'] ??
+                        item['firebase_uid'] ??
+                        '')
+                    .toString();
+            final name =
+                (item['fullName'] ?? item['full_name'] ?? 'Verified User')
+                    .toString();
+            final email = (item['email'] ?? item['user_email'] ?? 'No email')
+                .toString();
+            final phone = (item['phone'] ?? item['user_phone'] ?? '—')
+                .toString();
+            final license =
+                (item['licenseNumber'] ?? item['license_number'] ?? '')
+                    .toString();
+            final aadhar = (item['aadharNumber'] ?? item['aadhar_number'] ?? '')
+                .toString();
+            final pan = (item['panNumber'] ?? item['pan_number'] ?? '')
+                .toString();
+            final status =
+                (item['overallStatus'] ?? item['overall_status'] ?? 'pending')
+                    .toString();
 
             final docsList = [
               if (license.isNotEmpty) 'License ($license)',
               if (aadhar.isNotEmpty) 'Aadhaar ($aadhar)',
               if (pan.isNotEmpty) 'PAN ($pan)',
             ];
-            final docsStr = docsList.isNotEmpty ? docsList.join(' • ') : 'Identity Documents Submitted';
+            final docsStr = docsList.isNotEmpty
+                ? docsList.join(' • ')
+                : 'Identity Documents Submitted';
 
             return GlassCard(
               margin: const EdgeInsets.only(bottom: 12),
@@ -3082,14 +5045,33 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(name, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                      Text(
+                        name,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: context.themeTextPrimary,
+                        ),
+                      ),
                       StatusBadge(status: status),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(email, style: TextStyle(fontSize: 11.5, color: context.themeTextSecondary)),
+                  Text(
+                    email,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: context.themeTextSecondary,
+                    ),
+                  ),
                   const SizedBox(height: 2),
-                  Text(docsStr, style: TextStyle(fontSize: 10.5, color: context.themeTextMuted)),
+                  Text(
+                    docsStr,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      color: context.themeTextMuted,
+                    ),
+                  ),
                   const SizedBox(height: 10),
                   Row(
                     children: [
@@ -3097,7 +5079,13 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                         child: CustomButton(
                           text: 'Review & Verify Documents',
                           height: 34,
-                          onPressed: () => _showExecutiveKycModal(name, phone, email, uid, item),
+                          onPressed: () => _showExecutiveKycModal(
+                            name,
+                            phone,
+                            email,
+                            uid,
+                            item,
+                          ),
                         ),
                       ),
                     ],
@@ -3115,8 +5103,18 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     final couponsAsync = ref.watch(adminCouponsProvider);
 
     return couponsAsync.when(
-      loading: () => const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator(color: AppColors.primary))),
-      error: (e, _) => Center(child: Text('Error loading coupons: $e', style: const TextStyle(color: AppColors.error))),
+      loading: () => const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      ),
+      error: (e, _) => Center(
+        child: Text(
+          'Error loading coupons: $e',
+          style: const TextStyle(color: AppColors.error),
+        ),
+      ),
       data: (coupons) {
         if (coupons.isEmpty) {
           return GlassCard(
@@ -3124,11 +5122,28 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             child: Center(
               child: Column(
                 children: [
-                  Icon(Icons.discount_outlined, size: 42, color: context.themeTextMuted),
+                  Icon(
+                    Icons.discount_outlined,
+                    size: 42,
+                    color: context.themeTextMuted,
+                  ),
                   const SizedBox(height: 10),
-                  Text('No promotional coupons available', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
+                  Text(
+                    'No promotional coupons available',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: context.themeTextPrimary,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text('Configure promotional discounts in the KRUIZLY Admin backend.', style: TextStyle(fontSize: 11.5, color: context.themeTextSecondary)),
+                  Text(
+                    'Configure promotional discounts in the KRUIZLY Admin backend.',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: context.themeTextSecondary,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -3137,8 +5152,12 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
 
         return Column(
           children: coupons.map((couponItem) {
-            final c = couponItem is CouponModel ? couponItem : CouponModel.fromJson(couponItem as Map<String, dynamic>);
-            final discountText = c.discountType == 'percentage' ? '${c.discountValue.toInt()}% Off' : '₹${c.discountValue.toInt()} Flat Off';
+            final c = couponItem is CouponModel
+                ? couponItem
+                : CouponModel.fromJson(couponItem as Map<String, dynamic>);
+            final discountText = c.discountType == 'percentage'
+                ? '${c.discountValue.toInt()}% Off'
+                : '₹${c.discountValue.toInt()} Flat Off';
 
             return GlassCard(
               margin: const EdgeInsets.only(bottom: 10),
@@ -3146,17 +5165,46 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                    decoration: BoxDecoration(color: accentColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
-                    child: Text(c.code, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: accentColor, letterSpacing: 0.8)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: accentColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      c.code,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        color: accentColor,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(discountText, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
-                        Text(c.description.isNotEmpty ? c.description : 'Min. booking ₹${c.minOrder.toInt()}', style: TextStyle(fontSize: 10.5, color: context.themeTextSecondary)),
+                        Text(
+                          discountText,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: context.themeTextPrimary,
+                          ),
+                        ),
+                        Text(
+                          c.description.isNotEmpty
+                              ? c.description
+                              : 'Min. booking ₹${c.minOrder.toInt()}',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            color: context.themeTextSecondary,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -3172,18 +5220,66 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
 
   Widget _buildAdmin12Kpis(AdminStatsModel stats, Color accentColor) {
     final kpis = [
-      {'title': 'TOTAL REVENUE (VERIFIED)', 'value': _formatINRShort(stats.totalRevenue), 'color': const Color(0xFF06D6A0)},
-      {'title': 'REVENUE THIS MONTH', 'value': _formatINRShort(stats.monthRevenue), 'color': accentColor},
-      {'title': 'TOTAL BOOKINGS', 'value': '${stats.totalBookings}', 'color': Colors.white},
-      {'title': 'PAID BOOKINGS', 'value': '${stats.paidBookings}', 'color': const Color(0xFF06D6A0)},
-      {'title': 'PENDING DOCUMENT REVIEWS', 'value': '${stats.pendingDocs}', 'color': const Color(0xFFFFB703)},
-      {'title': 'AWAITING PAYMENT VERIFICATION', 'value': '${stats.pendingPayments}', 'color': const Color(0xFFFF5C77)},
-      {'title': 'AVG. VERIFIED BOOKING VALUE', 'value': _formatINRShort(stats.avgBooking), 'color': accentColor},
-      {'title': 'ACTIVE ON-ROAD RENTALS', 'value': '${stats.activeTrips}', 'color': const Color(0xFF06D6A0)},
-      {'title': 'TOTAL REGISTERED USERS', 'value': '${stats.totalUsers}', 'color': Colors.white},
-      {'title': 'TOTAL FLEET VEHICLES', 'value': '${stats.totalFleet}', 'color': Colors.white},
-      {'title': 'AVAILABLE IN YARD', 'value': '${stats.availableInYard}', 'color': const Color(0xFF06D6A0)},
-      {'title': 'FLEET UTILIZATION RATE', 'value': '${stats.fleetUtilization}%', 'color': accentColor},
+      {
+        'title': 'TOTAL REVENUE (VERIFIED)',
+        'value': _formatINRShort(stats.totalRevenue),
+        'color': const Color(0xFF06D6A0),
+      },
+      {
+        'title': 'REVENUE THIS MONTH',
+        'value': _formatINRShort(stats.monthRevenue),
+        'color': accentColor,
+      },
+      {
+        'title': 'TOTAL BOOKINGS',
+        'value': '${stats.totalBookings}',
+        'color': Colors.white,
+      },
+      {
+        'title': 'PAID BOOKINGS',
+        'value': '${stats.paidBookings}',
+        'color': const Color(0xFF06D6A0),
+      },
+      {
+        'title': 'PENDING DOCUMENT REVIEWS',
+        'value': '${stats.pendingDocs}',
+        'color': const Color(0xFFFFB703),
+      },
+      {
+        'title': 'AWAITING PAYMENT VERIFICATION',
+        'value': '${stats.pendingPayments}',
+        'color': const Color(0xFFFF5C77),
+      },
+      {
+        'title': 'AVG. VERIFIED BOOKING VALUE',
+        'value': _formatINRShort(stats.avgBooking),
+        'color': accentColor,
+      },
+      {
+        'title': 'ACTIVE ON-ROAD RENTALS',
+        'value': '${stats.activeTrips}',
+        'color': const Color(0xFF06D6A0),
+      },
+      {
+        'title': 'TOTAL REGISTERED USERS',
+        'value': '${stats.totalUsers}',
+        'color': Colors.white,
+      },
+      {
+        'title': 'TOTAL FLEET VEHICLES',
+        'value': '${stats.totalFleet}',
+        'color': Colors.white,
+      },
+      {
+        'title': 'AVAILABLE IN YARD',
+        'value': '${stats.availableInYard}',
+        'color': const Color(0xFF06D6A0),
+      },
+      {
+        'title': 'FLEET UTILIZATION RATE',
+        'value': '${stats.fleetUtilization}%',
+        'color': accentColor,
+      },
     ];
 
     return GridView.builder(
@@ -3198,13 +5294,19 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
       itemCount: kpis.length,
       itemBuilder: (context, index) {
         final k = kpis[index];
-        return _buildKpiCard(k['title'] as String, k['value'] as String, k['color'] as Color);
+        return _buildKpiCard(
+          (k['title'] ?? '').toString(),
+          (k['value'] ?? '').toString(),
+          k['color'] is Color ? k['color'] as Color : accentColor,
+        );
       },
     );
   }
 
   Widget _buildKpiCard(String title, String value, Color valueColor) {
-    final resolvedColor = valueColor == Colors.white ? context.themeTextPrimary : valueColor;
+    final resolvedColor = valueColor == Colors.white
+        ? context.themeTextPrimary
+        : valueColor;
     return GlassCard(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Column(
@@ -3238,18 +5340,41 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     );
   }
 
-  Widget _buildStatMetricCard(String title, String value, String subtitle, Color color) {
+  Widget _buildStatMetricCard(
+    String title,
+    String value,
+    String subtitle,
+    Color color,
+  ) {
     return GlassCard(
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(title, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.5, color: context.themeTextMuted)),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.5,
+              color: context.themeTextMuted,
+            ),
+          ),
           const SizedBox(height: 4),
-          Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: color)),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              color: color,
+            ),
+          ),
           const SizedBox(height: 2),
-          Text(subtitle, style: TextStyle(fontSize: 11, color: context.themeTextSecondary)),
+          Text(
+            subtitle,
+            style: TextStyle(fontSize: 11, color: context.themeTextSecondary),
+          ),
         ],
       ),
     );
@@ -3267,15 +5392,15 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           color: isSelected
               ? AppColors.primary
               : (context.isDarkMode
-                  ? const Color(0x401A2436)
-                  : const Color(0xE6FFFFFF)),
+                    ? const Color(0x401A2436)
+                    : const Color(0xE6FFFFFF)),
           borderRadius: BorderRadius.circular(22),
           border: Border.all(
             color: isSelected
                 ? AppColors.primaryLight.withValues(alpha: 0.8)
                 : (context.isDarkMode
-                    ? Colors.white.withValues(alpha: 0.20)
-                    : AppColors.lightBorder),
+                      ? Colors.white.withValues(alpha: 0.20)
+                      : AppColors.lightBorder),
             width: isSelected ? 1.4 : 0.8,
           ),
           boxShadow: isSelected
@@ -3284,14 +5409,14 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                     color: AppColors.primary.withValues(alpha: 0.45),
                     blurRadius: 10,
                     offset: const Offset(0, 3),
-                  )
+                  ),
                 ]
               : [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.15),
                     blurRadius: 6,
                     offset: const Offset(0, 2),
-                  )
+                  ),
                 ],
         ),
         child: Text(
@@ -3303,15 +5428,20 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             color: isSelected
                 ? Colors.white
                 : (context.isDarkMode
-                    ? Colors.white.withValues(alpha: 0.90)
-                    : AppColors.lightTextPrimary),
+                      ? Colors.white.withValues(alpha: 0.90)
+                      : AppColors.lightTextPrimary),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildMonthlyRow(String month, String bookings, String rev, bool isCurrent) {
+  Widget _buildMonthlyRow(
+    String month,
+    String bookings,
+    String rev,
+    bool isCurrent,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -3320,32 +5450,65 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(month, style: TextStyle(fontSize: 13, fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w600, color: isCurrent ? AppColors.primaryLight : context.themeTextPrimary)),
-              Text(bookings, style: TextStyle(fontSize: 11, color: context.themeTextMuted)),
+              Text(
+                month,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w600,
+                  color: isCurrent
+                      ? AppColors.primaryLight
+                      : context.themeTextPrimary,
+                ),
+              ),
+              Text(
+                bookings,
+                style: TextStyle(fontSize: 11, color: context.themeTextMuted),
+              ),
             ],
           ),
-          Text(rev, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: isCurrent ? const Color(0xFF06D6A0) : context.themeTextPrimary)),
+          Text(
+            rev,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: isCurrent
+                  ? const Color(0xFF06D6A0)
+                  : context.themeTextPrimary,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildTableRow(List<String> values, {bool isHeader = false, bool isHighlight = false}) {
+  Widget _buildTableRow(
+    List<String> values, {
+    bool isHeader = false,
+    bool isHighlight = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
-        children: values.map((val) => Expanded(
-          child: Text(
-            val,
-            style: TextStyle(
-              fontSize: isHeader ? 10 : 11.5,
-              fontWeight: isHeader ? FontWeight.w800 : (isHighlight ? FontWeight.w800 : FontWeight.w500),
-              color: isHeader
-                  ? context.themeTextMuted
-                  : (isHighlight ? const Color(0xFF06D6A0) : context.themeTextPrimary),
-            ),
-          ),
-        )).toList(),
+        children: values
+            .map(
+              (val) => Expanded(
+                child: Text(
+                  val,
+                  style: TextStyle(
+                    fontSize: isHeader ? 10 : 11.5,
+                    fontWeight: isHeader
+                        ? FontWeight.w800
+                        : (isHighlight ? FontWeight.w800 : FontWeight.w500),
+                    color: isHeader
+                        ? context.themeTextMuted
+                        : (isHighlight
+                              ? const Color(0xFF06D6A0)
+                              : context.themeTextPrimary),
+                  ),
+                ),
+              ),
+            )
+            .toList(),
       ),
     );
   }
@@ -3360,7 +5523,9 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.78),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.78,
+        ),
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
         decoration: BoxDecoration(
           color: context.themeSurfaceElevated,
@@ -3375,12 +5540,28 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Daily Schedule & Timeline', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                    Text(
+                      'Daily Schedule & Timeline',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: context.themeTextPrimary,
+                      ),
+                    ),
                     const SizedBox(height: 2),
-                    Text(_formatDateShort(date), style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                    Text(
+                      _formatDateShort(date),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: context.themeTextSecondary,
+                      ),
+                    ),
                   ],
                 ),
-                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -3388,20 +5569,36 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               Padding(
                 padding: const EdgeInsets.all(32),
                 child: Center(
-                  child: Text('No vehicle movements scheduled for this date.', style: TextStyle(color: context.themeTextSecondary)),
+                  child: Text(
+                    'No vehicle movements scheduled for this date.',
+                    style: TextStyle(color: context.themeTextSecondary),
+                  ),
                 ),
               )
             else
               Expanded(
                 child: ListView.separated(
                   itemCount: bookings.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 10),
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 10),
                   itemBuilder: (context, idx) {
                     final b = bookings[idx];
-                    final isPickup = b.pickupDate.day == date.day && b.pickupDate.month == date.month && b.pickupDate.year == date.year;
-                    final isReturn = b.dropDate.day == date.day && b.dropDate.month == date.month && b.dropDate.year == date.year;
-                    final label = isPickup ? 'PICKUP DISPATCH' : (isReturn ? 'VEHICLE RETURN' : 'ON-ROAD RENTAL');
-                    final badgeColor = isPickup ? const Color(0xFF06D6A0) : (isReturn ? const Color(0xFFFFB703) : const Color(0xFF4FD7FF));
+                    final isPickup =
+                        b.pickupDate.day == date.day &&
+                        b.pickupDate.month == date.month &&
+                        b.pickupDate.year == date.year;
+                    final isReturn =
+                        b.dropDate.day == date.day &&
+                        b.dropDate.month == date.month &&
+                        b.dropDate.year == date.year;
+                    final label = isPickup
+                        ? 'PICKUP DISPATCH'
+                        : (isReturn ? 'VEHICLE RETURN' : 'ON-ROAD RENTAL');
+                    final badgeColor = isPickup
+                        ? const Color(0xFF06D6A0)
+                        : (isReturn
+                              ? const Color(0xFFFFB703)
+                              : const Color(0xFF4FD7FF));
 
                     return GlassCard(
                       padding: const EdgeInsets.all(12),
@@ -3412,16 +5609,51 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(color: badgeColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
-                                child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: badgeColor)),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: badgeColor.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  label,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    color: badgeColor,
+                                  ),
+                                ),
                               ),
-                              Text(b.bookingNumber.isNotEmpty ? b.bookingNumber : '#KZ-${b.id}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.themeTextSecondary)),
+                              Text(
+                                b.bookingNumber.isNotEmpty
+                                    ? b.bookingNumber
+                                    : '#KZ-${b.id}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: context.themeTextSecondary,
+                                ),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 6),
-                          Text(b.vehicleName, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
-                          Text('Customer: ${b.userName} • ${b.userPhone ?? "No phone"}', style: TextStyle(fontSize: 11.5, color: context.themeTextSecondary)),
+                          Text(
+                            b.vehicleName,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: context.themeTextPrimary,
+                            ),
+                          ),
+                          Text(
+                            'Customer: ${b.userName} • ${b.userPhone ?? "No phone"}',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: context.themeTextSecondary,
+                            ),
+                          ),
                           const SizedBox(height: 8),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.end,
@@ -3451,10 +5683,16 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   }
 
   Future<void> _approveBookingAndNotify(BookingModel b) async {
-    final bId = b.bookingNumber.isNotEmpty ? b.bookingNumber : (b.bookingId.isNotEmpty ? b.bookingId : '#KZ-${b.id}');
-    await ref.read(adminBookingsProvider.notifier).updateStatus(bookingId: bId, newStatus: 'confirmed');
+    final bId = b.bookingNumber.isNotEmpty
+        ? b.bookingNumber
+        : (b.bookingId.isNotEmpty ? b.bookingId : '#KZ-${b.id}');
+    await ref
+        .read(adminBookingsProvider.notifier)
+        .updateStatus(bookingId: bId, newStatus: 'confirmed');
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Booking $bId approved & confirmed.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Booking $bId approved & confirmed.')),
+      );
       _showBookingApprovalConfirmationDialog(b);
     }
   }
@@ -3474,7 +5712,9 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
         decoration: BoxDecoration(
           color: context.themeSurfaceElevated,
@@ -3495,20 +5735,40 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                         color: const Color(0xFF06D6A0).withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.check_circle_rounded, color: Color(0xFF06D6A0), size: 22),
+                      child: const Icon(
+                        Icons.check_circle_rounded,
+                        color: Color(0xFF06D6A0),
+                        size: 22,
+                      ),
                     ),
                     const SizedBox(width: 10),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Booking #$bId Approved', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                        Text(
+                          'Booking #$bId Approved',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: context.themeTextPrimary,
+                          ),
+                        ),
                         const SizedBox(height: 2),
-                        Text('Send confirmation notice to client', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                        Text(
+                          'Send confirmation notice to client',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: context.themeTextSecondary,
+                          ),
+                        ),
                       ],
                     ),
                   ],
                 ),
-                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
               ],
             ),
             const SizedBox(height: 14),
@@ -3521,15 +5781,37 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('CLIENT & VEHICLE DETAILS', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: context.themeTextMuted)),
+                        Text(
+                          'CLIENT & VEHICLE DETAILS',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.8,
+                            color: context.themeTextMuted,
+                          ),
+                        ),
                         const SizedBox(height: 8),
-                        _buildDetailMetaItem('Client Name', b.userName.isNotEmpty ? b.userName : 'Customer'),
+                        _buildDetailMetaItem(
+                          'Client Name',
+                          b.userName.isNotEmpty ? b.userName : 'Customer',
+                        ),
                         const SizedBox(height: 6),
-                        _buildDetailMetaItem('Phone Number', b.userPhone != null && b.userPhone!.isNotEmpty ? b.userPhone! : 'Not provided'),
+                        _buildDetailMetaItem(
+                          'Phone Number',
+                          b.userPhone != null && b.userPhone!.isNotEmpty
+                              ? b.userPhone!
+                              : 'Not provided',
+                        ),
                         const SizedBox(height: 6),
-                        _buildDetailMetaItem('Email Address', b.userEmail.isNotEmpty ? b.userEmail : 'Not provided'),
+                        _buildDetailMetaItem(
+                          'Email Address',
+                          b.userEmail.isNotEmpty ? b.userEmail : 'Not provided',
+                        ),
                         const SizedBox(height: 6),
-                        _buildDetailMetaItem('Vehicle', '${b.vehicleName} (${b.vehicleReg.isNotEmpty ? b.vehicleReg : b.vehicleCategory.toUpperCase()})'),
+                        _buildDetailMetaItem(
+                          'Vehicle',
+                          '${b.vehicleName} (${b.vehicleReg.isNotEmpty ? b.vehicleReg : b.vehicleCategory.toUpperCase()})',
+                        ),
                       ],
                     ),
                   ),
@@ -3539,52 +5821,116 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('CONFIRMED RENTAL SCHEDULE', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: context.themeTextMuted)),
+                        Text(
+                          'CONFIRMED RENTAL SCHEDULE',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.8,
+                            color: context.themeTextMuted,
+                          ),
+                        ),
                         const SizedBox(height: 8),
-                        _buildDetailMetaItem('Pickup Date & Time', dateFormat.format(b.pickupDate)),
+                        _buildDetailMetaItem(
+                          'Pickup Date & Time',
+                          dateFormat.format(b.pickupDate),
+                        ),
                         const SizedBox(height: 6),
-                        _buildDetailMetaItem('Return Date & Time', dateFormat.format(b.dropDate)),
+                        _buildDetailMetaItem(
+                          'Return Date & Time',
+                          dateFormat.format(b.dropDate),
+                        ),
                         const SizedBox(height: 6),
-                        _buildDetailMetaItem('Total Booked Duration', durationStr),
+                        _buildDetailMetaItem(
+                          'Total Booked Duration',
+                          durationStr,
+                        ),
                         const SizedBox(height: 6),
                         _buildDetailMetaItem('Handover Location', b.location),
                       ],
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text('DISPATCH CONFIRMATION TO CLIENT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: context.themeTextMuted)),
+                  Text(
+                    'DISPATCH CONFIRMATION TO CLIENT',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.8,
+                      color: context.themeTextMuted,
+                    ),
+                  ),
                   const SizedBox(height: 10),
                   ElevatedButton.icon(
-                    icon: const Icon(Icons.chat_rounded, color: Colors.white, size: 20),
-                    label: const Text('Send WhatsApp Confirmation', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: Colors.white)),
+                    icon: const Icon(
+                      Icons.chat_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                    label: const Text(
+                      'Send WhatsApp Confirmation',
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF25D366),
                       minimumSize: const Size.fromHeight(46),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     onPressed: () async {
-                      final ok = await BookingNotificationHelper.sendWhatsAppConfirmation(b);
+                      final ok =
+                          await BookingNotificationHelper.sendWhatsAppConfirmation(
+                            b,
+                          );
                       if (!ok && mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Could not open WhatsApp.')),
+                          const SnackBar(
+                            content: Text('Could not open WhatsApp.'),
+                          ),
                         );
                       }
                     },
                   ),
                   const SizedBox(height: 10),
                   OutlinedButton.icon(
-                    icon: const Icon(Icons.email_outlined, color: AppColors.primary, size: 20),
-                    label: const Text('Send Email Confirmation', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: AppColors.primary)),
+                    icon: const Icon(
+                      Icons.email_outlined,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
+                    label: const Text(
+                      'Send Email Confirmation',
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primary,
+                      ),
+                    ),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.primary, width: 1.4),
+                      side: const BorderSide(
+                        color: AppColors.primary,
+                        width: 1.4,
+                      ),
                       minimumSize: const Size.fromHeight(46),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     onPressed: () async {
-                      final ok = await BookingNotificationHelper.sendEmailConfirmation(b);
+                      final ok =
+                          await BookingNotificationHelper.sendEmailConfirmation(
+                            b,
+                          );
                       if (!ok && mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Could not open email app.')),
+                          const SnackBar(
+                            content: Text('Could not open email app.'),
+                          ),
                         );
                       }
                     },
@@ -3609,7 +5955,9 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.86),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.86,
+        ),
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
         decoration: BoxDecoration(
           color: context.themeSurfaceElevated,
@@ -3624,12 +5972,29 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Booking Details & Handover Log', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                    Text(
+                      'Booking Details & Handover Log',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: context.themeTextPrimary,
+                      ),
+                    ),
                     const SizedBox(height: 2),
-                    Text('$bId • ${b.vehicleName}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.themeTextSecondary)),
+                    Text(
+                      '$bId • ${b.vehicleName}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: context.themeTextSecondary,
+                      ),
+                    ),
                   ],
                 ),
-                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -3642,15 +6007,39 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('1. CUSTOMER INFORMATION', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: context.themeTextMuted)),
+                        Text(
+                          '1. CUSTOMER INFORMATION',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.8,
+                            color: context.themeTextMuted,
+                          ),
+                        ),
                         const SizedBox(height: 8),
-                        _buildDetailMetaItem('Full Name', b.userName.isNotEmpty ? b.userName : '—'),
+                        _buildDetailMetaItem(
+                          'Full Name',
+                          b.userName.isNotEmpty ? b.userName : '—',
+                        ),
                         const SizedBox(height: 6),
-                        _buildDetailMetaItem('Phone Number', b.userPhone != null && b.userPhone!.isNotEmpty ? b.userPhone! : '—'),
+                        _buildDetailMetaItem(
+                          'Phone Number',
+                          b.userPhone != null && b.userPhone!.isNotEmpty
+                              ? b.userPhone!
+                              : '—',
+                        ),
                         const SizedBox(height: 6),
-                        _buildDetailMetaItem('Email Address', b.userEmail.isNotEmpty ? b.userEmail : '—'),
+                        _buildDetailMetaItem(
+                          'Email Address',
+                          b.userEmail.isNotEmpty ? b.userEmail : '—',
+                        ),
                         const SizedBox(height: 6),
-                        _buildDetailMetaItem('Delivery / Hub Address', b.location.isNotEmpty ? b.location : 'Ghansoli Hub, Navi Mumbai'),
+                        _buildDetailMetaItem(
+                          'Delivery / Hub Address',
+                          b.location.isNotEmpty
+                              ? b.location
+                              : 'Ghansoli Hub, Navi Mumbai',
+                        ),
                       ],
                     ),
                   ),
@@ -3662,19 +6051,56 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('2. TRIP SCHEDULE & DURATION', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: context.themeTextMuted)),
+                        Text(
+                          '2. TRIP SCHEDULE & DURATION',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.8,
+                            color: context.themeTextMuted,
+                          ),
+                        ),
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            Expanded(child: _buildDetailMetaItem('Pickup Time & Date', DateFormat('EEE, dd MMM yyyy • hh:mm a').format(b.pickupDate))),
-                            Expanded(child: _buildDetailMetaItem('Return Time & Date', DateFormat('EEE, dd MMM yyyy • hh:mm a').format(b.dropDate))),
+                            Expanded(
+                              child: _buildDetailMetaItem(
+                                'Pickup Time & Date',
+                                DateFormat(
+                                  'EEE, dd MMM yyyy • hh:mm a',
+                                ).format(b.pickupDate),
+                              ),
+                            ),
+                            Expanded(
+                              child: _buildDetailMetaItem(
+                                'Return Time & Date',
+                                DateFormat(
+                                  'EEE, dd MMM yyyy • hh:mm a',
+                                ).format(b.dropDate),
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 6),
                         Row(
                           children: [
-                            Expanded(child: _buildDetailMetaItem('Booked Duration (Days & Hours)', BookingNotificationHelper.formatDurationDetailed(b.pickupDate, b.dropDate, days: b.days, hours: b.hours))),
-                            Expanded(child: _buildDetailMetaItem('Status', b.status.toUpperCase())),
+                            Expanded(
+                              child: _buildDetailMetaItem(
+                                'Booked Duration (Days & Hours)',
+                                BookingNotificationHelper.formatDurationDetailed(
+                                  b.pickupDate,
+                                  b.dropDate,
+                                  days: b.days,
+                                  hours: b.hours,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: _buildDetailMetaItem(
+                                'Status',
+                                b.status.toUpperCase(),
+                              ),
+                            ),
                           ],
                         ),
                       ],
@@ -3688,36 +6114,96 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('3. FINANCIAL BREAKDOWN', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: context.themeTextMuted)),
+                        Text(
+                          '3. FINANCIAL BREAKDOWN',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.8,
+                            color: context.themeTextMuted,
+                          ),
+                        ),
                         const SizedBox(height: 8),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('Rental Amount', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
-                            Text(_formatINR(b.baseAmount > 0 ? b.baseAmount : b.totalAmount), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.themeTextPrimary)),
+                            Text(
+                              'Rental Amount',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: context.themeTextSecondary,
+                              ),
+                            ),
+                            Text(
+                              _formatINR(
+                                b.baseAmount > 0 ? b.baseAmount : b.totalAmount,
+                              ),
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: context.themeTextPrimary,
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 4),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('Security Deposit (Refundable)', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
-                            Text(_formatINR(b.securityDeposit), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.themeTextPrimary)),
+                            Text(
+                              'Security Deposit (Refundable)',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: context.themeTextSecondary,
+                              ),
+                            ),
+                            Text(
+                              _formatINR(b.securityDeposit),
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: context.themeTextPrimary,
+                              ),
+                            ),
                           ],
                         ),
                         const Divider(height: 14),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('Total Amount', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
-                            Text(_formatINR(b.finalAmount > 0 ? b.finalAmount : b.totalAmount), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Color(0xFF06D6A0))),
+                            Text(
+                              'Total Amount',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: context.themeTextPrimary,
+                              ),
+                            ),
+                            Text(
+                              _formatINR(
+                                b.finalAmount > 0
+                                    ? b.finalAmount
+                                    : b.totalAmount,
+                              ),
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF06D6A0),
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 6),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('Payment Status', style: TextStyle(fontSize: 11.5, color: context.themeTextSecondary)),
+                            Text(
+                              'Payment Status',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: context.themeTextSecondary,
+                              ),
+                            ),
                             StatusBadge(status: b.paymentStatus),
                           ],
                         ),
@@ -3732,26 +6218,76 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('4. OPERATIONS & ODOMETER LOG', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: context.themeTextMuted)),
+                        Text(
+                          '4. OPERATIONS & ODOMETER LOG',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.8,
+                            color: context.themeTextMuted,
+                          ),
+                        ),
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            Expanded(child: _buildDetailMetaItem('Start Odometer', b.startOdometer != null && b.startOdometer!.isNotEmpty ? '${b.startOdometer} KM' : 'Not recorded')),
-                            Expanded(child: _buildDetailMetaItem('End Odometer', b.endOdometer != null && b.endOdometer!.isNotEmpty ? '${b.endOdometer} KM' : 'Not recorded')),
+                            Expanded(
+                              child: _buildDetailMetaItem(
+                                'Start Odometer',
+                                b.startOdometer != null &&
+                                        b.startOdometer!.isNotEmpty
+                                    ? '${b.startOdometer} KM'
+                                    : 'Not recorded',
+                              ),
+                            ),
+                            Expanded(
+                              child: _buildDetailMetaItem(
+                                'End Odometer',
+                                b.endOdometer != null &&
+                                        b.endOdometer!.isNotEmpty
+                                    ? '${b.endOdometer} KM'
+                                    : 'Not recorded',
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 6),
                         Row(
                           children: [
-                            Expanded(child: _buildDetailMetaItem('Distance Driven', kmDriven > 0 ? '$kmDriven KM' : '—')),
-                            Expanded(child: _buildDetailMetaItem('Vehicle Reg', b.vehicleReg.isNotEmpty ? b.vehicleReg : 'TBD')),
+                            Expanded(
+                              child: _buildDetailMetaItem(
+                                'Distance Driven',
+                                kmDriven > 0 ? '$kmDriven KM' : '—',
+                              ),
+                            ),
+                            Expanded(
+                              child: _buildDetailMetaItem(
+                                'Vehicle Reg',
+                                b.vehicleReg.isNotEmpty ? b.vehicleReg : 'TBD',
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 6),
                         Row(
                           children: [
-                            Expanded(child: _buildDetailMetaItem('Starting FASTag', b.startFastag != null && b.startFastag!.isNotEmpty ? '₹${b.startFastag}' : '—')),
-                            Expanded(child: _buildDetailMetaItem('Return FASTag', b.returnFastag != null && b.returnFastag!.isNotEmpty ? '₹${b.returnFastag}' : '—')),
+                            Expanded(
+                              child: _buildDetailMetaItem(
+                                'Starting FASTag',
+                                b.startFastag != null &&
+                                        b.startFastag!.isNotEmpty
+                                    ? '₹${b.startFastag}'
+                                    : '—',
+                              ),
+                            ),
+                            Expanded(
+                              child: _buildDetailMetaItem(
+                                'Return FASTag',
+                                b.returnFastag != null &&
+                                        b.returnFastag!.isNotEmpty
+                                    ? '₹${b.returnFastag}'
+                                    : '—',
+                              ),
+                            ),
                           ],
                         ),
                       ],
@@ -3765,26 +6301,62 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('5. CLIENT CONFIRMATION NOTIFICATIONS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: context.themeTextMuted)),
+                        Text(
+                          '5. CLIENT CONFIRMATION NOTIFICATIONS',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.8,
+                            color: context.themeTextMuted,
+                          ),
+                        ),
                         const SizedBox(height: 8),
-                        Text('Dispatch booking confirmation and schedule details directly to client:', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                        Text(
+                          'Dispatch booking confirmation and schedule details directly to client:',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: context.themeTextSecondary,
+                          ),
+                        ),
                         const SizedBox(height: 10),
                         Row(
                           children: [
                             Expanded(
                               child: ElevatedButton.icon(
-                                icon: const Icon(Icons.chat_rounded, color: Colors.white, size: 16),
-                                label: const Text('WhatsApp Confirmation', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Colors.white)),
+                                icon: const Icon(
+                                  Icons.chat_rounded,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                                label: const Text(
+                                  'WhatsApp Confirmation',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                  ),
+                                ),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF25D366),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
                                 ),
                                 onPressed: () async {
-                                  final ok = await BookingNotificationHelper.sendWhatsAppConfirmation(b);
+                                  final ok =
+                                      await BookingNotificationHelper.sendWhatsAppConfirmation(
+                                        b,
+                                      );
                                   if (!ok && mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Could not open WhatsApp.')),
+                                      const SnackBar(
+                                        content: Text(
+                                          'Could not open WhatsApp.',
+                                        ),
+                                      ),
                                     );
                                   }
                                 },
@@ -3793,18 +6365,43 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: OutlinedButton.icon(
-                                icon: const Icon(Icons.email_outlined, size: 16, color: AppColors.primary),
-                                label: const Text('Email Notice', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: AppColors.primary)),
+                                icon: const Icon(
+                                  Icons.email_outlined,
+                                  size: 16,
+                                  color: AppColors.primary,
+                                ),
+                                label: const Text(
+                                  'Email Notice',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
                                 style: OutlinedButton.styleFrom(
-                                  side: const BorderSide(color: AppColors.primary, width: 1.2),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  side: const BorderSide(
+                                    color: AppColors.primary,
+                                    width: 1.2,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
                                 ),
                                 onPressed: () async {
-                                  final ok = await BookingNotificationHelper.sendEmailConfirmation(b);
+                                  final ok =
+                                      await BookingNotificationHelper.sendEmailConfirmation(
+                                        b,
+                                      );
                                   if (!ok && mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Could not open email app.')),
+                                      const SnackBar(
+                                        content: Text(
+                                          'Could not open email app.',
+                                        ),
+                                      ),
                                     );
                                   }
                                 },
@@ -3881,8 +6478,15 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) => Container(
-          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.88),
-          padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 24),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.88,
+          ),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            20,
+            20,
+            MediaQuery.of(context).viewInsets.bottom + 24,
+          ),
           decoration: BoxDecoration(
             color: context.themeSurfaceElevated,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -3896,12 +6500,28 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Start Trip & Pickup Handover', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                      Text(
+                        'Start Trip & Pickup Handover',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: context.themeTextPrimary,
+                        ),
+                      ),
                       const SizedBox(height: 2),
-                      Text('$bId • ${b.vehicleName}', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                      Text(
+                        '$bId • ${b.vehicleName}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: context.themeTextSecondary,
+                        ),
+                      ),
                     ],
                   ),
-                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
@@ -3912,32 +6532,64 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                       controller: odoCtrl,
                       keyboardType: TextInputType.number,
                       style: TextStyle(color: context.themeTextPrimary),
-                      decoration: const InputDecoration(labelText: 'Starting Odometer (KM) *', hintText: 'e.g. 42150', border: OutlineInputBorder()),
+                      decoration: const InputDecoration(
+                        labelText: 'Starting Odometer (KM) *',
+                        hintText: 'e.g. 42150',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
                     const SizedBox(height: 10),
                     TextField(
                       controller: fastagCtrl,
                       keyboardType: TextInputType.number,
                       style: TextStyle(color: context.themeTextPrimary),
-                      decoration: const InputDecoration(labelText: 'Starting FASTag Balance (₹)', hintText: 'e.g. 500', prefixText: '₹ ', border: OutlineInputBorder()),
+                      decoration: const InputDecoration(
+                        labelText: 'Starting FASTag Balance (₹)',
+                        hintText: 'e.g. 500',
+                        prefixText: '₹ ',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
                     const SizedBox(height: 10),
                     DropdownButtonFormField<String>(
                       initialValue: fuelLevel,
-                      decoration: const InputDecoration(labelText: 'Fuel Level at Handover', border: OutlineInputBorder()),
+                      decoration: const InputDecoration(
+                        labelText: 'Fuel Level at Handover',
+                        border: OutlineInputBorder(),
+                      ),
                       dropdownColor: context.themeSurfaceElevated,
                       items: const [
-                        DropdownMenuItem(value: 'Full Tank (100%)', child: Text('Full Tank (100%)')),
-                        DropdownMenuItem(value: '75% Tank', child: Text('75% Tank')),
-                        DropdownMenuItem(value: '50% Tank', child: Text('50% Tank')),
-                        DropdownMenuItem(value: '25% Tank', child: Text('25% Tank')),
+                        DropdownMenuItem(
+                          value: 'Full Tank (100%)',
+                          child: Text('Full Tank (100%)'),
+                        ),
+                        DropdownMenuItem(
+                          value: '75% Tank',
+                          child: Text('75% Tank'),
+                        ),
+                        DropdownMenuItem(
+                          value: '50% Tank',
+                          child: Text('50% Tank'),
+                        ),
+                        DropdownMenuItem(
+                          value: '25% Tank',
+                          child: Text('25% Tank'),
+                        ),
                       ],
-                      onChanged: (val) => setModalState(() => fuelLevel = val ?? fuelLevel),
+                      onChanged: (val) =>
+                          setModalState(() => fuelLevel = val ?? fuelLevel),
                     ),
                     const SizedBox(height: 14),
 
                     // Handover Photos with MediaPermissionHelper
-                    Text('Vehicle Handover Photos', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
+                    Text(
+                      'Vehicle Handover Photos',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: context.themeTextPrimary,
+                      ),
+                    ),
                     const SizedBox(height: 6),
                     Row(
                       children: [
@@ -3957,7 +6609,13 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                           },
                         ),
                         const SizedBox(width: 10),
-                        Text('${attachedPhotos.length} photo(s) attached', style: TextStyle(fontSize: 11, color: context.themeTextSecondary)),
+                        Text(
+                          '${attachedPhotos.length} photo(s) attached',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: context.themeTextSecondary,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 14),
@@ -3966,9 +6624,17 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                     CheckboxListTile(
                       contentPadding: EdgeInsets.zero,
                       value: balanceCollected,
-                      title: Text('Balance Payment Collected at Pickup', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
+                      title: Text(
+                        'Balance Payment Collected at Pickup',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: context.themeTextPrimary,
+                        ),
+                      ),
                       activeColor: const Color(0xFF06D6A0),
-                      onChanged: (v) => setModalState(() => balanceCollected = v ?? false),
+                      onChanged: (v) =>
+                          setModalState(() => balanceCollected = v ?? false),
                     ),
                     if (balanceCollected) ...[
                       Row(
@@ -3976,14 +6642,28 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                           Expanded(
                             child: DropdownButtonFormField<String>(
                               initialValue: paymentMode,
-                              decoration: const InputDecoration(labelText: 'Payment Mode', border: OutlineInputBorder()),
+                              decoration: const InputDecoration(
+                                labelText: 'Payment Mode',
+                                border: OutlineInputBorder(),
+                              ),
                               dropdownColor: context.themeSurfaceElevated,
                               items: const [
-                                DropdownMenuItem(value: 'UPI / QR', child: Text('UPI / QR')),
-                                DropdownMenuItem(value: 'Cash', child: Text('Cash')),
-                                DropdownMenuItem(value: 'POS Card', child: Text('POS Card Machine')),
+                                DropdownMenuItem(
+                                  value: 'UPI / QR',
+                                  child: Text('UPI / QR'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Cash',
+                                  child: Text('Cash'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'POS Card',
+                                  child: Text('POS Card Machine'),
+                                ),
                               ],
-                              onChanged: (val) => setModalState(() => paymentMode = val ?? paymentMode),
+                              onChanged: (val) => setModalState(
+                                () => paymentMode = val ?? paymentMode,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -3991,7 +6671,11 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                             child: TextField(
                               controller: receiptRefCtrl,
                               style: TextStyle(color: context.themeTextPrimary),
-                              decoration: const InputDecoration(labelText: 'Receipt / Txn #', hintText: 'Ref No.', border: OutlineInputBorder()),
+                              decoration: const InputDecoration(
+                                labelText: 'Receipt / Txn #',
+                                hintText: 'Ref No.',
+                                border: OutlineInputBorder(),
+                              ),
                             ),
                           ),
                         ],
@@ -4002,7 +6686,12 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                     TextField(
                       controller: notesCtrl,
                       style: TextStyle(color: context.themeTextPrimary),
-                      decoration: const InputDecoration(labelText: 'Handover / Condition Notes', hintText: 'Any scratches, clean interior, tools checked...', border: OutlineInputBorder()),
+                      decoration: const InputDecoration(
+                        labelText: 'Handover / Condition Notes',
+                        hintText:
+                            'Any scratches, clean interior, tools checked...',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
                   ],
                 ),
@@ -4013,14 +6702,30 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 height: 42,
                 onPressed: () async {
                   if (odoCtrl.text.isNotEmpty) {
-                    await ref.read(adminBookingsProvider.notifier).updateOdometer(bookingId: bId, startOdometer: odoCtrl.text);
+                    await ref
+                        .read(adminBookingsProvider.notifier)
+                        .updateOdometer(
+                          bookingId: bId,
+                          startOdometer: odoCtrl.text,
+                        );
                   }
                   if (fastagCtrl.text.isNotEmpty) {
-                    await ref.read(adminBookingsProvider.notifier).updateFastag(bookingId: bId, startFastag: fastagCtrl.text);
+                    await ref
+                        .read(adminBookingsProvider.notifier)
+                        .updateFastag(
+                          bookingId: bId,
+                          startFastag: fastagCtrl.text,
+                        );
                   }
-                  await ref.read(adminBookingsProvider.notifier).updateStatus(bookingId: bId, newStatus: 'active');
+                  await ref
+                      .read(adminBookingsProvider.notifier)
+                      .updateStatus(bookingId: bId, newStatus: 'active');
                   if (ctx.mounted) Navigator.pop(ctx);
-                  messenger.showSnackBar(SnackBar(content: Text('Trip $bId dispatched and started.')));
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text('Trip $bId dispatched and started.'),
+                    ),
+                  );
                 },
               ),
             ],
@@ -4054,14 +6759,26 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           final damageDed = double.tryParse(damageCtrl.text) ?? 0;
           final tollDed = double.tryParse(tollCtrl.text) ?? 0;
           final extraDed = double.tryParse(extraKmCtrl.text) ?? 0;
-          final netRefund = (deposit - damageDed - tollDed - extraDed).clamp(0.0, 999999.0);
+          final netRefund = (deposit - damageDed - tollDed - extraDed).clamp(
+            0.0,
+            999999.0,
+          );
 
           return Container(
-            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.90),
-            padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 24),
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.90,
+            ),
+            padding: EdgeInsets.fromLTRB(
+              20,
+              20,
+              20,
+              MediaQuery.of(context).viewInsets.bottom + 24,
+            ),
             decoration: BoxDecoration(
               color: context.themeSurfaceElevated,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -4072,12 +6789,28 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Process Return & Deposit Settlement', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                        Text(
+                          'Process Return & Deposit Settlement',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: context.themeTextPrimary,
+                          ),
+                        ),
                         const SizedBox(height: 2),
-                        Text('$bId • ${b.vehicleName}', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                        Text(
+                          '$bId • ${b.vehicleName}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: context.themeTextSecondary,
+                          ),
+                        ),
                       ],
                     ),
-                    IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -4091,7 +6824,10 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                               controller: odoCtrl,
                               keyboardType: TextInputType.number,
                               style: TextStyle(color: context.themeTextPrimary),
-                              decoration: const InputDecoration(labelText: 'Return Odometer (KM) *', border: OutlineInputBorder()),
+                              decoration: const InputDecoration(
+                                labelText: 'Return Odometer (KM) *',
+                                border: OutlineInputBorder(),
+                              ),
                               onChanged: (_) => setModalState(() {}),
                             ),
                           ),
@@ -4101,17 +6837,35 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                               controller: fastagCtrl,
                               keyboardType: TextInputType.number,
                               style: TextStyle(color: context.themeTextPrimary),
-                              decoration: const InputDecoration(labelText: 'Return FASTag (₹)', prefixText: '₹ ', border: OutlineInputBorder()),
+                              decoration: const InputDecoration(
+                                labelText: 'Return FASTag (₹)',
+                                prefixText: '₹ ',
+                                border: OutlineInputBorder(),
+                              ),
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 8),
-                      Text('Distance Driven: $kmDriven KM (Start: ${startKm.toInt()} KM)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF06D6A0))),
+                      Text(
+                        'Distance Driven: $kmDriven KM (Start: ${startKm.toInt()} KM)',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF06D6A0),
+                        ),
+                      ),
                       const SizedBox(height: 14),
 
                       // Return Inspection Photos
-                      Text('Vehicle Return Inspection Photos', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
+                      Text(
+                        'Vehicle Return Inspection Photos',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: context.themeTextPrimary,
+                        ),
+                      ),
                       const SizedBox(height: 6),
                       Row(
                         children: [
@@ -4131,7 +6885,13 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                             },
                           ),
                           const SizedBox(width: 10),
-                          Text('${returnPhotos.length} photo(s)', style: TextStyle(fontSize: 11, color: context.themeTextSecondary)),
+                          Text(
+                            '${returnPhotos.length} photo(s)',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: context.themeTextSecondary,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 14),
@@ -4142,13 +6902,33 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('SECURITY DEPOSIT REFUND CALCULATOR', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: context.themeTextMuted)),
+                            Text(
+                              'SECURITY DEPOSIT REFUND CALCULATOR',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: context.themeTextMuted,
+                              ),
+                            ),
                             const SizedBox(height: 8),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text('Security Deposit Paid', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
-                                Text(_formatINR(deposit), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
+                                Text(
+                                  'Security Deposit Paid',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: context.themeTextSecondary,
+                                  ),
+                                ),
+                                Text(
+                                  _formatINR(deposit),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: context.themeTextPrimary,
+                                  ),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 8),
@@ -4158,8 +6938,15 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                                   child: TextField(
                                     controller: damageCtrl,
                                     keyboardType: TextInputType.number,
-                                    style: TextStyle(color: context.themeTextPrimary, fontSize: 13),
-                                    decoration: const InputDecoration(labelText: 'Damage / Cleaning (₹)', prefixText: '₹ ', border: OutlineInputBorder()),
+                                    style: TextStyle(
+                                      color: context.themeTextPrimary,
+                                      fontSize: 13,
+                                    ),
+                                    decoration: const InputDecoration(
+                                      labelText: 'Damage / Cleaning (₹)',
+                                      prefixText: '₹ ',
+                                      border: OutlineInputBorder(),
+                                    ),
                                     onChanged: (_) => setModalState(() {}),
                                   ),
                                 ),
@@ -4168,8 +6955,15 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                                   child: TextField(
                                     controller: tollCtrl,
                                     keyboardType: TextInputType.number,
-                                    style: TextStyle(color: context.themeTextPrimary, fontSize: 13),
-                                    decoration: const InputDecoration(labelText: 'Toll Deductions (₹)', prefixText: '₹ ', border: OutlineInputBorder()),
+                                    style: TextStyle(
+                                      color: context.themeTextPrimary,
+                                      fontSize: 13,
+                                    ),
+                                    decoration: const InputDecoration(
+                                      labelText: 'Toll Deductions (₹)',
+                                      prefixText: '₹ ',
+                                      border: OutlineInputBorder(),
+                                    ),
                                     onChanged: (_) => setModalState(() {}),
                                   ),
                                 ),
@@ -4179,16 +6973,37 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                             TextField(
                               controller: extraKmCtrl,
                               keyboardType: TextInputType.number,
-                              style: TextStyle(color: context.themeTextPrimary, fontSize: 13),
-                              decoration: const InputDecoration(labelText: 'Extra KM Charges (₹)', prefixText: '₹ ', border: OutlineInputBorder()),
+                              style: TextStyle(
+                                color: context.themeTextPrimary,
+                                fontSize: 13,
+                              ),
+                              decoration: const InputDecoration(
+                                labelText: 'Extra KM Charges (₹)',
+                                prefixText: '₹ ',
+                                border: OutlineInputBorder(),
+                              ),
                               onChanged: (_) => setModalState(() {}),
                             ),
                             const Divider(height: 16),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text('Net Deposit Refund', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
-                                Text(_formatINR(netRefund), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF06D6A0))),
+                                Text(
+                                  'Net Deposit Refund',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w800,
+                                    color: context.themeTextPrimary,
+                                  ),
+                                ),
+                                Text(
+                                  _formatINR(netRefund),
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w900,
+                                    color: Color(0xFF06D6A0),
+                                  ),
+                                ),
                               ],
                             ),
                           ],
@@ -4199,7 +7014,12 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                       TextField(
                         controller: notesCtrl,
                         style: TextStyle(color: context.themeTextPrimary),
-                        decoration: const InputDecoration(labelText: 'Return Settlement Notes', hintText: 'Fuel level verified, no fresh scratches, deposit settled...', border: OutlineInputBorder()),
+                        decoration: const InputDecoration(
+                          labelText: 'Return Settlement Notes',
+                          hintText:
+                              'Fuel level verified, no fresh scratches, deposit settled...',
+                          border: OutlineInputBorder(),
+                        ),
                       ),
                     ],
                   ),
@@ -4210,14 +7030,33 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   height: 42,
                   onPressed: () async {
                     if (odoCtrl.text.isNotEmpty) {
-                      await ref.read(adminBookingsProvider.notifier).updateOdometer(bookingId: bId, endOdometer: odoCtrl.text);
+                      await ref
+                          .read(adminBookingsProvider.notifier)
+                          .updateOdometer(
+                            bookingId: bId,
+                            endOdometer: odoCtrl.text,
+                          );
                     }
                     if (fastagCtrl.text.isNotEmpty) {
-                      await ref.read(adminBookingsProvider.notifier).updateFastag(bookingId: bId, returnFastag: fastagCtrl.text);
+                      await ref
+                          .read(adminBookingsProvider.notifier)
+                          .updateFastag(
+                            bookingId: bId,
+                            returnFastag: fastagCtrl.text,
+                          );
                     }
-                    await ref.read(adminBookingsProvider.notifier).updateStatus(bookingId: bId, newStatus: 'completed');
+                    await ref
+                        .read(adminBookingsProvider.notifier)
+                        .updateStatus(bookingId: bId, newStatus: 'completed');
                     if (ctx.mounted) Navigator.pop(ctx);
-                    if (mounted) messenger.showSnackBar(SnackBar(content: Text('Trip $bId completed and deposit settled.')));
+                    if (mounted)
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Trip $bId completed and deposit settled.',
+                          ),
+                        ),
+                      );
                   },
                 ),
               ],
@@ -4251,11 +7090,28 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Tax Invoice', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
-                    Text(invoiceNo, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF4FD7FF))),
+                    Text(
+                      'Tax Invoice',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: context.themeTextPrimary,
+                      ),
+                    ),
+                    Text(
+                      invoiceNo,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF4FD7FF),
+                      ),
+                    ),
                   ],
                 ),
-                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -4264,39 +7120,116 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('BILLED TO', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: context.themeTextMuted)),
-                  Text(b.userName, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
-                  Text(b.userEmail, style: TextStyle(fontSize: 11, color: context.themeTextSecondary)),
+                  Text(
+                    'BILLED TO',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w800,
+                      color: context.themeTextMuted,
+                    ),
+                  ),
+                  Text(
+                    b.userName,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: context.themeTextPrimary,
+                    ),
+                  ),
+                  Text(
+                    b.userEmail,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: context.themeTextSecondary,
+                    ),
+                  ),
                   const Divider(height: 14),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Vehicle Rental (${b.vehicleName})', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
-                      Text(_formatINR(b.baseAmount > 0 ? b.baseAmount : b.totalAmount), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.themeTextPrimary)),
+                      Text(
+                        'Vehicle Rental (${b.vehicleName})',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: context.themeTextSecondary,
+                        ),
+                      ),
+                      Text(
+                        _formatINR(
+                          b.baseAmount > 0 ? b.baseAmount : b.totalAmount,
+                        ),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: context.themeTextPrimary,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 4),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('GST @ 18% (Automotive Hire)', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
-                      Text(_formatINR(b.totalAmount * 0.18), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.themeTextPrimary)),
+                      Text(
+                        'GST @ 18% (Automotive Hire)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: context.themeTextSecondary,
+                        ),
+                      ),
+                      Text(
+                        _formatINR(b.totalAmount * 0.18),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: context.themeTextPrimary,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 4),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Security Deposit (Refundable)', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
-                      Text(_formatINR(b.securityDeposit), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.themeTextPrimary)),
+                      Text(
+                        'Security Deposit (Refundable)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: context.themeTextSecondary,
+                        ),
+                      ),
+                      Text(
+                        _formatINR(b.securityDeposit),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: context.themeTextPrimary,
+                        ),
+                      ),
                     ],
                   ),
                   const Divider(height: 14),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Total Invoiced', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
-                      Text(_formatINR(b.finalAmount > 0 ? b.finalAmount : b.totalAmount), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF06D6A0))),
+                      Text(
+                        'Total Invoiced',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: context.themeTextPrimary,
+                        ),
+                      ),
+                      Text(
+                        _formatINR(
+                          b.finalAmount > 0 ? b.finalAmount : b.totalAmount,
+                        ),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF06D6A0),
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -4312,7 +7245,11 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                     height: 38,
                     onPressed: () {
                       Navigator.pop(ctx);
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Downloading invoice $invoiceNo...')));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Downloading invoice $invoiceNo...'),
+                        ),
+                      );
                     },
                   ),
                 ),
@@ -4323,7 +7260,13 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                     height: 38,
                     onPressed: () {
                       Navigator.pop(ctx);
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Invoice $invoiceNo emailed to ${b.userEmail}.')));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Invoice $invoiceNo emailed to ${b.userEmail}.',
+                          ),
+                        ),
+                      );
                     },
                   ),
                 ),
@@ -4352,10 +7295,17 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               maxHeight: MediaQuery.of(context).size.height * 0.88,
               maxWidth: 720,
             ),
-            padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 24),
+            padding: EdgeInsets.fromLTRB(
+              20,
+              20,
+              20,
+              MediaQuery.of(context).viewInsets.bottom + 24,
+            ),
             decoration: BoxDecoration(
               color: context.themeSurfaceElevated,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -4366,12 +7316,28 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Verify Payment Receipt', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                        Text(
+                          'Verify Payment Receipt',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: context.themeTextPrimary,
+                          ),
+                        ),
                         const SizedBox(height: 2),
-                        Text('Audit customer payment transfer details', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                        Text(
+                          'Audit customer payment transfer details',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: context.themeTextSecondary,
+                          ),
+                        ),
                       ],
                     ),
-                    IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -4386,13 +7352,33 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(bId, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFFFF5C77))),
+                                Text(
+                                  bId,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFFFF5C77),
+                                  ),
+                                ),
                                 StatusBadge(status: b.paymentStatus),
                               ],
                             ),
                             const SizedBox(height: 6),
-                            Text('${b.userName} • ${b.userPhone ?? "No phone"}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
-                            Text('Vehicle: ${b.vehicleName}', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                            Text(
+                              '${b.userName} • ${b.userPhone ?? "No phone"}',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: context.themeTextPrimary,
+                              ),
+                            ),
+                            Text(
+                              'Vehicle: ${b.vehicleName}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: context.themeTextSecondary,
+                              ),
+                            ),
                             const SizedBox(height: 6),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -4400,15 +7386,48 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('AMOUNT PAYABLE', style: TextStyle(fontSize: 9.5, color: context.themeTextMuted)),
-                                    Text(_formatINR(b.finalAmount > 0 ? b.finalAmount : b.totalAmount), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF06D6A0))),
+                                    Text(
+                                      'AMOUNT PAYABLE',
+                                      style: TextStyle(
+                                        fontSize: 9.5,
+                                        color: context.themeTextMuted,
+                                      ),
+                                    ),
+                                    Text(
+                                      _formatINR(
+                                        b.finalAmount > 0
+                                            ? b.finalAmount
+                                            : b.totalAmount,
+                                      ),
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w900,
+                                        color: Color(0xFF06D6A0),
+                                      ),
+                                    ),
                                   ],
                                 ),
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
-                                    Text('UTR / REFERENCE', style: TextStyle(fontSize: 9.5, color: context.themeTextMuted)),
-                                    Text(b.paymentRef != null && b.paymentRef!.isNotEmpty ? b.paymentRef! : 'UPI/2026/09/KZ992819', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
+                                    Text(
+                                      'UTR / REFERENCE',
+                                      style: TextStyle(
+                                        fontSize: 9.5,
+                                        color: context.themeTextMuted,
+                                      ),
+                                    ),
+                                    Text(
+                                      b.paymentRef != null &&
+                                              b.paymentRef!.isNotEmpty
+                                          ? b.paymentRef!
+                                          : 'UPI/2026/09/KZ992819',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: context.themeTextPrimary,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ],
@@ -4421,9 +7440,16 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                       // Receipt Preview Box
                       Builder(
                         builder: (context) {
-                          final hasUrl = b.paymentScreenshotUrl != null && b.paymentScreenshotUrl!.trim().isNotEmpty;
-                          final fullUrl = hasUrl ? _buildFullMediaUrl(b.paymentScreenshotUrl!) : '';
-                          final isPdf = fullUrl.toLowerCase().endsWith('.pdf') || fullUrl.toLowerCase().contains('.pdf?') || fullUrl.toLowerCase().contains('ext=.pdf');
+                          final hasUrl =
+                              b.paymentScreenshotUrl != null &&
+                              b.paymentScreenshotUrl!.trim().isNotEmpty;
+                          final fullUrl = hasUrl
+                              ? _buildFullMediaUrl(b.paymentScreenshotUrl!)
+                              : '';
+                          final isPdf =
+                              fullUrl.toLowerCase().endsWith('.pdf') ||
+                              fullUrl.toLowerCase().contains('.pdf?') ||
+                              fullUrl.toLowerCase().contains('ext=.pdf');
 
                           return GestureDetector(
                             onTap: () async {
@@ -4431,11 +7457,17 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                                 if (isPdf) {
                                   final uri = Uri.tryParse(fullUrl);
                                   if (uri != null && await canLaunchUrl(uri)) {
-                                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                    await launchUrl(
+                                      uri,
+                                      mode: LaunchMode.externalApplication,
+                                    );
                                     return;
                                   }
                                 }
-                                _showFullScreenImage(fullUrl, 'Payment Receipt - $bId');
+                                _showFullScreenImage(
+                                  fullUrl,
+                                  'Payment Receipt - $bId',
+                                );
                               }
                             },
                             child: Container(
@@ -4456,17 +7488,41 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                                             httpHeaders: _authHeaders,
                                             fit: BoxFit.cover,
                                             placeholder: (_, _) => const Center(
-                                              child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2),
+                                              child: CircularProgressIndicator(
+                                                color: AppColors.primary,
+                                                strokeWidth: 2,
+                                              ),
                                             ),
                                             errorWidget: (_, _, _) => Center(
                                               child: Column(
-                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
                                                 children: [
-                                                  const Icon(Icons.receipt_long_rounded, size: 36, color: Color(0xFFFF5C77)),
+                                                  const Icon(
+                                                    Icons.receipt_long_rounded,
+                                                    size: 36,
+                                                    color: Color(0xFFFF5C77),
+                                                  ),
                                                   const SizedBox(height: 6),
-                                                  Text('Receipt Attached', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
+                                                  Text(
+                                                    'Receipt Attached',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      color: context
+                                                          .themeTextPrimary,
+                                                    ),
+                                                  ),
                                                   const SizedBox(height: 2),
-                                                  Text('Tap to open high-resolution proof', style: TextStyle(fontSize: 10, color: context.themeTextMuted)),
+                                                  Text(
+                                                    'Tap to open high-resolution proof',
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      color: context
+                                                          .themeTextMuted,
+                                                    ),
+                                                  ),
                                                 ],
                                               ),
                                             ),
@@ -4475,17 +7531,36 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                                             bottom: 8,
                                             right: 8,
                                             child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 4,
+                                                  ),
                                               decoration: BoxDecoration(
-                                                color: Colors.black.withValues(alpha: 0.7),
-                                                borderRadius: BorderRadius.circular(12),
+                                                color: Colors.black.withValues(
+                                                  alpha: 0.7,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
                                               ),
                                               child: const Row(
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
-                                                  Icon(Icons.zoom_in_rounded, size: 14, color: Colors.white),
+                                                  Icon(
+                                                    Icons.zoom_in_rounded,
+                                                    size: 14,
+                                                    color: Colors.white,
+                                                  ),
                                                   SizedBox(width: 4),
-                                                  Text('Tap to inspect', style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w600)),
+                                                  Text(
+                                                    'Tap to inspect',
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      color: Colors.white,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
                                                 ],
                                               ),
                                             ),
@@ -4494,18 +7569,39 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                                       )
                                     : Center(
                                         child: Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
                                           children: [
-                                            Icon(isPdf ? Icons.picture_as_pdf_rounded : Icons.receipt_long_rounded, size: 40, color: const Color(0xFFFF5C77)),
+                                            Icon(
+                                              isPdf
+                                                  ? Icons.picture_as_pdf_rounded
+                                                  : Icons.receipt_long_rounded,
+                                              size: 40,
+                                              color: const Color(0xFFFF5C77),
+                                            ),
                                             const SizedBox(height: 8),
                                             Text(
                                               hasUrl
-                                                  ? (isPdf ? 'PDF Receipt Attached' : 'Receipt Attached')
+                                                  ? (isPdf
+                                                        ? 'PDF Receipt Attached'
+                                                        : 'Receipt Attached')
                                                   : 'UPI / Bank Payment Receipt Attached',
-                                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.themeTextPrimary),
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                                color: context.themeTextPrimary,
+                                              ),
                                             ),
                                             const SizedBox(height: 4),
-                                            Text(hasUrl ? 'Tap to view high-resolution proof' : 'No document attached', style: TextStyle(fontSize: 10, color: context.themeTextMuted)),
+                                            Text(
+                                              hasUrl
+                                                  ? 'Tap to view high-resolution proof'
+                                                  : 'No document attached',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                color: context.themeTextMuted,
+                                              ),
+                                            ),
                                           ],
                                         ),
                                       ),
@@ -4516,84 +7612,130 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                       ),
                       const SizedBox(height: 14),
 
-                    // Auditor Identity Dropdown (Screenshot: Pankaj, Jafar, Sejal)
-                    Text('Select Staff Auditor Identity *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
-                    const SizedBox(height: 6),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedAuditor,
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      // Auditor Identity Dropdown (Screenshot: Pankaj, Jafar, Sejal)
+                      Text(
+                        'Select Staff Auditor Identity *',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: context.themeTextPrimary,
+                        ),
                       ),
-                      dropdownColor: context.themeSurfaceElevated,
-                      items: const [
-                        DropdownMenuItem(value: 'Pankaj', child: Text('Pankaj (Finance Team)')),
-                        DropdownMenuItem(value: 'Jafar', child: Text('Jafar (Accounts Lead)')),
-                        DropdownMenuItem(value: 'Sejal', child: Text('Sejal (Audit Executive)')),
-                      ],
-                      onChanged: (val) => setModalState(() => selectedAuditor = val ?? 'Pankaj'),
-                    ),
-                    const SizedBox(height: 12),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedAuditor,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                        ),
+                        dropdownColor: context.themeSurfaceElevated,
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'Pankaj',
+                            child: Text('Pankaj (Finance Team)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Jafar',
+                            child: Text('Jafar (Accounts Lead)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Sejal',
+                            child: Text('Sejal (Audit Executive)'),
+                          ),
+                        ],
+                        onChanged: (val) => setModalState(
+                          () => selectedAuditor = val ?? 'Pankaj',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
 
-                    TextField(
-                      controller: notesController,
-                      style: TextStyle(color: context.themeTextPrimary),
-                      decoration: const InputDecoration(
-                        labelText: 'Verification Notes / Bank Reference Comments',
-                        hintText: 'e.g. UTR matched HDFC statement, amount cleared.',
-                        border: OutlineInputBorder(),
+                      TextField(
+                        controller: notesController,
+                        style: TextStyle(color: context.themeTextPrimary),
+                        decoration: const InputDecoration(
+                          labelText:
+                              'Verification Notes / Bank Reference Comments',
+                          hintText:
+                              'e.g. UTR matched HDFC statement, amount cleared.',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: CustomButton(
+                        text: 'Reject Payment',
+                        isOutlined: true,
+                        height: 40,
+                        onPressed: () async {
+                          await ref
+                              .read(adminBookingsProvider.notifier)
+                              .verifyPayment(
+                                bookingOrPaymentId: bId,
+                                action: 'reject',
+                                reason: notesController.text.isNotEmpty
+                                    ? notesController.text
+                                    : 'Rejected by $selectedAuditor',
+                              );
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          if (mounted)
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Payment for $bId marked as rejected.',
+                                ),
+                              ),
+                            );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: CustomButton(
+                        text: 'Approve & Confirm',
+                        height: 40,
+                        onPressed: () async {
+                          await ref
+                              .read(adminBookingsProvider.notifier)
+                              .verifyPayment(
+                                bookingOrPaymentId: bId,
+                                action: 'approve',
+                                reason:
+                                    'Verified by $selectedAuditor: ${notesController.text}',
+                              );
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          if (mounted)
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Payment for $bId verified by $selectedAuditor.',
+                                ),
+                              ),
+                            );
+                        },
                       ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: CustomButton(
-                      text: 'Reject Payment',
-                      isOutlined: true,
-                      height: 40,
-                      onPressed: () async {
-                        await ref.read(adminBookingsProvider.notifier).verifyPayment(
-                              bookingOrPaymentId: bId,
-                              action: 'reject',
-                              reason: notesController.text.isNotEmpty ? notesController.text : 'Rejected by $selectedAuditor',
-                            );
-                        if (ctx.mounted) Navigator.pop(ctx);
-                        if (mounted) messenger.showSnackBar(SnackBar(content: Text('Payment for $bId marked as rejected.')));
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: CustomButton(
-                      text: 'Approve & Confirm',
-                      height: 40,
-                      onPressed: () async {
-                        await ref.read(adminBookingsProvider.notifier).verifyPayment(
-                              bookingOrPaymentId: bId,
-                              action: 'approve',
-                              reason: 'Verified by $selectedAuditor: ${notesController.text}',
-                            );
-                        if (ctx.mounted) Navigator.pop(ctx);
-                        if (mounted) messenger.showSnackBar(SnackBar(content: Text('Payment for $bId verified by $selectedAuditor.')));
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildRealisticKycCardPreview(int docType, String name, String phone) {
-    final cleanName = name.trim().isEmpty ? 'PRAFULL PATIL' : name.toUpperCase();
+    final cleanName = name.trim().isEmpty
+        ? 'PRAFULL PATIL'
+        : name.toUpperCase();
     final cleanPhone = phone.trim().isEmpty ? '9076430110' : phone;
 
     if (docType == 0) {
@@ -4611,26 +7753,61 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.shield_rounded, size: 20, color: Color(0xFFD4AF37)),
+                    const Icon(
+                      Icons.shield_rounded,
+                      size: 20,
+                      color: Color(0xFFD4AF37),
+                    ),
                     const SizedBox(width: 8),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: const [
-                        Text('UNION OF INDIA • DRIVING LICENCE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFFD4AF37), letterSpacing: 0.8)),
-                        Text('MAHARASHTRA MOTOR VEHICLES DEPT', style: TextStyle(fontSize: 8.5, color: Colors.white70, letterSpacing: 0.5)),
+                        Text(
+                          'UNION OF INDIA • DRIVING LICENCE',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFFD4AF37),
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                        Text(
+                          'MAHARASHTRA MOTOR VEHICLES DEPT',
+                          style: TextStyle(
+                            fontSize: 8.5,
+                            color: Colors.white70,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
                       ],
                     ),
                   ],
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(color: const Color(0xFFD4AF37).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
-                  child: const Text('FORM 7', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Color(0xFFD4AF37))),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD4AF37).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'FORM 7',
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFFD4AF37),
+                    ),
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 10),
-            Divider(height: 1, color: const Color(0xFFD4AF37).withValues(alpha: 0.2)),
+            Divider(
+              height: 1,
+              color: const Color(0xFFD4AF37).withValues(alpha: 0.2),
+            ),
             const SizedBox(height: 10),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -4648,7 +7825,14 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: const [
                       Icon(Icons.person, size: 40, color: Colors.white54),
-                      Text('PHOTO', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: Colors.white38)),
+                      Text(
+                        'PHOTO',
+                        style: TextStyle(
+                          fontSize: 8,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white38,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -4657,25 +7841,83 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('DL NO: MH04 20230089241', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900, letterSpacing: 0.5, color: Colors.white)),
+                      Text(
+                        'DL NO: MH04 20230089241',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
+                          color: Colors.white,
+                        ),
+                      ),
                       const SizedBox(height: 3),
-                      Text('NAME: $cleanName', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Colors.white)),
-                      Text('DOB: 14/08/1996  •  BG: O+ve', style: const TextStyle(fontSize: 9.5, color: Colors.white70)),
-                      Text('CLASS: LMV-NT, MCWG', style: const TextStyle(fontSize: 9.5, color: Colors.white70)),
-                      Text('VALIDITY: 13/08/2043 (NON-TRANS)', style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: Color(0xFF06D6A0))),
-                      Text('ISSUING AUTH: MH-04 THANE', style: const TextStyle(fontSize: 9, color: Colors.white54)),
+                      Text(
+                        'NAME: $cleanName',
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                      Text(
+                        'DOB: 14/08/1996  •  BG: O+ve',
+                        style: const TextStyle(
+                          fontSize: 9.5,
+                          color: Colors.white70,
+                        ),
+                      ),
+                      Text(
+                        'CLASS: LMV-NT, MCWG',
+                        style: const TextStyle(
+                          fontSize: 9.5,
+                          color: Colors.white70,
+                        ),
+                      ),
+                      Text(
+                        'VALIDITY: 13/08/2043 (NON-TRANS)',
+                        style: const TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF06D6A0),
+                        ),
+                      ),
+                      Text(
+                        'ISSUING AUTH: MH-04 THANE',
+                        style: const TextStyle(
+                          fontSize: 9,
+                          color: Colors.white54,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                const Icon(Icons.qr_code_2_rounded, size: 36, color: Colors.white54),
+                const Icon(
+                  Icons.qr_code_2_rounded,
+                  size: 36,
+                  color: Colors.white54,
+                ),
               ],
             ),
             const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: const [
-                Text('SMART CARD CHIP ID ATTACHED', style: TextStyle(fontSize: 8, letterSpacing: 0.5, color: Colors.white38)),
-                Text('VERIFIED VIA PARIVAHAN SEWA', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Color(0xFF06D6A0))),
+                Text(
+                  'SMART CARD CHIP ID ATTACHED',
+                  style: TextStyle(
+                    fontSize: 8,
+                    letterSpacing: 0.5,
+                    color: Colors.white38,
+                  ),
+                ),
+                Text(
+                  'VERIFIED VIA PARIVAHAN SEWA',
+                  style: TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF06D6A0),
+                  ),
+                ),
               ],
             ),
           ],
@@ -4683,7 +7925,9 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
       );
     } else if (docType == 1) {
       // AADHAAR CARD PREVIEW
-      final last4 = cleanPhone.length >= 4 ? cleanPhone.substring(cleanPhone.length - 4) : '8942';
+      final last4 = cleanPhone.length >= 4
+          ? cleanPhone.substring(cleanPhone.length - 4)
+          : '8942';
       return GlassCard(
         borderRadius: 16,
         padding: const EdgeInsets.all(14),
@@ -4708,18 +7952,42 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.fingerprint_rounded, size: 22, color: Color(0xFFFF9933)),
+                    const Icon(
+                      Icons.fingerprint_rounded,
+                      size: 22,
+                      color: Color(0xFFFF9933),
+                    ),
                     const SizedBox(width: 8),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: const [
-                        Text('भारत सरकार / GOVERNMENT OF INDIA', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.white)),
-                        Text('Unique Identification Authority of India', style: TextStyle(fontSize: 8.5, color: Colors.white60)),
+                        Text(
+                          'भारत सरकार / GOVERNMENT OF INDIA',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                        ),
+                        Text(
+                          'Unique Identification Authority of India',
+                          style: TextStyle(
+                            fontSize: 8.5,
+                            color: Colors.white60,
+                          ),
+                        ),
                       ],
                     ),
                   ],
                 ),
-                const Text('UIDAI', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFFFF9933))),
+                const Text(
+                  'UIDAI',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFFFF9933),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 10),
@@ -4737,8 +8005,19 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: const [
-                      Icon(Icons.account_box_rounded, size: 38, color: Colors.white54),
-                      Text('UID PHOTO', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: Colors.white38)),
+                      Icon(
+                        Icons.account_box_rounded,
+                        size: 38,
+                        color: Colors.white54,
+                      ),
+                      Text(
+                        'UID PHOTO',
+                        style: TextStyle(
+                          fontSize: 8,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white38,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -4747,24 +8026,63 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(cleanName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.white)),
+                      Text(
+                        cleanName,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                        ),
+                      ),
                       const SizedBox(height: 2),
-                      const Text('जन्म तारीख / DOB: 14/08/1996', style: TextStyle(fontSize: 9.5, color: Colors.white70)),
-                      const Text('लिंग / Gender: MALE / पुरुष', style: TextStyle(fontSize: 9.5, color: Colors.white70)),
+                      const Text(
+                        'जन्म तारीख / DOB: 14/08/1996',
+                        style: TextStyle(fontSize: 9.5, color: Colors.white70),
+                      ),
+                      const Text(
+                        'लिंग / Gender: MALE / पुरुष',
+                        style: TextStyle(fontSize: 9.5, color: Colors.white70),
+                      ),
                       const SizedBox(height: 6),
-                      Text('XXXX  XXXX  $last4', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 2.0, color: Color(0xFF0071E3))),
+                      Text(
+                        'XXXX  XXXX  $last4',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 2.0,
+                          color: Color(0xFF0071E3),
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                const Icon(Icons.qr_code_rounded, size: 40, color: Colors.white60),
+                const Icon(
+                  Icons.qr_code_rounded,
+                  size: 40,
+                  color: Colors.white60,
+                ),
               ],
             ),
             const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: const [
-                Text('मेरा आधार, मेरी पहचान', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFFFF9933))),
-                Text('VERIFIED VIA UIDAI OFFLINE XML', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Color(0xFF06D6A0))),
+                Text(
+                  'मेरा आधार, मेरी पहचान',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFFF9933),
+                  ),
+                ),
+                Text(
+                  'VERIFIED VIA UIDAI OFFLINE XML',
+                  style: TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF06D6A0),
+                  ),
+                ),
               ],
             ),
           ],
@@ -4788,11 +8106,25 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: const [
-                    Text('आयकर विभाग / INCOME TAX DEPARTMENT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.white)),
-                    Text('GOVT. OF INDIA / Permanent Account Card', style: TextStyle(fontSize: 8.5, color: Colors.white60)),
+                    Text(
+                      'आयकर विभाग / INCOME TAX DEPARTMENT',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Text(
+                      'GOVT. OF INDIA / Permanent Account Card',
+                      style: TextStyle(fontSize: 8.5, color: Colors.white60),
+                    ),
                   ],
                 ),
-                const Icon(Icons.account_balance_rounded, size: 20, color: Color(0xFF06D6A0)),
+                const Icon(
+                  Icons.account_balance_rounded,
+                  size: 20,
+                  color: Color(0xFF06D6A0),
+                ),
               ],
             ),
             const SizedBox(height: 10),
@@ -4810,8 +8142,19 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: const [
-                      Icon(Icons.badge_rounded, size: 38, color: Colors.white54),
-                      Text('PAN PHOTO', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: Colors.white38)),
+                      Icon(
+                        Icons.badge_rounded,
+                        size: 38,
+                        color: Colors.white54,
+                      ),
+                      Text(
+                        'PAN PHOTO',
+                        style: TextStyle(
+                          fontSize: 8,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white38,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -4820,23 +8163,62 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('PAN: ABC$panChar P${panHash}F', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: Color(0xFF06D6A0))),
+                      Text(
+                        'PAN: ABC$panChar P${panHash}F',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.5,
+                          color: Color(0xFF06D6A0),
+                        ),
+                      ),
                       const SizedBox(height: 4),
-                      Text('NAME: $cleanName', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white)),
-                      const Text("FATHER'S NAME: RAMESH PATIL", style: TextStyle(fontSize: 9.5, color: Colors.white70)),
-                      const Text('DATE OF BIRTH: 14/08/1996', style: TextStyle(fontSize: 9.5, color: Colors.white70)),
+                      Text(
+                        'NAME: $cleanName',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const Text(
+                        "FATHER'S NAME: RAMESH PATIL",
+                        style: TextStyle(fontSize: 9.5, color: Colors.white70),
+                      ),
+                      const Text(
+                        'DATE OF BIRTH: 14/08/1996',
+                        style: TextStyle(fontSize: 9.5, color: Colors.white70),
+                      ),
                     ],
                   ),
                 ),
-                const Icon(Icons.qr_code_2_rounded, size: 36, color: Colors.white54),
+                const Icon(
+                  Icons.qr_code_2_rounded,
+                  size: 36,
+                  color: Colors.white54,
+                ),
               ],
             ),
             const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: const [
-                Text('SIGNATURE: Verified on File', style: TextStyle(fontSize: 8.5, fontStyle: FontStyle.italic, color: Colors.white54)),
-                Text('NSDL / NFO VERIFIED', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Color(0xFF06D6A0))),
+                Text(
+                  'SIGNATURE: Verified on File',
+                  style: TextStyle(
+                    fontSize: 8.5,
+                    fontStyle: FontStyle.italic,
+                    color: Colors.white54,
+                  ),
+                ),
+                Text(
+                  'NSDL / NFO VERIFIED',
+                  style: TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF06D6A0),
+                  ),
+                ),
               ],
             ),
           ],
@@ -4853,62 +8235,139 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     String frontLabel;
     String backLabel;
 
-    String? resolveDocUrl(dynamic directUrl, dynamic mediaId, dynamic pathKey) {
-      if (directUrl != null && directUrl.toString().trim().isNotEmpty) {
-        return directUrl.toString().trim();
-      }
-      if (pathKey != null && pathKey.toString().trim().isNotEmpty) {
-        return pathKey.toString().trim();
-      }
-      if (mediaId != null && mediaId.toString().trim().isNotEmpty) {
-        return '/media/file.php?id=${mediaId.toString().trim()}';
+    String? resolveDocUrl(List<dynamic> candidates) {
+      for (final c in candidates) {
+        if (c == null) continue;
+        final str = c.toString().trim();
+        if (str.isEmpty || str == 'null' || str == 'undefined') continue;
+        if (str.startsWith('MED-') || RegExp(r'^\d+$').hasMatch(str)) {
+          return '/api/media/file.php?id=$str';
+        }
+        return str;
       }
       return null;
     }
 
+    bool checkIsPdf(String? url, bool explicit) {
+      if (explicit) return true;
+      if (url == null) return false;
+      final lower = url.toLowerCase();
+      return lower.endsWith('.pdf') ||
+          lower.contains('.pdf?') ||
+          lower.contains('ext=.pdf') ||
+          lower.contains('/pdf');
+    }
+
     if (docType == 0) {
-      frontUrl = resolveDocUrl(
-        kycData['licenseFrontURL'] ?? kycData['licenseFrontUrl'] ?? kycData['license_front'] ?? kycData['license_front_url'],
-        kycData['licenseFrontMediaId'] ?? kycData['license_front_media_id'] ?? kycData['license_media_id'],
-        kycData['license_path'] ?? kycData['licenseFile'],
-      );
-      backUrl = resolveDocUrl(
-        kycData['licenseBackURL'] ?? kycData['licenseBackUrl'] ?? kycData['license_back'] ?? kycData['license_back_url'],
-        kycData['licenseBackMediaId'] ?? kycData['license_back_media_id'],
+      frontUrl = resolveDocUrl([
+        kycData['licenseFrontURL'],
+        kycData['licenseFrontUrl'],
+        kycData['license_front_url'],
+        kycData['license_front'],
+        kycData['disk_license_front'],
+        kycData['diskLicenseFront'],
+        kycData['licenseURL'],
+        kycData['license_url'],
+        kycData['licenseFront'],
+        kycData['dl_front'],
+        kycData['dl_front_url'],
+        kycData['license_path'],
+        kycData['licenseFile'],
+        kycData['license'],
+        kycData['licenseFrontMediaId'],
+        kycData['license_front_media_id'],
+        kycData['license_media_id'],
+        kycData['licenseMediaId'],
+      ]);
+      backUrl = resolveDocUrl([
+        kycData['licenseBackURL'],
+        kycData['licenseBackUrl'],
+        kycData['license_back_url'],
+        kycData['license_back'],
+        kycData['disk_license_back'],
+        kycData['diskLicenseBack'],
+        kycData['licenseBack'],
+        kycData['dl_back'],
+        kycData['dl_back_url'],
         kycData['license_back_path'],
-      );
-      isFrontPdf = kycData['licenseFrontIsPdf'] == true;
-      isBackPdf = kycData['licenseBackIsPdf'] == true;
+        kycData['licenseBackFile'],
+        kycData['licenseBackMediaId'],
+        kycData['license_back_media_id'],
+      ]);
+      isFrontPdf = checkIsPdf(frontUrl, kycData['licenseFrontIsPdf'] == true);
+      isBackPdf = checkIsPdf(backUrl, kycData['licenseBackIsPdf'] == true);
       frontLabel = 'License Front';
       backLabel = 'License Back';
     } else if (docType == 1) {
-      frontUrl = resolveDocUrl(
-        kycData['aadharFrontURL'] ?? kycData['aadharFrontUrl'] ?? kycData['aadhar_front'] ?? kycData['aadhar_front_url'],
-        kycData['aadharFrontMediaId'] ?? kycData['aadhar_front_media_id'] ?? kycData['aadhar_media_id'],
-        kycData['aadhar_path'] ?? kycData['aadharFile'],
-      );
-      backUrl = resolveDocUrl(
-        kycData['aadharBackURL'] ?? kycData['aadharBackUrl'] ?? kycData['aadhar_back'] ?? kycData['aadhar_back_url'],
-        kycData['aadharBackMediaId'] ?? kycData['aadhar_back_media_id'],
+      frontUrl = resolveDocUrl([
+        kycData['aadharFrontURL'],
+        kycData['aadharFrontUrl'],
+        kycData['aadhar_front_url'],
+        kycData['aadhar_front'],
+        kycData['disk_aadhar_front'],
+        kycData['diskAadharFront'],
+        kycData['aadharURL'],
+        kycData['aadhar_url'],
+        kycData['aadharFront'],
+        kycData['aadhar_path'],
+        kycData['aadharFile'],
+        kycData['aadhar'],
+        kycData['aadharFrontMediaId'],
+        kycData['aadhar_front_media_id'],
+        kycData['aadhar_media_id'],
+        kycData['aadharMediaId'],
+      ]);
+      backUrl = resolveDocUrl([
+        kycData['aadharBackURL'],
+        kycData['aadharBackUrl'],
+        kycData['aadhar_back_url'],
+        kycData['aadhar_back'],
+        kycData['disk_aadhar_back'],
+        kycData['diskAadharBack'],
+        kycData['aadharBack'],
         kycData['aadhar_back_path'],
-      );
-      isFrontPdf = kycData['aadharFrontIsPdf'] == true;
-      isBackPdf = kycData['aadharBackIsPdf'] == true;
+        kycData['aadharBackFile'],
+        kycData['aadharBackMediaId'],
+        kycData['aadhar_back_media_id'],
+      ]);
+      isFrontPdf = checkIsPdf(frontUrl, kycData['aadharFrontIsPdf'] == true);
+      isBackPdf = checkIsPdf(backUrl, kycData['aadharBackIsPdf'] == true);
       frontLabel = 'Aadhaar Front';
       backLabel = 'Aadhaar Back';
     } else {
-      frontUrl = resolveDocUrl(
-        kycData['panFrontURL'] ?? kycData['panFrontUrl'] ?? kycData['pan_front'] ?? kycData['pan_front_url'],
-        kycData['panFrontMediaId'] ?? kycData['pan_front_media_id'] ?? kycData['pan_media_id'],
-        kycData['pan_path'] ?? kycData['panFile'],
-      );
-      backUrl = resolveDocUrl(
-        kycData['panBackURL'] ?? kycData['panBackUrl'] ?? kycData['pan_back'] ?? kycData['pan_back_url'],
-        kycData['panBackMediaId'] ?? kycData['pan_back_media_id'],
+      frontUrl = resolveDocUrl([
+        kycData['panFrontURL'],
+        kycData['panFrontUrl'],
+        kycData['pan_front_url'],
+        kycData['pan_front'],
+        kycData['disk_pan_front'],
+        kycData['diskPanFront'],
+        kycData['panURL'],
+        kycData['pan_url'],
+        kycData['panFront'],
+        kycData['pan_path'],
+        kycData['panFile'],
+        kycData['pan'],
+        kycData['panFrontMediaId'],
+        kycData['pan_front_media_id'],
+        kycData['pan_media_id'],
+        kycData['panMediaId'],
+      ]);
+      backUrl = resolveDocUrl([
+        kycData['panBackURL'],
+        kycData['panBackUrl'],
+        kycData['pan_back_url'],
+        kycData['pan_back'],
+        kycData['disk_pan_back'],
+        kycData['diskPanBack'],
+        kycData['panBack'],
         kycData['pan_back_path'],
-      );
-      isFrontPdf = kycData['panFrontIsPdf'] == true;
-      isBackPdf = kycData['panBackIsPdf'] == true;
+        kycData['panBackFile'],
+        kycData['panBackMediaId'],
+        kycData['pan_back_media_id'],
+      ]);
+      isFrontPdf = checkIsPdf(frontUrl, kycData['panFrontIsPdf'] == true);
+      isBackPdf = checkIsPdf(backUrl, kycData['panBackIsPdf'] == true);
       frontLabel = 'PAN Front';
       backLabel = 'PAN Back';
     }
@@ -4918,12 +8377,33 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            Icon(Icons.image_not_supported_outlined, size: 32, color: context.themeTextMuted),
+            Icon(
+              Icons.image_not_supported_outlined,
+              size: 32,
+              color: context.themeTextMuted,
+            ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                'No uploaded document images available for this ID type.',
-                style: TextStyle(fontSize: 12, color: context.themeTextSecondary),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'No uploaded document files available for this ID type.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: context.themeTextPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Customer can upload identity documents from the Kruizly mobile app or website profile.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: context.themeTextSecondary,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -4934,19 +8414,47 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('UPLOADED DOCUMENTS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: context.themeTextMuted)),
+        Row(
+          children: [
+            Text(
+              'UPLOADED DOCUMENTS',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.8,
+                color: context.themeTextMuted,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              'Tap file to view / download',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 8),
         Row(
           children: [
             if (frontUrl != null)
               Expanded(
-                child: _buildDocImageCard(frontUrl, frontLabel, isExplicitPdf: isFrontPdf),
+                child: _buildDocImageCard(
+                  frontUrl,
+                  frontLabel,
+                  isExplicitPdf: isFrontPdf,
+                ),
               ),
-            if (frontUrl != null && backUrl != null)
-              const SizedBox(width: 10),
+            if (frontUrl != null && backUrl != null) const SizedBox(width: 10),
             if (backUrl != null)
               Expanded(
-                child: _buildDocImageCard(backUrl, backLabel, isExplicitPdf: isBackPdf),
+                child: _buildDocImageCard(
+                  backUrl,
+                  backLabel,
+                  isExplicitPdf: isBackPdf,
+                ),
               ),
           ],
         ),
@@ -4956,7 +8464,13 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
 
   String _buildFullMediaUrl(String rawUrl) {
     final clean = rawUrl.trim();
-    if (clean.startsWith('http://') || clean.startsWith('https://')) return clean;
+    if (clean.isEmpty) return '';
+    if (clean.startsWith('http://') || clean.startsWith('https://')) {
+      return clean;
+    }
+    if (clean.startsWith('MED-') || RegExp(r'^\d+$').hasMatch(clean)) {
+      return '${AppConfig.mediaBaseUrl}/api/media/file.php?id=${Uri.encodeComponent(clean)}';
+    }
     final path = clean.startsWith('/') ? clean : '/$clean';
     if (path.startsWith('/media/')) {
       return '${AppConfig.mediaBaseUrl}/api$path';
@@ -4964,9 +8478,18 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     return '${AppConfig.mediaBaseUrl}$path';
   }
 
-  Widget _buildDocImageCard(String imageUrl, String label, {bool isExplicitPdf = false}) {
+  Widget _buildDocImageCard(
+    String imageUrl,
+    String label, {
+    bool isExplicitPdf = false,
+  }) {
     final fullUrl = _buildFullMediaUrl(imageUrl);
-    final isPdf = isExplicitPdf || fullUrl.toLowerCase().endsWith('.pdf') || fullUrl.toLowerCase().contains('.pdf?') || fullUrl.toLowerCase().contains('ext=.pdf');
+    final isPdf =
+        isExplicitPdf ||
+        fullUrl.toLowerCase().endsWith('.pdf') ||
+        fullUrl.toLowerCase().contains('.pdf?') ||
+        fullUrl.toLowerCase().contains('ext=.pdf') ||
+        fullUrl.toLowerCase().contains('/pdf');
 
     return GestureDetector(
       onTap: () async {
@@ -4982,7 +8505,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
         }
       },
       child: GlassCard(
-        padding: const EdgeInsets.all(6),
+        padding: const EdgeInsets.all(8),
         child: Column(
           children: [
             ClipRRect(
@@ -4992,20 +8515,38 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                       height: 120,
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.1),
+                        color: Colors.red.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: Colors.red.withValues(alpha: 0.35),
+                        ),
                       ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.picture_as_pdf_rounded, size: 40, color: Colors.redAccent),
+                          const Icon(
+                            Icons.picture_as_pdf_rounded,
+                            size: 38,
+                            color: Colors.redAccent,
+                          ),
                           const SizedBox(height: 6),
                           Text(
                             'PDF Document',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.themeTextPrimary),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: context.themeTextPrimary,
+                            ),
                           ),
-                          Text('Tap to open / download', style: TextStyle(fontSize: 10, color: context.themeTextMuted)),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'Tap to open / download',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.redAccent,
+                            ),
+                          ),
                         ],
                       ),
                     )
@@ -5024,28 +8565,39 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                           ),
                         ),
                       ),
-                      errorWidget: (context, url, error) => Image.network(
-                        fullUrl,
-                        headers: _authHeaders,
+                      errorWidget: (context, url, error) => Container(
                         height: 120,
                         width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          height: 120,
-                          decoration: BoxDecoration(
-                            color: context.themeSurfaceElevated,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.broken_image_outlined, size: 28, color: context.themeTextMuted),
-                                const SizedBox(height: 4),
-                                Text('Document Image', style: TextStyle(fontSize: 10, color: context.themeTextMuted)),
-                              ],
+                        decoration: BoxDecoration(
+                          color: context.themeSurfaceElevated,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: context.themeBorder),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.visibility_rounded,
+                              size: 28,
+                              color: AppColors.primary,
                             ),
-                          ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Tap to View Document',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: context.themeTextPrimary,
+                              ),
+                            ),
+                            Text(
+                              'Preview or external viewer',
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                color: context.themeTextMuted,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -5054,9 +8606,23 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(isPdf ? Icons.open_in_new_rounded : Icons.zoom_in_rounded, size: 14, color: context.themeTextSecondary),
+                Icon(
+                  isPdf ? Icons.picture_as_pdf : Icons.remove_red_eye_rounded,
+                  size: 13,
+                  color: isPdf ? Colors.redAccent : AppColors.primary,
+                ),
                 const SizedBox(width: 4),
-                Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.themeTextSecondary)),
+                Flexible(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: context.themeTextPrimary,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
           ],
@@ -5070,8 +8636,8 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     final altUrl = imageUrl.contains('/api/media/')
         ? imageUrl.replaceAll('/api/media/', '/media/')
         : (imageUrl.contains('/media/')
-            ? imageUrl.replaceAll('/media/', '/api/media/')
-            : imageUrl);
+              ? imageUrl.replaceAll('/media/', '/api/media/')
+              : imageUrl);
 
     showDialog(
       context: context,
@@ -5094,12 +8660,16 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                       httpHeaders: _authHeaders,
                       fit: BoxFit.contain,
                       placeholder: (context, url) => const Center(
-                        child: CircularProgressIndicator(color: AppColors.primary),
+                        child: CircularProgressIndicator(
+                          color: AppColors.primary,
+                        ),
                       ),
                       errorWidget: (context, url, error) {
                         if (!hasTriedAlt && altUrl != directUrl) {
                           hasTriedAlt = true;
-                          Future.microtask(() => setDialogState(() => currentUrl = altUrl));
+                          Future.microtask(
+                            () => setDialogState(() => currentUrl = altUrl),
+                          );
                         }
                         return Image.network(
                           currentUrl,
@@ -5109,18 +8679,34 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.broken_image_outlined, size: 48, color: Colors.white54),
+                                const Icon(
+                                  Icons.broken_image_outlined,
+                                  size: 48,
+                                  color: Colors.white54,
+                                ),
                                 const SizedBox(height: 8),
-                                const Text('Image unavailable in app preview', style: TextStyle(color: Colors.white70)),
+                                const Text(
+                                  'Image unavailable in app preview',
+                                  style: TextStyle(color: Colors.white70),
+                                ),
                                 const SizedBox(height: 12),
                                 ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-                                  icon: const Icon(Icons.open_in_browser_rounded, size: 16),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primary,
+                                  ),
+                                  icon: const Icon(
+                                    Icons.open_in_browser_rounded,
+                                    size: 16,
+                                  ),
                                   label: const Text('Open in Browser'),
                                   onPressed: () async {
                                     final uri = Uri.tryParse(currentUrl);
-                                    if (uri != null && await canLaunchUrl(uri)) {
-                                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                    if (uri != null &&
+                                        await canLaunchUrl(uri)) {
+                                      await launchUrl(
+                                        uri,
+                                        mode: LaunchMode.externalApplication,
+                                      );
                                     }
                                   },
                                 ),
@@ -5136,19 +8722,33 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   top: 8,
                   left: 12,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black54,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
                 Positioned(
                   top: 8,
                   right: 8,
                   child: IconButton(
-                    icon: const Icon(Icons.close_rounded, color: Colors.white, size: 28),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    ),
                     onPressed: () => Navigator.pop(ctx),
                   ),
                 ),
@@ -5158,12 +8758,18 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   right: 0,
                   child: Center(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.black54,
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: const Text('Pinch to zoom • Drag to pan', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                      child: const Text(
+                        'Pinch to zoom • Drag to pan',
+                        style: TextStyle(color: Colors.white70, fontSize: 11),
+                      ),
                     ),
                   ),
                 ),
@@ -5175,9 +8781,59 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     );
   }
 
-  void _showExecutiveKycModal(String name, String phone, String email, String uid, Map<String, dynamic> kycData) {
+  void _showExecutiveKycModal(
+    String name,
+    String phone,
+    String email,
+    String uid,
+    Map<String, dynamic> kycData,
+  ) {
     final messenger = ScaffoldMessenger.of(context);
     int currentDocTab = 0; // 0: DL, 1: Aadhaar, 2: PAN
+
+    final usersList = ref.read(adminUsersProvider).value ?? [];
+    final matchingUser = usersList.firstWhere(
+      (u) {
+        final uUid = (u['uid'] ?? u['firebaseUid'] ?? u['firebase_uid'] ?? u['id'])?.toString().trim();
+        final uEmail = u['email']?.toString().toLowerCase().trim();
+        final uPhone = u['phone']?.toString().trim();
+        return (uid.isNotEmpty && uUid == uid.trim()) ||
+            (email.isNotEmpty && uEmail != null && uEmail == email.toLowerCase().trim()) ||
+            (phone.isNotEmpty && uPhone != null && uPhone == phone.trim());
+      },
+      orElse: () => const <String, dynamic>{},
+    );
+
+    final Map<String, dynamic> mergedKyc = {};
+    void mergeIn(Map<String, dynamic> source) {
+      source.forEach((k, v) {
+        if (v != null && v.toString().trim().isNotEmpty && v.toString().trim() != 'null') {
+          mergedKyc[k] = v;
+        }
+      });
+      final meta = source['metadata'] ?? source['user_metadata'];
+      if (meta is Map) {
+        meta.forEach((mk, mv) {
+          if (mv != null && mv.toString().trim().isNotEmpty && mv.toString().trim() != 'null') {
+            mergedKyc[mk.toString()] = mv;
+          }
+        });
+      } else if (meta is String && meta.trim().startsWith('{')) {
+        try {
+          final decoded = jsonDecode(meta);
+          if (decoded is Map) {
+            decoded.forEach((mk, mv) {
+              if (mv != null && mv.toString().trim().isNotEmpty && mv.toString().trim() != 'null') {
+                mergedKyc[mk.toString()] = mv;
+              }
+            });
+          }
+        } catch (_) {}
+      }
+    }
+
+    mergeIn(matchingUser);
+    mergeIn(kycData);
 
     showModalBottomSheet(
       context: context,
@@ -5193,7 +8849,9 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
             decoration: BoxDecoration(
               color: context.themeSurfaceElevated,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -5205,13 +8863,29 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Customer KYC Verification', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+                          Text(
+                            'Customer KYC Verification',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: context.themeTextPrimary,
+                            ),
+                          ),
                           const SizedBox(height: 2),
-                          Text('$name • $phone', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
+                          Text(
+                            '$name • $phone',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: context.themeTextSecondary,
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                    IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -5221,87 +8895,150 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
-                      _buildFilterPill('Driving License', currentDocTab == 0, () => setModalState(() => currentDocTab = 0)),
+                      _buildFilterPill(
+                        'Driving License',
+                        currentDocTab == 0,
+                        () => setModalState(() => currentDocTab = 0),
+                      ),
                       const SizedBox(width: 8),
-                      _buildFilterPill('Aadhaar Card', currentDocTab == 1, () => setModalState(() => currentDocTab = 1)),
+                      _buildFilterPill(
+                        'Aadhaar Card',
+                        currentDocTab == 1,
+                        () => setModalState(() => currentDocTab = 1),
+                      ),
                       const SizedBox(width: 8),
-                      _buildFilterPill('PAN Card', currentDocTab == 2, () => setModalState(() => currentDocTab = 2)),
+                      _buildFilterPill(
+                        'PAN Card',
+                        currentDocTab == 2,
+                        () => setModalState(() => currentDocTab = 2),
+                      ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 14),
 
-              Expanded(
-                child: ListView(
-                  children: [
-                    // Realistic KYC Card Template
-                    _buildRealisticKycCardPreview(currentDocTab, name, phone),
-                    const SizedBox(height: 14),
-                    // Real Uploaded Document Images
-                    _buildDocumentImages(currentDocTab, kycData),
-                    const SizedBox(height: 14),
+                Expanded(
+                  child: ListView(
+                    children: [
+                      // Realistic KYC Card Template
+                      _buildRealisticKycCardPreview(currentDocTab, name, phone),
+                      const SizedBox(height: 14),
+                      // Real Uploaded Document Images
+                      _buildDocumentImages(currentDocTab, mergedKyc),
+                      const SizedBox(height: 14),
 
-                    GlassCard(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('VERIFICATION CHECKLIST', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: context.themeTextMuted)),
-                          const SizedBox(height: 8),
-                          _buildDocInspectRow('Customer Photo Match', 'Live verified', true),
-                          _buildDocInspectRow('Document Validity', 'Active / Unexpired', true),
-                          _buildDocInspectRow('Name Consistency', 'Matches $name', true),
-                          _buildDocInspectRow('Age Eligibility', '21+ Years Old', true),
-                        ],
+                      GlassCard(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'VERIFICATION CHECKLIST',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: context.themeTextMuted,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            _buildDocInspectRow(
+                              'Customer Photo Match',
+                              'Live verified',
+                              true,
+                            ),
+                            _buildDocInspectRow(
+                              'Document Validity',
+                              'Active / Unexpired',
+                              true,
+                            ),
+                            _buildDocInspectRow(
+                              'Name Consistency',
+                              'Matches $name',
+                              true,
+                            ),
+                            _buildDocInspectRow(
+                              'Age Eligibility',
+                              '21+ Years Old',
+                              true,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: CustomButton(
+                        text: 'Reject Document',
+                        isOutlined: true,
+                        height: 40,
+                        onPressed: () async {
+                          final docName = currentDocTab == 0
+                              ? 'license'
+                              : (currentDocTab == 1 ? 'aadhar' : 'pan');
+                          await ref
+                              .read(adminBookingsProvider.notifier)
+                              .updateKyc(
+                                uid: uid,
+                                documentType: docName,
+                                status: 'rejected',
+                              );
+                          ref.invalidate(adminKycListProvider);
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          if (mounted)
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text('$docName rejected for $name.'),
+                              ),
+                            );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: CustomButton(
+                        text: 'Approve & Verify',
+                        height: 40,
+                        onPressed: () async {
+                          final docName = currentDocTab == 0
+                              ? 'license'
+                              : (currentDocTab == 1 ? 'aadhar' : 'pan');
+                          await ref
+                              .read(adminBookingsProvider.notifier)
+                              .updateKyc(
+                                uid: uid,
+                                documentType: docName,
+                                status: 'verified',
+                              );
+                          ref.invalidate(adminKycListProvider);
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          if (mounted)
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text('$docName approved for $name.'),
+                              ),
+                            );
+                        },
                       ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: CustomButton(
-                      text: 'Reject Document',
-                      isOutlined: true,
-                      height: 40,
-                      onPressed: () async {
-                        final docName = currentDocTab == 0 ? 'license' : (currentDocTab == 1 ? 'aadhar' : 'pan');
-                        await ref.read(adminBookingsProvider.notifier).updateKyc(uid: uid, documentType: docName, status: 'rejected');
-                        ref.invalidate(adminKycListProvider);
-                        if (ctx.mounted) Navigator.pop(ctx);
-                        if (mounted) messenger.showSnackBar(SnackBar(content: Text('$docName rejected for $name.')));
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: CustomButton(
-                      text: 'Approve & Verify',
-                      height: 40,
-                      onPressed: () async {
-                        final docName = currentDocTab == 0 ? 'license' : (currentDocTab == 1 ? 'aadhar' : 'pan');
-                        await ref.read(adminBookingsProvider.notifier).updateKyc(uid: uid, documentType: docName, status: 'verified');
-                        ref.invalidate(adminKycListProvider);
-                        if (ctx.mounted) Navigator.pop(ctx);
-                        if (mounted) messenger.showSnackBar(SnackBar(content: Text('$docName approved for $name.')));
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   void _showInspectBookingModal(BookingModel booking) {
     final messenger = ScaffoldMessenger.of(context);
-    final amountController = TextEditingController(text: booking.finalAmount.toInt().toString());
+    final amountController = TextEditingController(
+      text: booking.finalAmount.toInt().toString(),
+    );
     String currentStatus = booking.status;
 
     showModalBottomSheet(
@@ -5310,17 +9047,50 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) => Container(
-          padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 24),
-          decoration: BoxDecoration(color: context.themeSurfaceElevated, borderRadius: const BorderRadius.vertical(top: Radius.circular(24))),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            20,
+            20,
+            MediaQuery.of(context).viewInsets.bottom + 24,
+          ),
+          decoration: BoxDecoration(
+            color: context.themeSurfaceElevated,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Booking ${booking.bookingNumber.isNotEmpty ? booking.bookingNumber : booking.bookingId}', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+              Text(
+                'Booking ${booking.bookingNumber.isNotEmpty ? booking.bookingNumber : booking.bookingId}',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: context.themeTextPrimary,
+                ),
+              ),
               const SizedBox(height: 8),
-              Text('Customer: ${booking.userName} (${booking.userEmail})', style: TextStyle(fontSize: 13, color: context.themeTextSecondary)),
-              Text('Phone: ${booking.userPhone ?? "Not provided"}', style: TextStyle(fontSize: 13, color: context.themeTextSecondary)),
-              Text('Vehicle: ${booking.vehicleName} (${booking.vehicleReg})', style: TextStyle(fontSize: 13, color: context.themeTextSecondary)),
+              Text(
+                'Customer: ${booking.userName} (${booking.userEmail})',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: context.themeTextSecondary,
+                ),
+              ),
+              Text(
+                'Phone: ${booking.userPhone ?? "Not provided"}',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: context.themeTextSecondary,
+                ),
+              ),
+              Text(
+                'Vehicle: ${booking.vehicleName} (${booking.vehicleReg})',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: context.themeTextSecondary,
+                ),
+              ),
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.all(12),
@@ -5332,31 +9102,84 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('RENTAL SCHEDULE & DURATION', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: context.themeTextMuted)),
+                    Text(
+                      'RENTAL SCHEDULE & DURATION',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
+                        color: context.themeTextMuted,
+                      ),
+                    ),
                     const SizedBox(height: 6),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Pickup Time:', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
-                        Text(DateFormat('EEE, dd MMM yyyy • hh:mm a').format(booking.pickupDate), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Drop-off Time:', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
-                        Text(DateFormat('EEE, dd MMM yyyy • hh:mm a').format(booking.dropDate), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.themeTextPrimary)),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Duration:', style: TextStyle(fontSize: 12, color: context.themeTextSecondary)),
                         Text(
-                          BookingNotificationHelper.formatDurationDetailed(booking.pickupDate, booking.dropDate, days: booking.days, hours: booking.hours),
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF06D6A0)),
+                          'Pickup Time:',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: context.themeTextSecondary,
+                          ),
+                        ),
+                        Text(
+                          DateFormat(
+                            'EEE, dd MMM yyyy • hh:mm a',
+                          ).format(booking.pickupDate),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: context.themeTextPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Drop-off Time:',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: context.themeTextSecondary,
+                          ),
+                        ),
+                        Text(
+                          DateFormat(
+                            'EEE, dd MMM yyyy • hh:mm a',
+                          ).format(booking.dropDate),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: context.themeTextPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Duration:',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: context.themeTextSecondary,
+                          ),
+                        ),
+                        Text(
+                          BookingNotificationHelper.formatDurationDetailed(
+                            booking.pickupDate,
+                            booking.dropDate,
+                            days: booking.days,
+                            hours: booking.hours,
+                          ),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF06D6A0),
+                          ),
                         ),
                       ],
                     ),
@@ -5368,17 +9191,40 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      icon: const Icon(Icons.chat_rounded, color: Color(0xFF25D366), size: 16),
-                      label: const Text('WhatsApp Confirmation', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Color(0xFF25D366))),
+                      icon: const Icon(
+                        Icons.chat_rounded,
+                        color: Color(0xFF25D366),
+                        size: 16,
+                      ),
+                      label: const Text(
+                        'WhatsApp Confirmation',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF25D366),
+                        ),
+                      ),
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFF25D366), width: 1.2),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        side: const BorderSide(
+                          color: Color(0xFF25D366),
+                          width: 1.2,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 8),
                       ),
                       onPressed: () async {
-                        final ok = await BookingNotificationHelper.sendWhatsAppConfirmation(booking);
+                        final ok =
+                            await BookingNotificationHelper.sendWhatsAppConfirmation(
+                              booking,
+                            );
                         if (!ok && context.mounted) {
-                          messenger.showSnackBar(const SnackBar(content: Text('Could not open WhatsApp.')));
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('Could not open WhatsApp.'),
+                            ),
+                          );
                         }
                       },
                     ),
@@ -5386,17 +9232,40 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton.icon(
-                      icon: const Icon(Icons.email_outlined, color: AppColors.primary, size: 16),
-                      label: const Text('Email Notice', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppColors.primary)),
+                      icon: const Icon(
+                        Icons.email_outlined,
+                        color: AppColors.primary,
+                        size: 16,
+                      ),
+                      label: const Text(
+                        'Email Notice',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primary,
+                        ),
+                      ),
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: AppColors.primary, width: 1.2),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        side: const BorderSide(
+                          color: AppColors.primary,
+                          width: 1.2,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 8),
                       ),
                       onPressed: () async {
-                        final ok = await BookingNotificationHelper.sendEmailConfirmation(booking);
+                        final ok =
+                            await BookingNotificationHelper.sendEmailConfirmation(
+                              booking,
+                            );
                         if (!ok && context.mounted) {
-                          messenger.showSnackBar(const SnackBar(content: Text('Could not open email app.')));
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('Could not open email app.'),
+                            ),
+                          );
                         }
                       },
                     ),
@@ -5408,20 +9277,55 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 controller: amountController,
                 keyboardType: TextInputType.number,
                 style: TextStyle(color: context.themeTextPrimary),
-                decoration: const InputDecoration(labelText: 'Adjust Total Amount (₹)', border: OutlineInputBorder(), prefixText: '₹ '),
+                decoration: const InputDecoration(
+                  labelText: 'Adjust Total Amount (₹)',
+                  border: OutlineInputBorder(),
+                  prefixText: '₹ ',
+                ),
               ),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
-                initialValue: ['pending_payment', 'pending_confirmation', 'confirmed', 'active', 'completed', 'cancelled'].contains(currentStatus) ? currentStatus : 'confirmed',
-                decoration: const InputDecoration(labelText: 'Booking Status', border: OutlineInputBorder()),
+                initialValue:
+                    [
+                      'pending_payment',
+                      'pending_confirmation',
+                      'confirmed',
+                      'active',
+                      'completed',
+                      'cancelled',
+                    ].contains(currentStatus)
+                    ? currentStatus
+                    : 'confirmed',
+                decoration: const InputDecoration(
+                  labelText: 'Booking Status',
+                  border: OutlineInputBorder(),
+                ),
                 dropdownColor: context.themeSurfaceElevated,
                 items: const [
-                  DropdownMenuItem(value: 'pending_payment', child: Text('Pending Payment')),
-                  DropdownMenuItem(value: 'pending_confirmation', child: Text('Pending Confirmation')),
-                  DropdownMenuItem(value: 'confirmed', child: Text('Confirmed')),
-                  DropdownMenuItem(value: 'active', child: Text('Active (On-Road)')),
-                  DropdownMenuItem(value: 'completed', child: Text('Completed')),
-                  DropdownMenuItem(value: 'cancelled', child: Text('Cancelled')),
+                  DropdownMenuItem(
+                    value: 'pending_payment',
+                    child: Text('Pending Payment'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'pending_confirmation',
+                    child: Text('Pending Confirmation'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'confirmed',
+                    child: Text('Confirmed'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'active',
+                    child: Text('Active (On-Road)'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'completed',
+                    child: Text('Completed'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'cancelled',
+                    child: Text('Cancelled'),
+                  ),
                 ],
                 onChanged: (val) {
                   if (val != null) setModalState(() => currentStatus = val);
@@ -5435,10 +9339,19 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                       text: 'Cancel Trip',
                       isOutlined: true,
                       onPressed: () async {
-                        final bId = booking.bookingNumber.isNotEmpty ? booking.bookingNumber : booking.bookingId;
-                        await ref.read(adminBookingsProvider.notifier).updateStatus(bookingId: bId, newStatus: 'cancelled');
+                        final bId = booking.bookingNumber.isNotEmpty
+                            ? booking.bookingNumber
+                            : booking.bookingId;
+                        await ref
+                            .read(adminBookingsProvider.notifier)
+                            .updateStatus(
+                              bookingId: bId,
+                              newStatus: 'cancelled',
+                            );
                         if (ctx.mounted) Navigator.pop(ctx);
-                        messenger.showSnackBar(SnackBar(content: Text('Trip $bId cancelled.')));
+                        messenger.showSnackBar(
+                          SnackBar(content: Text('Trip $bId cancelled.')),
+                        );
                       },
                     ),
                   ),
@@ -5447,12 +9360,25 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                     child: CustomButton(
                       text: 'Save Changes',
                       onPressed: () async {
-                        final bId = booking.bookingNumber.isNotEmpty ? booking.bookingNumber : booking.bookingId;
-                        final newAmount = double.tryParse(amountController.text);
-                        await ref.read(adminBookingsProvider.notifier).updateStatus(bookingId: bId, newStatus: currentStatus, totalAmount: newAmount);
+                        final bId = booking.bookingNumber.isNotEmpty
+                            ? booking.bookingNumber
+                            : booking.bookingId;
+                        final newAmount = double.tryParse(
+                          amountController.text,
+                        );
+                        await ref
+                            .read(adminBookingsProvider.notifier)
+                            .updateStatus(
+                              bookingId: bId,
+                              newStatus: currentStatus,
+                              totalAmount: newAmount,
+                            );
                         if (ctx.mounted) Navigator.pop(ctx);
-                        messenger.showSnackBar(SnackBar(content: Text('Booking $bId updated.')));
-                        if (currentStatus == 'confirmed' && booking.status != 'confirmed') {
+                        messenger.showSnackBar(
+                          SnackBar(content: Text('Booking $bId updated.')),
+                        );
+                        if (currentStatus == 'confirmed' &&
+                            booking.status != 'confirmed') {
                           _showBookingApprovalConfirmationDialog(booking);
                         }
                       },
@@ -5468,8 +9394,12 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   }
 
   void _showEditVehicleModal(VehicleModel vehicle) {
-    final dayController = TextEditingController(text: vehicle.priceDay.toInt().toString());
-    final hourController = TextEditingController(text: vehicle.priceHour.toInt().toString());
+    final dayController = TextEditingController(
+      text: vehicle.priceDay.toInt().toString(),
+    );
+    final hourController = TextEditingController(
+      text: vehicle.priceHour.toInt().toString(),
+    );
     bool isAvail = vehicle.isAvailable;
 
     showModalBottomSheet(
@@ -5478,32 +9408,62 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) => Container(
-          padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 24),
-          decoration: BoxDecoration(color: context.themeSurfaceElevated, borderRadius: const BorderRadius.vertical(top: Radius.circular(24))),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            20,
+            20,
+            MediaQuery.of(context).viewInsets.bottom + 24,
+          ),
+          decoration: BoxDecoration(
+            color: context.themeSurfaceElevated,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Edit ${vehicle.fullName}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.themeTextPrimary)),
+              Text(
+                'Edit ${vehicle.fullName}',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: context.themeTextPrimary,
+                ),
+              ),
               const SizedBox(height: 14),
               TextField(
                 controller: dayController,
                 keyboardType: TextInputType.number,
                 style: TextStyle(color: context.themeTextPrimary),
-                decoration: const InputDecoration(labelText: 'Daily Rental Rate (₹/day)', border: OutlineInputBorder(), prefixText: '₹ '),
+                decoration: const InputDecoration(
+                  labelText: 'Daily Rental Rate (₹/day)',
+                  border: OutlineInputBorder(),
+                  prefixText: '₹ ',
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: hourController,
                 keyboardType: TextInputType.number,
                 style: TextStyle(color: context.themeTextPrimary),
-                decoration: const InputDecoration(labelText: 'Hourly Rate (₹/hr)', border: OutlineInputBorder(), prefixText: '₹ '),
+                decoration: const InputDecoration(
+                  labelText: 'Hourly Rate (₹/hr)',
+                  border: OutlineInputBorder(),
+                  prefixText: '₹ ',
+                ),
               ),
               const SizedBox(height: 14),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Vehicle Availability Status', style: TextStyle(fontSize: 14, color: context.themeTextPrimary, fontWeight: FontWeight.w600)),
+                  Text(
+                    'Vehicle Availability Status',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: context.themeTextPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   Switch(
                     value: isAvail,
                     activeThumbColor: const Color(0xFF06D6A0),
@@ -5515,11 +9475,26 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               CustomButton(
                 text: 'Save Vehicle Rates',
                 onPressed: () {
-                  final newDay = double.tryParse(dayController.text) ?? vehicle.priceDay;
-                  final newHour = double.tryParse(hourController.text) ?? vehicle.priceHour;
-                  ref.read(fleetProvider.notifier).updateVehicle(vehicleId: vehicle.id, priceDay: newDay, priceHour: newHour, isAvailable: isAvail);
+                  final newDay =
+                      double.tryParse(dayController.text) ?? vehicle.priceDay;
+                  final newHour =
+                      double.tryParse(hourController.text) ?? vehicle.priceHour;
+                  ref
+                      .read(fleetProvider.notifier)
+                      .updateVehicle(
+                        vehicleId: vehicle.id,
+                        priceDay: newDay,
+                        priceHour: newHour,
+                        isAvailable: isAvail,
+                      );
                   Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${vehicle.fullName} rates updated to ₹${newDay.toInt()}/day, ₹${newHour.toInt()}/hr.')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        '${vehicle.fullName} rates updated to ₹${newDay.toInt()}/day, ₹${newHour.toInt()}/hr.',
+                      ),
+                    ),
+                  );
                 },
               ),
             ],

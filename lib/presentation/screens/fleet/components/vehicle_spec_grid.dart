@@ -116,7 +116,7 @@ class VehicleSpecGrid extends ConsumerWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            s['label'] as String,
+                            (s['label'] ?? '').toString(),
                             style: TextStyle(
                               fontSize: 10,
                               color: isDark
@@ -125,7 +125,7 @@ class VehicleSpecGrid extends ConsumerWidget {
                             ),
                           ),
                           Text(
-                            s['val'] as String,
+                            (s['val'] ?? '').toString(),
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,

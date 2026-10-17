@@ -45,27 +45,45 @@ class AdminStatsModel {
             ? data['live'] as Map<String, dynamic>
             : (json['live'] is Map<String, dynamic> ? json['live'] as Map<String, dynamic> : data));
 
-    final monthlyMap = (data['monthly'] is Map<String, dynamic>)
-        ? Map<String, dynamic>.from(data['monthly'] as Map<String, dynamic>)
+    final monthlyMap = (data['monthly'] is Map)
+        ? Map<String, dynamic>.from(data['monthly'] as Map)
         : const <String, dynamic>{};
 
+    double parseDouble(dynamic val, [double def = 0.0]) {
+      if (val == null) return def;
+      if (val is num) return val.toDouble();
+      return double.tryParse(val.toString()) ?? def;
+    }
+
+    int parseInt(dynamic val, [int def = 0]) {
+      if (val == null) return def;
+      if (val is int) return val;
+      if (val is num) return val.toInt();
+      final str = val.toString().trim();
+      final asInt = int.tryParse(str);
+      if (asInt != null) return asInt;
+      final asDouble = double.tryParse(str);
+      if (asDouble != null) return asDouble.round();
+      return def;
+    }
+
     return AdminStatsModel(
-      totalRevenue: (live['total_revenue'] as num?)?.toDouble() ?? 0.0,
-      monthRevenue: (live['month_revenue'] as num?)?.toDouble() ?? 0.0,
-      lastMonthRevenue: (live['last_month_revenue'] as num?)?.toDouble() ?? 0.0,
-      daySales: (live['day_sales'] as num?)?.toDouble() ?? 0.0,
-      weekSales: (live['week_sales'] as num?)?.toDouble() ?? 0.0,
-      totalBookings: (live['total_bookings'] as num?)?.toInt() ?? 0,
-      paidBookings: (live['paid_bookings'] as num?)?.toInt() ?? 0,
-      pendingDocs: (live['pending_docs'] as num?)?.toInt() ?? 0,
-      pendingPayments: (live['pending_payments'] as num?)?.toInt() ?? 0,
-      avgBooking: (live['avg_booking'] as num?)?.toDouble() ?? 0.0,
-      activeTrips: (live['active_trips'] as num?)?.toInt() ?? (live['on_road_fleet'] as num?)?.toInt() ?? 0,
-      completedTrips: (live['completed_trips'] as num?)?.toInt() ?? 0,
-      totalUsers: (live['total_users'] as num?)?.toInt() ?? 0,
-      totalFleet: (live['total_fleet'] as num?)?.toInt() ?? (live['fleet_count'] as num?)?.toInt() ?? 0,
-      availableInYard: (live['available_in_yard'] as num?)?.toInt() ?? (live['available_fleet'] as num?)?.toInt() ?? 0,
-      fleetUtilization: (live['fleet_utilization'] as num?)?.toInt() ?? 0,
+      totalRevenue: parseDouble(live['total_revenue']),
+      monthRevenue: parseDouble(live['month_revenue']),
+      lastMonthRevenue: parseDouble(live['last_month_revenue']),
+      daySales: parseDouble(live['day_sales']),
+      weekSales: parseDouble(live['week_sales']),
+      totalBookings: parseInt(live['total_bookings']),
+      paidBookings: parseInt(live['paid_bookings']),
+      pendingDocs: parseInt(live['pending_docs']),
+      pendingPayments: parseInt(live['pending_payments']),
+      avgBooking: parseDouble(live['avg_booking']),
+      activeTrips: parseInt(live['active_trips'] ?? live['on_road_fleet']),
+      completedTrips: parseInt(live['completed_trips']),
+      totalUsers: parseInt(live['total_users']),
+      totalFleet: parseInt(live['total_fleet'] ?? live['fleet_count']),
+      availableInYard: parseInt(live['available_in_yard'] ?? live['available_fleet']),
+      fleetUtilization: parseInt(live['fleet_utilization'] ?? live['occupancy_pct']),
       monthly: monthlyMap,
     );
   }

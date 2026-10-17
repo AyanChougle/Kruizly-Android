@@ -205,6 +205,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(path: '/host-car', redirect: (context, state) => '/host'),
+      GoRoute(path: '/admin', redirect: (context, state) => '/staff-portal'),
+      GoRoute(path: '/staff', redirect: (context, state) => '/staff-portal'),
       GoRoute(
         path: '/contact',
         parentNavigatorKey: _rootNavigatorKey,

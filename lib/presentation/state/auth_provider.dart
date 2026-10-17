@@ -1,4 +1,4 @@
-﻿import '''package:firebase_auth/firebase_auth.dart''';
+import '''package:firebase_auth/firebase_auth.dart''';
 import '''package:flutter_riverpod/flutter_riverpod.dart''';
 import '''../../data/models/user_model.dart''';
 import '''app_providers.dart''';
@@ -53,7 +53,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
           final profile = await authRepo.syncUserWithBackend();
           state = AuthState(user: profile);
           return;
-        } catch (_) {}
+        } catch (_) {
+          final u = authRepo.currentUser!;
+          final email = u.email ?? '';
+          final isAdmin = UserModel.adminEmails.contains(email.toLowerCase().trim());
+          state = AuthState(
+            user: UserModel(
+              id: 0,
+              firebaseUid: u.uid,
+              email: email,
+              name: u.displayName ?? 'Kruizly Member',
+              phone: u.phoneNumber,
+              role: isAdmin ? 'admin' : 'customer',
+            ),
+          );
+          return;
+        }
       }
     }
     state = const AuthState(user: null);

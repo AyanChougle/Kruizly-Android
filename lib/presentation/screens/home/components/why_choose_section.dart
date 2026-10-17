@@ -84,7 +84,7 @@ class WhyChooseSection extends StatelessWidget {
                   ),
                   const Spacer(),
                   Text(
-                    f['title'] as String,
+                    (f['title'] ?? '').toString(),
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -95,7 +95,7 @@ class WhyChooseSection extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    f['desc'] as String,
+                    (f['desc'] ?? '').toString(),
                     style: TextStyle(
                       fontSize: 11,
                       color: isDark

@@ -387,6 +387,50 @@ void main() {
       },
     );
 
+    test(
+      'AdminStatsModel safely parses string-encoded numbers from MySQL PDO without throwing type error',
+      () {
+        final stringPayload = {
+          'status': 'success',
+          'success': true,
+          'data': {
+            'live': {
+              'total_users': '188',
+              'total_bookings': '45',
+              'pending_docs': '0',
+              'pending_payments': '0',
+              'day_sales': '1458.00',
+              'week_sales': '7745.00',
+              'total_revenue': '1129499.00',
+              'month_revenue': '213208.00',
+              'last_month_revenue': '281857.00',
+              'paid_bookings': '43',
+              'avg_booking': '26267.42',
+              'active_trips': '9',
+              'completed_trips': '34',
+              'total_fleet': '58',
+              'available_in_yard': '49',
+              'fleet_utilization': '15.52',
+            },
+            'monthly': {
+              '2026-10-01': {
+                'month_sales': '213208.00',
+                'total_bookings': '45',
+                'paid_bookings': '43',
+              },
+            },
+          },
+        };
+
+        final stats = AdminStatsModel.fromJson(stringPayload);
+        expect(stats.totalRevenue, 1129499.0);
+        expect(stats.monthRevenue, 213208.0);
+        expect(stats.totalBookings, 45);
+        expect(stats.paidBookings, 43);
+        expect(stats.fleetUtilization, 16);
+      },
+    );
+
     testWidgets(
       'PriceBreakdownCard renders properly in both Light and Dark modes',
       (tester) async {
