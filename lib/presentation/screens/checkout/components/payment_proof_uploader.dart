@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/utils/media_permission_helper.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../widgets/glass_card.dart';
+import '../../../widgets/image_preview_dialog.dart';
 
 class PaymentProofUploader extends StatefulWidget {
   final File? selectedFile;
@@ -59,35 +60,79 @@ class _PaymentProofUploaderState extends State<PaymentProofUploader> {
               ),
               child: Row(
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.file(
-                      widget.selectedFile!,
-                      width: 54,
-                      height: 54,
-                      fit: BoxFit.cover,
+                  GestureDetector(
+                    onTap: () {
+                      ImagePreviewDialog.show(
+                        context,
+                        file: widget.selectedFile,
+                        title: 'Payment Screenshot',
+                        subtitle: widget.selectedFile!.path.split(Platform.pathSeparator).last,
+                      );
+                    },
+                    child: Tooltip(
+                      message: 'Tap to zoom preview',
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Stack(
+                          children: [
+                            Image.file(
+                              widget.selectedFile!,
+                              width: 56,
+                              height: 56,
+                              fit: BoxFit.cover,
+                            ),
+                            Positioned(
+                              bottom: 0,
+                              right: 0,
+                              left: 0,
+                              child: Container(
+                                color: Colors.black54,
+                                padding: const EdgeInsets.symmetric(vertical: 1),
+                                child: const Icon(Icons.zoom_in, size: 12, color: Colors.white),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Screenshot Attached',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: context.themeTextPrimary),
-                        ),
-                        Text(
-                          widget.selectedFile!.path.split(Platform.pathSeparator).last,
-                          style: TextStyle(fontSize: 11, color: context.themeTextMuted),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                    child: GestureDetector(
+                      onTap: () {
+                        ImagePreviewDialog.show(
+                          context,
+                          file: widget.selectedFile,
+                          title: 'Payment Screenshot',
+                          subtitle: widget.selectedFile!.path.split(Platform.pathSeparator).last,
+                        );
+                      },
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                'Screenshot Attached',
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: context.themeTextPrimary),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.zoom_in, size: 14, color: AppColors.primaryLight),
+                            ],
+                          ),
+                          Text(
+                            widget.selectedFile!.path.split(Platform.pathSeparator).last,
+                            style: TextStyle(fontSize: 11, color: context.themeTextMuted),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 20),
+                    tooltip: 'Remove',
                     onPressed: () => widget.onFilePicked(null),
                   ),
                 ],

@@ -30,15 +30,15 @@ const _featuredShowcase = [
   ),
   VehicleModel(
     id: 9002,
-    regNo: 'FEATURED-THAR',
+    regNo: 'FEATURED-THAR-ROXX',
     brand: 'Mahindra',
-    model: 'Thar',
+    model: 'Thar Roxx',
     year: 2026,
     category: 'suv',
-    transmission: 'Manual',
+    transmission: 'Automatic',
     fuel: 'Diesel',
-    seats: 4,
-    bags: 2,
+    seats: 5,
+    bags: 3,
     priceDay: 5500,
     priceHour: 229,
     driverPrice: 1500,
@@ -99,13 +99,28 @@ class FeaturedFleetSection extends ConsumerWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Featured Fleet',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: isDark ? AppColors.textPrimary : AppColors.lightTextPrimary,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Featured Fleet',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: isDark ? AppColors.textPrimary : AppColors.lightTextPrimary,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Lock any car for ₹500 • 24h min. booking',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white60 : Colors.black54,
+                  ),
+                ),
+              ],
             ),
             TextButton(
               onPressed: onViewAll,
@@ -115,7 +130,7 @@ class FeaturedFleetSection extends ConsumerWidget {
                     'Explore All',
                     style: TextStyle(
                       color: AppColors.primary,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                       fontSize: 13,
                     ),
                   ),
@@ -127,12 +142,43 @@ class FeaturedFleetSection extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 12),
-        ...displayVehicles.map(
-          (v) => VehicleCard(
-            vehicle: v,
-            onTap: () => onVehicleTap(v.id.toString()),
-            onBookNow: () => onBookNow(v.id.toString()),
-          ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isTablet = constraints.maxWidth >= 600;
+            if (isTablet) {
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 0.78,
+                ),
+                itemCount: displayVehicles.length,
+                itemBuilder: (context, idx) {
+                  final v = displayVehicles[idx];
+                  return VehicleCard(
+                    vehicle: v,
+                    onTap: () => onVehicleTap(v.id.toString()),
+                    onBookNow: () => onBookNow(v.id.toString()),
+                  );
+                },
+              );
+            }
+
+            return Column(
+              children: displayVehicles
+                  .map(
+                    (v) => VehicleCard(
+                      vehicle: v,
+                      onTap: () => onVehicleTap(v.id.toString()),
+                      onBookNow: () => onBookNow(v.id.toString()),
+                    ),
+                  )
+                  .toList(),
+            );
+          },
         ),
       ],
     );

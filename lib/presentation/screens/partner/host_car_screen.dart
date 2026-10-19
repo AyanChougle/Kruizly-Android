@@ -8,6 +8,7 @@ import '../../state/app_providers.dart';
 import '../../state/auth_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/glass_card.dart';
+import '../../widgets/image_preview_dialog.dart';
 
 class HostCarScreen extends ConsumerStatefulWidget {
   const HostCarScreen({super.key});
@@ -472,13 +473,23 @@ class _HostCarScreenState extends ConsumerState<HostCarScreen> {
                         itemBuilder: (context, idx) {
                           return Stack(
                             children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.file(
-                                  _localPhotos[idx],
-                                  width: 80,
-                                  height: 80,
-                                  fit: BoxFit.cover,
+                              GestureDetector(
+                                onTap: () {
+                                  ImagePreviewDialog.show(
+                                    context,
+                                    file: _localPhotos[idx],
+                                    title: 'Vehicle Photo ${idx + 1}',
+                                    subtitle: _localPhotos[idx].path.split(Platform.pathSeparator).last,
+                                  );
+                                },
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.file(
+                                    _localPhotos[idx],
+                                    width: 80,
+                                    height: 80,
+                                    fit: BoxFit.cover,
+                                  ),
                                 ),
                               ),
                               Positioned(

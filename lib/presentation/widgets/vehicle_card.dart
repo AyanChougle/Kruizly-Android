@@ -29,23 +29,36 @@ class VehicleCard extends StatelessWidget {
       if (candidateIndex >= candidates.length) {
         return _buildNetworkOrFallback();
       }
+      final assetPath = candidates[candidateIndex];
+      final isJpg = assetPath.toLowerCase().endsWith('.jpg');
       return Image.asset(
-        candidates[candidateIndex],
+        assetPath,
         width: double.infinity,
-        height: 220,
-        fit: BoxFit.cover,
+        height: 205,
+        fit: isJpg ? BoxFit.cover : BoxFit.contain,
         errorBuilder: (context, error, stackTrace) {
           return buildFromAsset(candidateIndex + 1);
         },
       );
     }
 
+    final isTopCandidateJpg = candidates.isNotEmpty &&
+        candidates.first.toLowerCase().endsWith('.jpg');
+
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      child: SizedBox(
+      child: Container(
         width: double.infinity,
-        height: 220,
-        child: buildFromAsset(0),
+        height: 205,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+        ),
+        padding: isTopCandidateJpg
+            ? EdgeInsets.zero
+            : const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Center(
+          child: buildFromAsset(0),
+        ),
       ),
     );
   }
@@ -58,8 +71,8 @@ class VehicleCard extends StatelessWidget {
       return CachedNetworkImage(
         imageUrl: netUrl,
         width: double.infinity,
-        height: 220,
-        fit: BoxFit.cover,
+        height: 200,
+        fit: BoxFit.contain,
         placeholder: (c, u) => const Center(
           child: SizedBox(
             width: 28,
@@ -73,16 +86,16 @@ class VehicleCard extends StatelessWidget {
         errorWidget: (c, u, e) => Image.asset(
           AppAssets.carPlaceholder,
           width: double.infinity,
-          height: 220,
-          fit: BoxFit.cover,
+          height: 200,
+          fit: BoxFit.contain,
         ),
       );
     }
     return Image.asset(
       AppAssets.carPlaceholder,
       width: double.infinity,
-      height: 220,
-      fit: BoxFit.cover,
+      height: 200,
+      fit: BoxFit.contain,
     );
   }
 

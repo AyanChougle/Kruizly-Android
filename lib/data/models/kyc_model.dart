@@ -1,4 +1,4 @@
-﻿class KycModel {
+class KycModel {
   final String? id;
   final String licenseStatus;
   final String aadharStatus;
@@ -52,12 +52,12 @@
       licenseNumber: ver['licenseNumber']?.toString() ?? ver['license_number']?.toString(),
       aadharNumber: ver['aadharNumber']?.toString() ?? ver['aadhar_number']?.toString(),
       panNumber: ver['panNumber']?.toString() ?? ver['pan_number']?.toString(),
-      licenseFrontUrl: ver['licenseFrontUrl']?.toString() ?? ver['license_front']?.toString(),
-      licenseBackUrl: ver['licenseBackUrl']?.toString() ?? ver['license_back']?.toString(),
-      aadharFrontUrl: ver['aadharFrontUrl']?.toString() ?? ver['aadhar_front']?.toString(),
-      aadharBackUrl: ver['aadharBackUrl']?.toString() ?? ver['aadhar_back']?.toString(),
-      panFrontUrl: ver['panFrontUrl']?.toString() ?? ver['pan_front']?.toString(),
-      panBackUrl: ver['panBackUrl']?.toString() ?? ver['pan_back']?.toString(),
+      licenseFrontUrl: ver['licenseFrontUrl']?.toString() ?? ver['licenseFrontURL']?.toString() ?? ver['license_front_url']?.toString() ?? ver['license_front']?.toString(),
+      licenseBackUrl: ver['licenseBackUrl']?.toString() ?? ver['licenseBackURL']?.toString() ?? ver['license_back_url']?.toString() ?? ver['license_back']?.toString(),
+      aadharFrontUrl: ver['aadharFrontUrl']?.toString() ?? ver['aadharFrontURL']?.toString() ?? ver['aadhar_front_url']?.toString() ?? ver['aadhar_front']?.toString(),
+      aadharBackUrl: ver['aadharBackUrl']?.toString() ?? ver['aadharBackURL']?.toString() ?? ver['aadhar_back_url']?.toString() ?? ver['aadhar_back']?.toString(),
+      panFrontUrl: ver['panFrontUrl']?.toString() ?? ver['panFrontURL']?.toString() ?? ver['pan_front_url']?.toString() ?? ver['pan_front']?.toString(),
+      panBackUrl: ver['panBackUrl']?.toString() ?? ver['panBackURL']?.toString() ?? ver['pan_back_url']?.toString() ?? ver['pan_back']?.toString(),
     );
   }
 }

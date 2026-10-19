@@ -19,10 +19,15 @@ import '../../../data/models/vehicle_model.dart';
 import '../../state/admin_provider.dart';
 import '../../state/auth_provider.dart';
 import '../../state/fleet_provider.dart';
+import '../../state/app_providers.dart';
 import '../../widgets/background_video_widget.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/glass_card.dart';
 import '../../widgets/status_badge.dart';
+import '../../widgets/image_preview_dialog.dart';
+import '../../../core/constants/api_endpoints.dart';
+import '../../../core/network/api_client.dart';
+import 'package:dio/dio.dart';
 
 double _safeDouble(dynamic value, [double defaultValue = 0.0]) {
   if (value == null) return defaultValue;
@@ -124,8 +129,9 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   // Booking Analytics filter
   String _bookPeriod = 'All Time';
 
-  // Accounts filter
   String _accountsSearchQuery = '';
+  String _invoiceSearchQuery = '';
+  String _invoiceStatusFilter = 'all';
 
   // Booking Calendar state
   DateTime _calendarMonth = DateTime(
@@ -323,8 +329,95 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
 
   bool _isBookingInRange(BookingModel b, DateTimeRange? range) {
     if (range == null) return true;
-    final bDate = b.createdAt ?? b.pickupDate;
-    return !bDate.isBefore(range.start) && !bDate.isAfter(range.end);
+    final cDate = b.createdAt;
+    if (cDate != null && !cDate.isBefore(range.start) && !cDate.isAfter(range.end)) {
+      return true;
+    }
+    if (!b.pickupDate.isBefore(range.start) && !b.pickupDate.isAfter(range.end)) {
+      return true;
+    }
+    if (!b.pickupDate.isAfter(range.end) && !b.dropDate.isBefore(range.start)) {
+      return true;
+    }
+    return false;
+  }
+
+  double _getBookingRentalRevenue(BookingModel b) {
+    if (b.isCancelled) return 0.0;
+    if (b.paymentStatus.toLowerCase() == 'advance_paid' && b.advanceAmount > 0) {
+      return b.advanceAmount;
+    }
+    final base = b.baseAmount;
+    final discount = b.couponDiscount;
+    if (base > 0) {
+      final net = base - discount;
+      return net > 0 ? net : 0.0;
+    }
+    final total = b.finalAmount > 0 ? b.finalAmount : b.totalAmount;
+    final deposit = b.securityDeposit;
+    if (total > deposit && deposit > 0) {
+      final net = total - deposit;
+      return net > 0 ? net : 0.0;
+    }
+    return total > 0 ? total : 0.0;
+  }
+
+  bool _doesBookingMatchVehicle(BookingModel b, VehicleModel v) {
+    final bReg = b.vehicleReg.toUpperCase().replaceAll(RegExp(r'[\s\-_]'), '');
+    final vReg = v.regNo.toUpperCase().replaceAll(RegExp(r'[\s\-_]'), '');
+    final isTbd = bReg.isEmpty || bReg == 'TBD' || bReg == 'NA' || bReg == 'PENDING' || bReg == 'NONE';
+
+    if (bReg.isNotEmpty && vReg.isNotEmpty && !isTbd) {
+      if (bReg == vReg || bReg.contains(vReg) || vReg.contains(bReg)) return true;
+      final bSimp = bReg.replaceAll(RegExp(r'[CG]'), 'C').replaceAll(RegExp(r'[UY]'), 'U').replaceAll(RegExp(r'[FL]'), 'F');
+      final vSimp = vReg.replaceAll(RegExp(r'[CG]'), 'C').replaceAll(RegExp(r'[UY]'), 'U').replaceAll(RegExp(r'[FL]'), 'F');
+      if (bSimp == vSimp || bSimp.contains(vSimp) || vSimp.contains(bSimp)) return true;
+    }
+    if (v.carId != null && v.carId!.trim().isNotEmpty) {
+      final vCarId = v.carId!.trim().toUpperCase().replaceAll(RegExp(r'[\s\-_]'), '');
+      final bName = b.vehicleName.toUpperCase().replaceAll(RegExp(r'[\s\-_]'), '');
+      if (bName.contains(vCarId) || vCarId.contains(bName)) return true;
+    }
+    if (v.model.trim().isNotEmpty && v.model.trim().length >= 3) {
+      final bName = b.vehicleName.toUpperCase();
+      final vModel = v.model.trim().toUpperCase();
+      final vFull = v.fullName.toUpperCase();
+      if (bName.contains(vModel) || vModel.contains(bName) || bName.contains(vFull) || vFull.contains(bName)) {
+        if (isTbd || vReg.isEmpty) return true;
+      }
+    }
+    return false;
+  }
+
+  bool _isVehicleOnTripNow(VehicleModel v, List<BookingModel> bookings) {
+    return _getActiveBookingForVehicle(v, bookings) != null;
+  }
+
+  BookingModel? _getActiveBookingForVehicle(VehicleModel v, List<BookingModel> bookings) {
+    final now = DateTime.now();
+    for (final b in bookings) {
+      if (b.isCancelled || b.status.toLowerCase() == 'completed') continue;
+      if (!_doesBookingMatchVehicle(b, v)) continue;
+
+      final stat = b.status.toLowerCase().trim();
+      final pickupStat = b.pickupStatus?.toLowerCase().trim() ?? '';
+
+      final isExplicitActive = stat == 'active' ||
+          stat == 'in_trip' ||
+          stat == 'started' ||
+          stat == 'ongoing' ||
+          pickupStat == 'picked_up' ||
+          (b.startOdometer != null && b.startOdometer!.trim().isNotEmpty);
+      if (isExplicitActive) return b;
+
+      final isConfirmed = stat == 'confirmed' || stat == 'approved';
+      if (isConfirmed) {
+        if (!now.isBefore(b.pickupDate) && !now.isAfter(b.dropDate.add(const Duration(hours: 4)))) {
+          return b;
+        }
+      }
+    }
+    return null;
   }
 
   String _formatDateShort(DateTime d) {
@@ -436,81 +529,12 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
         child: Column(
           children: [
             if (availableRoles.length > 1)
-              Container(
-                color: context.themeBackground.withValues(alpha: 0.82),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: availableRoles.map((role) {
-                      final isSelected = _selectedRole == role;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 10),
-                        child: GestureDetector(
-                          onTap: () => setState(() => _selectedRole = role),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 180),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 18,
-                              vertical: 10,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? accentColor
-                                  : (context.isDarkMode
-                                        ? const Color(0x441A2333)
-                                        : const Color(0xE6FFFFFF)),
-                              borderRadius: BorderRadius.circular(24),
-                              border: Border.all(
-                                color: isSelected
-                                    ? accentColor.withValues(alpha: 0.8)
-                                    : (context.isDarkMode
-                                          ? Colors.white.withValues(alpha: 0.22)
-                                          : AppColors.lightBorder),
-                                width: isSelected ? 1.4 : 0.8,
-                              ),
-                              boxShadow: isSelected
-                                  ? [
-                                      BoxShadow(
-                                        color: accentColor.withValues(
-                                          alpha: 0.45,
-                                        ),
-                                        blurRadius: 12,
-                                        offset: const Offset(0, 3),
-                                      ),
-                                    ]
-                                  : [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.2,
-                                        ),
-                                        blurRadius: 6,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                            ),
-                            child: Text(
-                              role,
-                              style: TextStyle(
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 0.6,
-                                color: isSelected
-                                    ? Colors.white
-                                    : (context.isDarkMode
-                                          ? Colors.white.withValues(alpha: 0.88)
-                                          : AppColors.lightTextPrimary),
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
+              _buildRoleSelectorBar(
+                context: context,
+                availableRoles: availableRoles,
+                selectedRole: _selectedRole,
+                accentColor: accentColor,
+                onRoleSelected: (role) => setState(() => _selectedRole = role),
               ),
 
             Divider(height: 1, color: context.themeBorder),
@@ -582,6 +606,130 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     );
   }
 
+  Widget _buildRoleSelectorBar({
+    required BuildContext context,
+    required List<String> availableRoles,
+    required String selectedRole,
+    required Color accentColor,
+    required ValueChanged<String> onRoleSelected,
+  }) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isTablet = screenWidth >= 600;
+
+    return Container(
+      color: context.themeBackground.withValues(alpha: 0.88),
+      padding: EdgeInsets.symmetric(
+        horizontal: isTablet ? 24 : 16,
+        vertical: isTablet ? 12 : 8,
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1200),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Container(
+              padding: isTablet ? const EdgeInsets.all(4) : EdgeInsets.zero,
+              decoration: isTablet
+                  ? BoxDecoration(
+                      color: context.isDarkMode
+                          ? const Color(0xFF0F172A)
+                          : const Color(0xFFE2E8F0),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: context.isDarkMode
+                            ? const Color(0xFF1E293B)
+                            : const Color(0xFFCBD5E1),
+                        width: 1,
+                      ),
+                    )
+                  : null,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: availableRoles.map((role) {
+                  final isSelected = selectedRole == role;
+                  final IconData roleIcon = switch (role) {
+                    'ADMIN' => Icons.admin_panel_settings_rounded,
+                    'MANAGER PANEL' => Icons.insights_rounded,
+                    'EXECUTIVE' => Icons.badge_rounded,
+                    'ACCOUNTS' => Icons.account_balance_wallet_rounded,
+                    _ => Icons.dashboard_customize_rounded,
+                  };
+
+                  return Padding(
+                    padding: EdgeInsets.only(right: isTablet ? 6 : 8),
+                    child: GestureDetector(
+                      onTap: () => onRoleSelected(role),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isTablet ? 20 : 16,
+                          vertical: isTablet ? 10 : 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? accentColor
+                              : (context.isDarkMode
+                                  ? (isTablet ? Colors.transparent : const Color(0x441A2333))
+                                  : (isTablet ? Colors.transparent : const Color(0xE6FFFFFF))),
+                          borderRadius: BorderRadius.circular(isTablet ? 14 : 24),
+                          border: isSelected
+                              ? Border.all(color: accentColor.withValues(alpha: 0.8), width: 1.4)
+                              : (isTablet
+                                  ? null
+                                  : Border.all(
+                                      color: context.isDarkMode
+                                          ? Colors.white.withValues(alpha: 0.22)
+                                          : AppColors.lightBorder,
+                                      width: 0.8,
+                                    )),
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                    color: accentColor.withValues(alpha: 0.4),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              roleIcon,
+                              size: isTablet ? 17 : 15,
+                              color: isSelected
+                                  ? Colors.white
+                                  : (context.isDarkMode ? Colors.white70 : AppColors.lightTextSecondary),
+                            ),
+                            const SizedBox(width: 7),
+                            Text(
+                              role,
+                              style: TextStyle(
+                                fontSize: isTablet ? 13.5 : 12.5,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.6,
+                                color: isSelected
+                                    ? Colors.white
+                                    : (context.isDarkMode
+                                        ? Colors.white.withValues(alpha: 0.88)
+                                        : AppColors.lightTextPrimary),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildStickySubNavBar({
     required BuildContext context,
     required Color accentColor,
@@ -589,51 +737,48 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     required int fleetCount,
     required int bookingsCount,
   }) {
-    final List<({String label, int index, String? badge})> tabs;
+    final List<({String label, int index, String? badge, IconData icon})> tabs;
     final int currentTab;
     final ValueChanged<int> onTabSelected;
 
     switch (_selectedRole) {
       case 'ADMIN':
         tabs = [
-          (label: 'All Bookings', index: 0, badge: stats.totalBookings > 0 ? '${stats.totalBookings}' : null),
-          (label: 'Booking Calendar', index: 1, badge: null),
-          (label: 'User Accounts & Verification', index: 2, badge: stats.pendingDocs > 0 ? '${stats.pendingDocs}' : null),
-          (label: 'Users & Customers Analytics', index: 3, badge: null),
-          (label: 'Bookings & Reservations Analytics', index: 4, badge: null),
-          (label: 'Vehicle Acquisition', index: 5, badge: null),
-          (label: 'Fleet Management', index: 6, badge: fleetCount > 0 ? '$fleetCount' : null),
-          (label: 'Coupons', index: 7, badge: null),
+          (label: 'All Bookings', index: 0, badge: stats.totalBookings > 0 ? '${stats.totalBookings}' : null, icon: Icons.receipt_long_rounded),
+          (label: 'Booking Calendar', index: 1, badge: null, icon: Icons.calendar_month_rounded),
+          (label: 'User Accounts & Verification', index: 2, badge: stats.pendingDocs > 0 ? '${stats.pendingDocs}' : null, icon: Icons.verified_user_rounded),
+          (label: 'Users & Customers Analytics', index: 3, badge: null, icon: Icons.people_alt_rounded),
+          (label: 'Bookings & Reservations Analytics', index: 4, badge: null, icon: Icons.insights_rounded),
+          (label: 'Vehicle Acquisition', index: 5, badge: null, icon: Icons.add_circle_outline_rounded),
+          (label: 'Fleet Management', index: 6, badge: fleetCount > 0 ? '$fleetCount' : null, icon: Icons.directions_car_filled_rounded),
+          (label: 'Coupons', index: 7, badge: null, icon: Icons.local_offer_rounded),
         ];
         currentTab = _adminSubTab;
         onTabSelected = (idx) => setState(() => _adminSubTab = idx);
         break;
       case 'MANAGER PANEL':
         tabs = [
-          (label: 'Revenue & Sales', index: 0, badge: null),
-          (label: 'Fleet Performance', index: 1, badge: fleetCount > 0 ? '$fleetCount Fleets' : null),
-          (label: 'Bookings Analytics', index: 2, badge: bookingsCount > 0 ? '$bookingsCount' : null),
-          (label: 'Operations & Reconciliation', index: 3, badge: null),
+          (label: 'Revenue & Sales', index: 0, badge: null, icon: Icons.trending_up_rounded),
+          (label: 'Fleet Performance', index: 1, badge: fleetCount > 0 ? '$fleetCount Fleets' : null, icon: Icons.speed_rounded),
+          (label: 'Bookings Analytics', index: 2, badge: bookingsCount > 0 ? '$bookingsCount' : null, icon: Icons.bar_chart_rounded),
+          (label: 'Operations & Reconciliation', index: 3, badge: null, icon: Icons.account_balance_wallet_rounded),
         ];
         currentTab = _mgrSubTab;
         onTabSelected = (idx) => setState(() => _mgrSubTab = idx);
         break;
       case 'EXECUTIVE':
         tabs = [
-          (label: 'Operations & Bookings', index: 0, badge: null),
-          (label: 'Booking Calendar', index: 1, badge: null),
-          (label: 'Customer ID Verification', index: 2, badge: stats.pendingDocs > 0 ? '${stats.pendingDocs}' : null),
-          (label: 'Fleet Preview', index: 3, badge: null),
-          (label: 'Coupon Preview', index: 4, badge: null),
+          (label: 'Operations & Bookings', index: 0, badge: null, icon: Icons.assignment_rounded),
+          (label: 'Booking Calendar', index: 1, badge: null, icon: Icons.event_note_rounded),
+          (label: 'Customer ID Verification', index: 2, badge: stats.pendingDocs > 0 ? '${stats.pendingDocs}' : null, icon: Icons.badge_rounded),
+          (label: 'Fleet Preview', index: 3, badge: null, icon: Icons.directions_car_rounded),
+          (label: 'Coupon Preview', index: 4, badge: null, icon: Icons.discount_rounded),
         ];
         currentTab = _execSubTab;
         onTabSelected = (idx) => setState(() => _execSubTab = idx);
         break;
       case 'ACCOUNTS':
-        tabs = [
-          (label: 'Payment Queue', index: 0, badge: stats.pendingPayments > 0 ? '${stats.pendingPayments}' : null),
-          (label: 'Invoices & Reports', index: 1, badge: null),
-        ];
+        tabs = [];
         currentTab = 0;
         onTabSelected = (_) {};
         break;
@@ -646,49 +791,110 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
 
     if (tabs.isEmpty) return const SizedBox.shrink();
 
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isTablet = screenWidth >= 600;
+
     return Container(
-      color: context.themeBackground.withValues(alpha: 0.92),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        child: Row(
-          children: tabs.map((t) {
-            final isSelected = currentTab == t.index;
-            final labelText = t.badge != null ? '${t.label} (${t.badge})' : t.label;
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: GestureDetector(
-                onTap: () => onTabSelected(t.index),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? accentColor.withValues(alpha: 0.18)
-                        : (context.isDarkMode ? const Color(0x331E293B) : const Color(0xFFF1F5F9)),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: isSelected
-                          ? accentColor
-                          : (context.isDarkMode ? Colors.white12 : AppColors.lightBorder),
-                      width: isSelected ? 1.4 : 0.8,
+      color: context.themeBackground.withValues(alpha: 0.95),
+      padding: EdgeInsets.symmetric(
+        horizontal: isTablet ? 24 : 14,
+        vertical: isTablet ? 10 : 8,
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1200),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: tabs.map((t) {
+                final isSelected = currentTab == t.index;
+                return Padding(
+                  padding: EdgeInsets.only(right: isTablet ? 10 : 8),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(isTablet ? 12 : 16),
+                    onTap: () => onTabSelected(t.index),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isTablet ? 16 : 12,
+                        vertical: isTablet ? 9 : 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? accentColor.withValues(alpha: 0.18)
+                            : (context.isDarkMode
+                                ? const Color(0x331E293B)
+                                : const Color(0xFFF1F5F9)),
+                        borderRadius: BorderRadius.circular(isTablet ? 12 : 16),
+                        border: Border.all(
+                          color: isSelected
+                              ? accentColor
+                              : (context.isDarkMode
+                                  ? Colors.white12
+                                  : AppColors.lightBorder),
+                          width: isSelected ? 1.5 : 0.8,
+                        ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: accentColor.withValues(alpha: 0.25),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            t.icon,
+                            size: isTablet ? 17 : 15,
+                            color: isSelected
+                                ? accentColor
+                                : (context.isDarkMode ? Colors.white60 : AppColors.lightTextSecondary),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            t.label,
+                            style: TextStyle(
+                              fontSize: isTablet ? 13 : 11.5,
+                              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                              letterSpacing: 0.2,
+                              color: isSelected
+                                  ? (context.isDarkMode ? Colors.white : accentColor)
+                                  : (context.isDarkMode ? Colors.white70 : AppColors.lightTextSecondary),
+                            ),
+                          ),
+                          if (t.badge != null) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? accentColor
+                                    : (context.isDarkMode ? const Color(0xFF1E293B) : const Color(0xFFCBD5E1)),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                t.badge!,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  color: isSelected ? Colors.white : (context.isDarkMode ? Colors.white70 : Colors.black87),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   ),
-                  child: Text(
-                    labelText,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                      color: isSelected
-                          ? accentColor
-                          : (context.isDarkMode ? Colors.white70 : AppColors.lightTextSecondary),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
+                );
+              }).toList(),
+            ),
+          ),
         ),
       ),
     );
@@ -2737,41 +2943,75 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
         .where((b) => !b.isCancelled)
         .toList();
 
+    final dynamicPeriodRevenue = nonCancelledBookings.fold<double>(
+      0.0,
+      (sum, b) => sum + _getBookingRentalRevenue(b),
+    );
+
     double periodRevenue;
     if (_selectedHub == 'all') {
       if (_mgrPeriod == 'All Time') {
-        periodRevenue = stats.totalRevenue > 0
+        periodRevenue = stats.totalRevenue > dynamicPeriodRevenue
             ? stats.totalRevenue
-            : nonCancelledBookings.fold(0.0, (sum, b) => sum + b.finalAmount);
+            : dynamicPeriodRevenue;
       } else if (_mgrPeriod == 'This Month') {
-        periodRevenue = stats.monthRevenue > 0
+        periodRevenue = stats.monthRevenue > dynamicPeriodRevenue
             ? stats.monthRevenue
-            : nonCancelledBookings.fold(0.0, (sum, b) => sum + b.finalAmount);
+            : dynamicPeriodRevenue;
       } else if (_mgrPeriod == 'Last Month') {
         periodRevenue = stats.lastMonthRevenue > 0
             ? stats.lastMonthRevenue
-            : nonCancelledBookings.fold(0.0, (sum, b) => sum + b.finalAmount);
+            : dynamicPeriodRevenue;
       } else {
-        periodRevenue = nonCancelledBookings.fold(
-          0.0,
-          (sum, b) => sum + b.finalAmount,
-        );
+        periodRevenue = dynamicPeriodRevenue;
       }
     } else {
       // Direct hub-filtered dynamic calculation from bookings
-      periodRevenue = nonCancelledBookings.fold(
+      periodRevenue = dynamicPeriodRevenue;
+    }
+
+    // Vehicle statistics computed dynamically per vehicle
+    final Map<String, ({int bookingsCount, int bookedDays, double revenue, bool isOnTrip})> vehicleStats = {};
+    for (final v in activeFleet) {
+      final matchingPeriodBookings = nonCancelledBookings
+          .where((b) => _doesBookingMatchVehicle(b, v))
+          .toList();
+      final bookingsCount = matchingPeriodBookings.length;
+      final bookedDays = matchingPeriodBookings.fold<int>(
+        0,
+        (sum, b) => sum + (b.dropDate.difference(b.pickupDate).inDays.clamp(1, 365)),
+      );
+      final revenue = matchingPeriodBookings.fold<double>(
         0.0,
-        (sum, b) => sum + b.finalAmount,
+        (sum, b) => sum + _getBookingRentalRevenue(b),
+      );
+      final isOnTrip = _isVehicleOnTripNow(v, allBookings);
+      vehicleStats[v.regNo] = (
+        bookingsCount: bookingsCount,
+        bookedDays: bookedDays,
+        revenue: revenue,
+        isOnTrip: isOnTrip,
       );
     }
 
+    VehicleModel? topVehicle;
+    double topRevenue = -1;
+    for (final v in activeFleet) {
+      final s = vehicleStats[v.regNo];
+      if (s != null && s.revenue > topRevenue) {
+        topRevenue = s.revenue;
+        topVehicle = v;
+      }
+    }
+
+    final hubOnTrip = activeFleet.where((v) => vehicleStats[v.regNo]?.isOnTrip ?? false).length;
     final periodActiveTrips =
         _selectedHub == 'all' &&
             (_mgrPeriod == 'All Time' || _mgrPeriod == 'This Month')
         ? (stats.activeTrips > 0
               ? stats.activeTrips
-              : periodBookings.where((b) => b.status == 'active').length)
-        : periodBookings.where((b) => b.status == 'active').length;
+              : hubOnTrip)
+        : hubOnTrip;
 
     final periodCompletedTrips =
         _selectedHub == 'all' &&
@@ -2786,7 +3026,6 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
         ? (periodRevenue / periodTotalBookings)
         : 0.0;
     final hubTotalFleet = activeFleet.length;
-    final hubOnTrip = activeFleet.where((v) => !v.isAvailable).length;
     final hubUtilization = hubTotalFleet > 0
         ? ((hubOnTrip / hubTotalFleet) * 100).round()
         : stats.fleetUtilization;
@@ -3217,7 +3456,11 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                         ),
                       ),
                       Text(
-                        'Based on fleet booking data',
+                        topVehicle != null && topRevenue > 0
+                            ? '${topVehicle.fullName} (${topVehicle.regNo}) • ${_formatINR(topRevenue)}'
+                            : (activeFleet.isNotEmpty
+                                ? '${activeFleet.first.fullName} (${activeFleet.first.regNo}) • ${_formatINR(activeFleet.first.priceDay)}/day'
+                                : 'No Fleet Data'),
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
@@ -3232,46 +3475,52 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           ),
           const SizedBox(height: 12),
 
-          GridView.count(
-            crossAxisCount: _kpiCrossAxisCount,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-            childAspectRatio: _kpiChildAspectRatio,
-            children: [
-              _buildKpiCard(
-                'TOTAL FLEET REVENUE',
-                _formatINRShort(stats.totalRevenue),
-                const Color(0xFF06D6A0),
-              ),
-              _buildKpiCard(
-                'TOTAL BOOKINGS',
-                '${stats.totalBookings}',
-                context.themeTextPrimary,
-              ),
-              _buildKpiCard(
-                'TOTAL BOOKING DAYS',
-                '${stats.totalBookings > 0 ? stats.totalBookings * 3 : 0} Days',
-                const Color(0xFFFFB703),
-              ),
-              _buildKpiCard(
-                'AVERAGE / BOOKING',
-                _formatINRShort(stats.avgBooking),
-                accentColor,
-              ),
-            ],
+          Builder(
+            builder: (context) {
+              final totalFleetRevenue = vehicleStats.values.fold<double>(0.0, (sum, s) => sum + s.revenue);
+              final totalFleetDays = vehicleStats.values.fold<int>(0, (sum, s) => sum + s.bookedDays);
+              final totalFleetBookings = vehicleStats.values.fold<int>(0, (sum, s) => sum + s.bookingsCount);
+
+              return GridView.count(
+                crossAxisCount: _kpiCrossAxisCount,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                childAspectRatio: _kpiChildAspectRatio,
+                children: [
+                  _buildKpiCard(
+                    'TOTAL FLEET REVENUE',
+                    _formatINRShort(totalFleetRevenue > 0 ? totalFleetRevenue : periodRevenue),
+                    const Color(0xFF06D6A0),
+                  ),
+                  _buildKpiCard(
+                    'TOTAL BOOKINGS',
+                    '${totalFleetBookings > 0 ? totalFleetBookings : periodTotalBookings}',
+                    context.themeTextPrimary,
+                  ),
+                  _buildKpiCard(
+                    'TOTAL BOOKING DAYS',
+                    '${totalFleetDays > 0 ? totalFleetDays : periodBookings.fold<int>(0, (sum, b) => sum + (b.dropDate.difference(b.pickupDate).inDays.clamp(1, 365)))} Days',
+                    const Color(0xFFFFB703),
+                  ),
+                  _buildKpiCard(
+                    'AVERAGE / BOOKING',
+                    _formatINRShort(totalFleetBookings > 0 ? (totalFleetRevenue / totalFleetBookings) : periodAvgBooking),
+                    accentColor,
+                  ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 14),
 
           Builder(
             builder: (context) {
               final onTripCount = activeFleet
-                  .where((v) => !v.isAvailable)
+                  .where((v) => (vehicleStats[v.regNo]?.isOnTrip ?? false))
                   .length;
-              final inYardCount = activeFleet
-                  .where((v) => v.isAvailable)
-                  .length;
+              final inYardCount = activeFleet.length - onTripCount;
               return SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
@@ -3315,19 +3564,22 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 else
                   ...activeFleet
                       .where((v) {
-                        if (_mgrFleetFilter == 'on_trip') return !v.isAvailable;
-                        if (_mgrFleetFilter == 'yard') return v.isAvailable;
+                        final stat = vehicleStats[v.regNo] ?? (bookingsCount: 0, bookedDays: 0, revenue: 0.0, isOnTrip: false);
+                        if (_mgrFleetFilter == 'on_trip') return stat.isOnTrip;
+                        if (_mgrFleetFilter == 'yard') return !stat.isOnTrip;
                         return true;
                       })
                       .map((v) {
-                        final status = v.isAvailable ? 'In Yard' : 'On Trip';
-                        final rate = _formatINR(v.priceDay);
+                        final stat = vehicleStats[v.regNo] ?? (bookingsCount: 0, bookedDays: 0, revenue: 0.0, isOnTrip: false);
+                        final status = stat.isOnTrip ? 'On Trip' : 'In Yard';
+                        final daysStr = '${stat.bookedDays} days';
+                        final revStr = _formatINR(stat.revenue);
                         return _buildTableRow([
                           v.fullName,
                           v.regNo,
                           status,
-                          '${v.seats} seats',
-                          rate,
+                          daysStr,
+                          revStr,
                         ]);
                       }),
               ],
@@ -3413,35 +3665,43 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
         ],
 
         if (_mgrSubTab == 3) ...[
-          GridView.count(
-            crossAxisCount: _kpiCrossAxisCount,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-            childAspectRatio: _kpiChildAspectRatio,
-            children: [
-              _buildKpiCard(
-                'ACTIVE FLEETS',
-                '${activeFleet.length}',
-                const Color(0xFF06D6A0),
-              ),
-              _buildKpiCard(
-                'PARKED IN YARD',
-                '${stats.availableInYard}',
-                context.themeTextPrimary,
-              ),
-              _buildKpiCard(
-                'CURRENTLY ON TRIP',
-                '${stats.activeTrips}',
-                accentColor,
-              ),
-              _buildKpiCard(
-                'AVERAGE OCCUPANCY',
-                '${stats.fleetUtilization}%',
-                const Color(0xFF06D6A0),
-              ),
-            ],
+          Builder(
+            builder: (context) {
+              final opsOnTrip = activeFleet.where((v) => (vehicleStats[v.regNo]?.isOnTrip ?? false)).length;
+              final opsYard = activeFleet.length - opsOnTrip;
+              final opsOccupancy = activeFleet.isNotEmpty ? ((opsOnTrip / activeFleet.length) * 100).round() : stats.fleetUtilization;
+
+              return GridView.count(
+                crossAxisCount: _kpiCrossAxisCount,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                childAspectRatio: _kpiChildAspectRatio,
+                children: [
+                  _buildKpiCard(
+                    'ACTIVE FLEETS',
+                    '${activeFleet.length}',
+                    const Color(0xFF06D6A0),
+                  ),
+                  _buildKpiCard(
+                    'PARKED IN YARD',
+                    '$opsYard',
+                    context.themeTextPrimary,
+                  ),
+                  _buildKpiCard(
+                    'CURRENTLY ON TRIP',
+                    '$opsOnTrip',
+                    accentColor,
+                  ),
+                  _buildKpiCard(
+                    'AVERAGE OCCUPANCY',
+                    '$opsOccupancy%',
+                    const Color(0xFF06D6A0),
+                  ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 16),
 
@@ -3473,16 +3733,21 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               separatorBuilder: (context, index) => const SizedBox(height: 10),
               itemBuilder: (context, idx) {
                 final v = activeFleet[idx];
-                final isOnTrip = !v.isAvailable;
+                final stat = vehicleStats[v.regNo] ?? (bookingsCount: 0, bookedDays: 0, revenue: 0.0, isOnTrip: false);
+                final isOnTrip = stat.isOnTrip;
                 final specs = '${v.transmission} • ${v.fuel}';
+                final periodDaysCount = mgrRange != null
+                    ? mgrRange.end.difference(mgrRange.start).inDays.clamp(1, 365)
+                    : 30;
+                final utilization = (stat.bookedDays / periodDaysCount).clamp(0.0, 1.0);
                 return _buildFleetUtilizationCard(
                   v.fullName,
                   v.regNo,
-                  v.location,
+                  v.ownerName ?? v.location,
                   specs,
-                  isOnTrip ? 1.0 : 0.0,
-                  '${v.seats} Seats',
-                  _formatINR(v.priceDay),
+                  utilization,
+                  '${stat.bookingsCount} (${stat.bookedDays}d)',
+                  _formatINR(stat.revenue),
                   isOnTrip,
                 );
               },
@@ -3549,7 +3814,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                     ...vehicles.take(15).map((v) {
                       return _buildTableRow([
                         v.fullName,
-                        v.isAvailable ? 'In Yard' : 'On Trip',
+                        _isVehicleOnTripNow(v, allBookings) ? 'On Trip' : 'In Yard',
                         v.categoryDisplay,
                         '${v.seats} seats',
                         _formatINR(v.priceDay),
@@ -3903,6 +4168,14 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     AsyncValue<List<BookingModel>> bookingsAsync,
     Color accentColor,
   ) {
+    return _buildPaymentQueueView(stats, bookingsAsync, accentColor);
+  }
+
+  Widget _buildPaymentQueueView(
+    AdminStatsModel stats,
+    AsyncValue<List<BookingModel>> bookingsAsync,
+    Color accentColor,
+  ) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
@@ -4233,6 +4506,593 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // ignore: unused_element
+  Widget _buildInvoicesAndReportsView(
+    AdminStatsModel stats,
+    AsyncValue<List<BookingModel>> bookingsAsync,
+    Color accentColor,
+  ) {
+    return bookingsAsync.when(
+      loading: () => const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      ),
+      error: (e, _) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'Error loading invoices: $e',
+            style: const TextStyle(color: AppColors.error),
+          ),
+        ),
+      ),
+      data: (bookings) {
+        double totalInvoiced = 0.0;
+        double totalGst = 0.0;
+        double totalAdvance = 0.0;
+        double totalBalanceDue = 0.0;
+
+        for (final b in bookings) {
+          final amt = b.finalAmount > 0 ? b.finalAmount : b.totalAmount;
+          totalInvoiced += amt;
+          totalGst += (b.totalAmount * 0.18);
+          totalAdvance += b.advanceAmount;
+          totalBalanceDue += b.remainingBalance;
+        }
+
+        final q = _invoiceSearchQuery.toLowerCase().trim();
+        final filteredList = bookings.where((b) {
+          if (_invoiceStatusFilter == 'paid') {
+            final isPaid = b.paymentStatus.toLowerCase() == 'paid' ||
+                b.status.toLowerCase() == 'completed' ||
+                b.remainingBalance <= 0;
+            if (!isPaid) return false;
+          } else if (_invoiceStatusFilter == 'advance') {
+            final isAdv = b.advanceAmount > 0 && b.remainingBalance > 0;
+            if (!isAdv) return false;
+          } else if (_invoiceStatusFilter == 'pending_verification') {
+            if (!b.isPendingVerification) return false;
+          } else if (_invoiceStatusFilter == 'balance_due') {
+            if (b.remainingBalance <= 0) return false;
+          }
+
+          if (q.isNotEmpty) {
+            final matchId = b.bookingId.toLowerCase().contains(q);
+            final matchNum = b.bookingNumber.toLowerCase().contains(q);
+            final matchInv = b.invoiceNumber.toLowerCase().contains(q);
+            final matchUser = b.userName.toLowerCase().contains(q);
+            final matchEmail = b.userEmail.toLowerCase().contains(q);
+            final matchCar = b.vehicleName.toLowerCase().contains(q);
+            final matchReg = b.vehicleReg.toLowerCase().contains(q);
+            return matchId ||
+                matchNum ||
+                matchInv ||
+                matchUser ||
+                matchEmail ||
+                matchCar ||
+                matchReg;
+          }
+
+          return true;
+        }).toList();
+
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Invoices & Financial Reports',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          color: context.themeTextPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Tax invoices, GST @18% audit, token advance reconciliation & official PDF downloads.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: context.themeTextSecondary,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                CustomButton(
+                  text: 'Refresh',
+                  isOutlined: true,
+                  height: 38,
+                  width: 90,
+                  onPressed: () {
+                    ref.read(adminBookingsProvider.notifier).fetchBookings();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Financial records and invoices refreshed.'),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            LayoutBuilder(
+              builder: (ctx, constraints) {
+                final isWide = constraints.maxWidth >= 600;
+                final cards = [
+                  _buildFinancialKpiCard(
+                    title: 'TOTAL INVOICED',
+                    value: _formatINR(totalInvoiced),
+                    icon: Icons.account_balance_rounded,
+                    color: const Color(0xFF06D6A0),
+                  ),
+                  _buildFinancialKpiCard(
+                    title: 'GST @ 18% COLLECTED',
+                    value: _formatINR(totalGst),
+                    icon: Icons.pie_chart_rounded,
+                    color: const Color(0xFF4FD7FF),
+                  ),
+                  _buildFinancialKpiCard(
+                    title: 'ADVANCE TOKENS PAID',
+                    value: _formatINR(totalAdvance),
+                    icon: Icons.paid_rounded,
+                    color: const Color(0xFFFFB703),
+                  ),
+                  _buildFinancialKpiCard(
+                    title: 'REMAINING BALANCE DUE',
+                    value: _formatINR(totalBalanceDue),
+                    icon: Icons.pending_actions_rounded,
+                    color: const Color(0xFFFF5C77),
+                  ),
+                ];
+
+                if (isWide) {
+                  return Row(
+                    children: cards
+                        .map((c) => Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                child: c,
+                              ),
+                            ))
+                        .toList(),
+                  );
+                }
+
+                return Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: cards[0]),
+                        const SizedBox(width: 8),
+                        Expanded(child: cards[1]),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(child: cards[2]),
+                        const SizedBox(width: 8),
+                        Expanded(child: cards[3]),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+
+            GlassCard(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    style: TextStyle(
+                      color: context.themeTextPrimary,
+                      fontSize: 13,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Search by Invoice #, Booking Ref, Customer, Car...',
+                      prefixIcon: const Icon(Icons.search, size: 18),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      filled: true,
+                      fillColor: context.themeSurfaceElevated,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: context.themeBorder),
+                      ),
+                    ),
+                    onChanged: (val) => setState(() => _invoiceSearchQuery = val),
+                  ),
+                  const SizedBox(height: 10),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildInvoiceFilterChip('All Invoices', 'all'),
+                        const SizedBox(width: 6),
+                        _buildInvoiceFilterChip('Paid in Full', 'paid'),
+                        const SizedBox(width: 6),
+                        _buildInvoiceFilterChip('Advance Paid', 'advance'),
+                        const SizedBox(width: 6),
+                        _buildInvoiceFilterChip('Pending Audit', 'pending_verification'),
+                        const SizedBox(width: 6),
+                        _buildInvoiceFilterChip('Balance Due', 'balance_due'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '${filteredList.length} Invoices Found',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: context.themeTextSecondary,
+                  ),
+                ),
+                Text(
+                  'Rule: Mandatory 24h & ₹500 Token Active',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: accentColor,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            if (filteredList.isEmpty)
+              GlassCard(
+                padding: const EdgeInsets.all(28),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(Icons.search_off_rounded,
+                          size: 40, color: context.themeTextMuted),
+                      const SizedBox(height: 8),
+                      Text(
+                        'No invoices match the selected filter.',
+                        style: TextStyle(
+                          color: context.themeTextSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              ...filteredList.map((b) => _buildInvoiceCard(b, accentColor)),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildInvoiceFilterChip(String label, String value) {
+    final isSelected = _invoiceStatusFilter == value;
+    return GestureDetector(
+      onTap: () => setState(() => _invoiceStatusFilter = value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.primary
+              : (context.isDarkMode
+                  ? const Color(0xFF1E293B)
+                  : const Color(0xFFE2E8F0)),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+            color: isSelected ? Colors.white : context.themeTextSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFinancialKpiCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    return GlassCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w800,
+                    color: context.themeTextMuted,
+                    letterSpacing: 0.4,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Icon(icon, size: 16, color: color),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInvoiceCard(BookingModel b, Color accentColor) {
+    final isPaid = b.paymentStatus.toLowerCase() == 'paid' ||
+        b.status.toLowerCase() == 'completed' ||
+        (b.remainingBalance <= 0 && b.advanceAmount > 0);
+    final isPendingVerification = b.isPendingVerification;
+    final isAdvance = b.advanceAmount > 0 && b.remainingBalance > 0;
+
+    final Color statusColor = isPaid
+        ? const Color(0xFF06D6A0)
+        : (isPendingVerification
+            ? const Color(0xFFFF5C77)
+            : (isAdvance ? const Color(0xFFFFB703) : const Color(0xFF4FD7FF)));
+
+    final String statusText = isPaid
+        ? 'PAID IN FULL'
+        : (isPendingVerification
+            ? 'PENDING AUDIT'
+            : (isAdvance ? 'ADVANCE PAID' : b.paymentStatus.toUpperCase()));
+
+    final invoiceNum =
+        b.invoiceNumber.isNotEmpty ? b.invoiceNumber : 'KZ-INV-2026-${b.id}';
+    final totalAmount = b.finalAmount > 0 ? b.finalAmount : b.totalAmount;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GlassCard(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    invoiceNum,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: accentColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '#${b.bookingNumber.isNotEmpty ? b.bookingNumber : b.bookingId}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: context.themeTextSecondary,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                        color: statusColor.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    statusText,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: statusColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        b.userName,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: context.themeTextPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        b.userEmail,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: context.themeTextSecondary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (b.userPhone != null && b.userPhone!.isNotEmpty)
+                        Text(
+                          b.userPhone!,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: context.themeTextMuted,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        b.vehicleName,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: context.themeTextPrimary,
+                        ),
+                        textAlign: TextAlign.end,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        b.vehicleReg,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: accentColor,
+                        ),
+                      ),
+                      Text(
+                        '${b.days} Days • ${_formatDateShort(b.pickupDate)}',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          color: context.themeTextSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 18),
+
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: context.themeSurfaceElevated.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                    color: context.themeBorder.withValues(alpha: 0.4)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildInvoiceAmountColumn('BASE / RENT',
+                      _formatINR(b.baseAmount > 0 ? b.baseAmount : totalAmount)),
+                  _buildInvoiceAmountColumn('ADVANCE',
+                      _formatINR(b.advanceAmount),
+                      color: const Color(0xFFFFB703)),
+                  _buildInvoiceAmountColumn('BALANCE DUE',
+                      _formatINR(b.remainingBalance),
+                      color: b.remainingBalance > 0
+                          ? const Color(0xFFFF5C77)
+                          : const Color(0xFF06D6A0)),
+                  _buildInvoiceAmountColumn('TOTAL', _formatINR(totalAmount),
+                      isBold: true, color: const Color(0xFF06D6A0)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            Row(
+              children: [
+                Expanded(
+                  child: CustomButton(
+                    text: 'View Tax Invoice',
+                    isOutlined: true,
+                    height: 36,
+                    onPressed: () => _showInvoiceManageModal(b),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: CustomButton(
+                    text: 'Full Screen View',
+                    height: 36,
+                    onPressed: () => context.push('/invoice/${b.bookingId}'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInvoiceAmountColumn(String label, String value,
+      {Color? color, bool isBold = false}) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w800,
+            color: context.themeTextMuted,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: isBold ? 13 : 11.5,
+            fontWeight: isBold ? FontWeight.w900 : FontWeight.w700,
+            color: color ?? context.themeTextPrimary,
+          ),
+        ),
+      ],
     );
   }
 
@@ -6618,6 +7478,57 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                         ),
                       ],
                     ),
+                    if (attachedPhotos.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        height: 72,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: attachedPhotos.length,
+                          separatorBuilder: (_, _) => const SizedBox(width: 8),
+                          itemBuilder: (context, idx) {
+                            final f = attachedPhotos[idx];
+                            return Stack(
+                              children: [
+                                GestureDetector(
+                                  onTap: () {
+                                    ImagePreviewDialog.show(
+                                      context,
+                                      file: f,
+                                      title: 'Handover Photo ${idx + 1}',
+                                    );
+                                  },
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.file(
+                                      f,
+                                      width: 72,
+                                      height: 72,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  top: 2,
+                                  right: 2,
+                                  child: GestureDetector(
+                                    onTap: () => setModalState(() => attachedPhotos.removeAt(idx)),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(2),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.black87,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.close, size: 12, color: Colors.white),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 14),
 
                     // Balance Collection
@@ -6701,6 +7612,19 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 text: 'Dispatch Vehicle & Start Trip',
                 height: 42,
                 onPressed: () async {
+                  if (attachedPhotos.isNotEmpty) {
+                    for (final p in attachedPhotos) {
+                      try {
+                        final fileName = p.path.split(Platform.pathSeparator).last;
+                        final formData = FormData.fromMap({
+                          'file': await MultipartFile.fromFile(p.path, filename: fileName),
+                          'category': 'inspection_photo',
+                          'relatedId': bId,
+                        });
+                        await ApiClient().uploadFile(ApiEndpoints.uploadMedia, formData: formData);
+                      } catch (_) {}
+                    }
+                  }
                   if (odoCtrl.text.isNotEmpty) {
                     await ref
                         .read(adminBookingsProvider.notifier)
@@ -6894,6 +7818,57 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                           ),
                         ],
                       ),
+                      if (returnPhotos.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          height: 72,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: returnPhotos.length,
+                            separatorBuilder: (_, _) => const SizedBox(width: 8),
+                            itemBuilder: (context, idx) {
+                              final f = returnPhotos[idx];
+                              return Stack(
+                                children: [
+                                  GestureDetector(
+                                    onTap: () {
+                                      ImagePreviewDialog.show(
+                                        context,
+                                        file: f,
+                                        title: 'Return Inspection Photo ${idx + 1}',
+                                      );
+                                    },
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.file(
+                                        f,
+                                        width: 72,
+                                        height: 72,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 2,
+                                    right: 2,
+                                    child: GestureDetector(
+                                      onTap: () => setModalState(() => returnPhotos.removeAt(idx)),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(2),
+                                        decoration: const BoxDecoration(
+                                          color: Colors.black87,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(Icons.close, size: 12, color: Colors.white),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 14),
 
                       // Deposit Settlement Calculator
@@ -7029,6 +8004,19 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                   text: 'Complete Trip & Settle Deposit',
                   height: 42,
                   onPressed: () async {
+                    if (returnPhotos.isNotEmpty) {
+                      for (final p in returnPhotos) {
+                        try {
+                          final fileName = p.path.split(Platform.pathSeparator).last;
+                          final formData = FormData.fromMap({
+                            'file': await MultipartFile.fromFile(p.path, filename: fileName),
+                            'category': 'inspection_photo',
+                            'relatedId': bId,
+                          });
+                          await ApiClient().uploadFile(ApiEndpoints.uploadMedia, formData: formData);
+                        } catch (_) {}
+                      }
+                    }
                     if (odoCtrl.text.isNotEmpty) {
                       await ref
                           .read(adminBookingsProvider.notifier)
@@ -7240,33 +8228,55 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               children: [
                 Expanded(
                   child: CustomButton(
-                    text: 'Download PDF',
+                    text: 'Full Screen View',
                     isOutlined: true,
                     height: 38,
                     onPressed: () {
                       Navigator.pop(ctx);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Downloading invoice $invoiceNo...'),
-                        ),
-                      );
+                      context.push('/invoice/${b.bookingId}');
                     },
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: CustomButton(
-                    text: 'Email Invoice',
+                    text: 'Download PDF',
                     height: 38,
-                    onPressed: () {
+                    onPressed: () async {
                       Navigator.pop(ctx);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text(
-                            'Invoice $invoiceNo emailed to ${b.userEmail}.',
-                          ),
+                          content: Text('Downloading invoice $invoiceNo...'),
+                          duration: const Duration(seconds: 2),
                         ),
                       );
+                      try {
+                        final file = await ref
+                            .read(invoiceRepositoryProvider)
+                            .downloadInvoicePdf(b.bookingId);
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Invoice saved: ${file.path.split("/").last}'),
+                            backgroundColor: const Color(0xFF06D6A0),
+                          ),
+                        );
+                      } catch (e) {
+                        final pdfUrl =
+                            '${AppConfig.apiBaseUrl}${ApiEndpoints.pdfInvoice}?bookingId=${b.bookingId}';
+                        final uri = Uri.parse(pdfUrl);
+                        if (await canLaunchUrl(uri)) {
+                          await launchUrl(uri,
+                              mode: LaunchMode.externalApplication);
+                        } else if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Failed to download invoice: $e'),
+                              backgroundColor: AppColors.error,
+                            ),
+                          );
+                        }
+                      }
                     },
                   ),
                 ),
@@ -8463,13 +9473,25 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   }
 
   String _buildFullMediaUrl(String rawUrl) {
-    final clean = rawUrl.trim();
+    var clean = rawUrl.trim();
     if (clean.isEmpty) return '';
-    if (clean.startsWith('http://') || clean.startsWith('https://')) {
+    if (clean.startsWith('http://')) {
+      clean = 'https://${clean.substring(7)}';
+    }
+    if (clean.startsWith('https://')) {
+      clean = clean.replaceFirst('https://Kruizly.com', 'https://kruizly.com');
       return clean;
     }
     if (clean.startsWith('MED-') || RegExp(r'^\d+$').hasMatch(clean)) {
       return '${AppConfig.mediaBaseUrl}/api/media/file.php?id=${Uri.encodeComponent(clean)}';
+    }
+    if (clean.startsWith('payment_proof/') || clean.startsWith('/payment_proof/')) {
+      final sub = clean.startsWith('/') ? clean.substring(1) : clean;
+      return '${AppConfig.mediaBaseUrl}/api/media/file.php?id=${Uri.encodeComponent(sub)}';
+    }
+    if (clean.startsWith('verification/') || clean.startsWith('/verification/')) {
+      final sub = clean.startsWith('/') ? clean.substring(1) : clean;
+      return '${AppConfig.mediaBaseUrl}/api/media/file.php?id=${Uri.encodeComponent(sub)}';
     }
     final path = clean.startsWith('/') ? clean : '/$clean';
     if (path.startsWith('/media/')) {
@@ -8632,12 +9654,17 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   }
 
   void _showFullScreenImage(String imageUrl, String title) {
-    final directUrl = imageUrl;
-    final altUrl = imageUrl.contains('/api/media/')
-        ? imageUrl.replaceAll('/api/media/', '/media/')
-        : (imageUrl.contains('/media/')
-              ? imageUrl.replaceAll('/media/', '/api/media/')
-              : imageUrl);
+    final directUrl = _buildFullMediaUrl(imageUrl);
+    final isPdf = directUrl.toLowerCase().endsWith('.pdf') ||
+        directUrl.toLowerCase().contains('.pdf?') ||
+        directUrl.toLowerCase().contains('ext=.pdf') ||
+        directUrl.toLowerCase().contains('/pdf');
+
+    final altUrl = directUrl.contains('/api/media/file.php?id=') &&
+            !directUrl.contains('id=payment_proof%2F') &&
+            !directUrl.contains('id=payment_proof/')
+        ? directUrl.replaceAll('/api/media/file.php?id=', '/api/media/file.php?id=payment_proof/')
+        : directUrl;
 
     showDialog(
       context: context,
@@ -8647,133 +9674,267 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
 
         return StatefulBuilder(
           builder: (context, setDialogState) => Dialog(
-            backgroundColor: Colors.black,
-            insetPadding: const EdgeInsets.all(8),
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: InteractiveViewer(
-                    minScale: 0.5,
-                    maxScale: 5.0,
-                    child: CachedNetworkImage(
-                      imageUrl: currentUrl,
-                      httpHeaders: _authHeaders,
-                      fit: BoxFit.contain,
-                      placeholder: (context, url) => const Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.primary,
-                        ),
+            backgroundColor: const Color(0xFF0D1527),
+            insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600, maxHeight: 720),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header Bar
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 14, 10, 14),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: isPdf
+                                  ? const Color(0xFFEF4444).withValues(alpha: 0.2)
+                                  : AppColors.primary.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              isPdf
+                                  ? Icons.picture_as_pdf_rounded
+                                  : Icons.photo_size_select_actual_outlined,
+                              color: isPdf
+                                  ? const Color(0xFFF87171)
+                                  : AppColors.primaryLight,
+                              size: 18,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 22),
+                            onPressed: () => Navigator.pop(ctx),
+                          ),
+                        ],
                       ),
-                      errorWidget: (context, url, error) {
-                        if (!hasTriedAlt && altUrl != directUrl) {
-                          hasTriedAlt = true;
-                          Future.microtask(
-                            () => setDialogState(() => currentUrl = altUrl),
-                          );
-                        }
-                        return Image.network(
-                          currentUrl,
-                          headers: _authHeaders,
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) => Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(
-                                  Icons.broken_image_outlined,
-                                  size: 48,
-                                  color: Colors.white54,
-                                ),
-                                const SizedBox(height: 8),
-                                const Text(
-                                  'Image unavailable in app preview',
-                                  style: TextStyle(color: Colors.white70),
-                                ),
-                                const SizedBox(height: 12),
-                                ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.primary,
+                    ),
+                    const Divider(height: 1, color: Color(0x1FFFFFFF)),
+
+                    // Content Area
+                    Flexible(
+                      child: Container(
+                        width: double.infinity,
+                        constraints: const BoxConstraints(minHeight: 260, maxHeight: 540),
+                        color: const Color(0xFF060B14),
+                        child: isPdf
+                            ? Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(24),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(18),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFEF4444).withValues(alpha: 0.15),
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: const Color(0xFFEF4444).withValues(alpha: 0.4),
+                                          ),
+                                        ),
+                                        child: const Icon(
+                                          Icons.picture_as_pdf_rounded,
+                                          size: 48,
+                                          color: Color(0xFFF87171),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      const Text(
+                                        'PDF Receipt Attached',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      const Text(
+                                        'Official payment document stored on server',
+                                        style: TextStyle(color: Colors.white54, fontSize: 12),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                      const SizedBox(height: 20),
+                                      ElevatedButton.icon(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFFEF4444),
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                        ),
+                                        icon: const Icon(Icons.open_in_browser_rounded, size: 16),
+                                        label: const Text(
+                                          'Open & View Receipt PDF',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                        onPressed: () async {
+                                          final uri = Uri.tryParse(currentUrl);
+                                          if (uri != null && await canLaunchUrl(uri)) {
+                                            await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                          }
+                                        },
+                                      ),
+                                    ],
                                   ),
-                                  icon: const Icon(
-                                    Icons.open_in_browser_rounded,
-                                    size: 16,
+                                ),
+                              )
+                            : InteractiveViewer(
+                                minScale: 0.8,
+                                maxScale: 5.0,
+                                child: CachedNetworkImage(
+                                  imageUrl: currentUrl,
+                                  httpHeaders: _authHeaders,
+                                  fit: BoxFit.contain,
+                                  placeholder: (context, url) => const Center(
+                                    child: CircularProgressIndicator(
+                                      color: AppColors.primary,
+                                      strokeWidth: 2,
+                                    ),
                                   ),
-                                  label: const Text('Open in Browser'),
-                                  onPressed: () async {
-                                    final uri = Uri.tryParse(currentUrl);
-                                    if (uri != null &&
-                                        await canLaunchUrl(uri)) {
-                                      await launchUrl(
-                                        uri,
-                                        mode: LaunchMode.externalApplication,
+                                  errorWidget: (context, url, error) {
+                                    if (!hasTriedAlt && altUrl != directUrl) {
+                                      hasTriedAlt = true;
+                                      Future.microtask(
+                                        () => setDialogState(() => currentUrl = altUrl),
                                       );
                                     }
+                                    return Image.network(
+                                      currentUrl,
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (context, error, stackTrace) => Center(
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(24),
+                                          child: Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              const Icon(
+                                                Icons.receipt_long_rounded,
+                                                size: 48,
+                                                color: Colors.white54,
+                                              ),
+                                              const SizedBox(height: 12),
+                                              const Text(
+                                                'Customer Payment Receipt Attached',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 15,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 6),
+                                              const Text(
+                                                'Receipt is verified and stored on Kruizly server.',
+                                                style: TextStyle(color: Colors.white54, fontSize: 12),
+                                                textAlign: TextAlign.center,
+                                              ),
+                                              const SizedBox(height: 16),
+                                              ElevatedButton.icon(
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: AppColors.primary,
+                                                  foregroundColor: Colors.white,
+                                                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius: BorderRadius.circular(10),
+                                                  ),
+                                                ),
+                                                icon: const Icon(
+                                                  Icons.open_in_browser_rounded,
+                                                  size: 16,
+                                                ),
+                                                label: const Text('Open Direct Receipt Link'),
+                                                onPressed: () async {
+                                                  final uri = Uri.tryParse(currentUrl);
+                                                  if (uri != null && await canLaunchUrl(uri)) {
+                                                    await launchUrl(
+                                                      uri,
+                                                      mode: LaunchMode.externalApplication,
+                                                    );
+                                                  }
+                                                },
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    );
                                   },
                                 ),
+                              ),
+                      ),
+                    ),
+
+                    // Bottom info bar
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      color: const Color(0xFF090E1A),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                isPdf ? Icons.info_outline : Icons.pinch_outlined,
+                                size: 14,
+                                color: Colors.white38,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                isPdf ? 'PDF format document' : 'Pinch to zoom • Drag to pan',
+                                style: const TextStyle(color: Colors.white38, fontSize: 11),
+                              ),
+                            ],
+                          ),
+                          GestureDetector(
+                            onTap: () async {
+                              final uri = Uri.tryParse(currentUrl);
+                              if (uri != null && await canLaunchUrl(uri)) {
+                                await launchUrl(uri, mode: LaunchMode.externalApplication);
+                              }
+                            },
+                            child: const Row(
+                              children: [
+                                Text(
+                                  'External View',
+                                  style: TextStyle(
+                                    color: AppColors.primaryLight,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                SizedBox(width: 4),
+                                Icon(Icons.open_in_new, size: 12, color: AppColors.primaryLight),
                               ],
                             ),
                           ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 8,
-                  left: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                        ],
                       ),
                     ),
-                  ),
+                  ],
                 ),
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.close_rounded,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
-                ),
-                Positioned(
-                  bottom: 12,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black54,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Text(
-                        'Pinch to zoom • Drag to pan',
-                        style: TextStyle(color: Colors.white70, fontSize: 11),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         );

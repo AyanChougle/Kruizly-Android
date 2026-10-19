@@ -100,12 +100,17 @@ class VehicleDetailScreen extends ConsumerWidget {
               }
               return Image.asset(AppAssets.carPlaceholder, fit: BoxFit.contain);
             }
+            final asset = candidates[index];
+            final isJpg = asset.toLowerCase().endsWith('.jpg');
             return Image.asset(
-              candidates[index],
-              fit: BoxFit.contain,
+              asset,
+              fit: isJpg ? BoxFit.cover : BoxFit.contain,
               errorBuilder: (_, _, _) => buildDetailImage(index + 1),
             );
           }
+
+          final isTopJpg = candidates.isNotEmpty &&
+              candidates.first.toLowerCase().endsWith('.jpg');
 
           return Column(
             children: [
@@ -118,11 +123,23 @@ class VehicleDetailScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(
-                        width: double.infinity,
-                        height: 220,
-                        child: Center(
-                          child: buildDetailImage(0),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          width: double.infinity,
+                          height: 220,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                          ),
+                          padding: isTopJpg
+                              ? EdgeInsets.zero
+                              : const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
+                                ),
+                          child: Center(
+                            child: buildDetailImage(0),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),

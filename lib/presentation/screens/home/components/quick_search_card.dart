@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../widgets/custom_button.dart';
 import '../../../widgets/glass_card.dart';
 
 class QuickSearchCard extends StatefulWidget {
@@ -17,17 +16,33 @@ class _QuickSearchCardState extends State<QuickSearchCard> {
   late DateTime _pickupDate;
   late DateTime _dropDate;
   String _selectedHub = 'all'; // 'all', 'ghansoli', 'kandivali'
+  int _driveMode = 0; // 0: Self-Drive, 1: Doorstep Delivery
 
   @override
   void initState() {
     super.initState();
-    _pickupDate = DateTime.now().add(const Duration(hours: 2));
-    _dropDate = DateTime.now().add(const Duration(hours: 26));
+    final now = DateTime.now();
+    _pickupDate = DateTime(now.year, now.month, now.day, now.hour + 2, 0);
+    _dropDate = _pickupDate.add(const Duration(hours: 24));
+  }
+
+  String get _durationText {
+    final diff = _dropDate.difference(_pickupDate);
+    final hours = diff.inHours;
+    if (hours < 24) return '24 Hours (Min. Rule)';
+    final days = (hours / 24).floor();
+    final remHours = hours % 24;
+    if (remHours == 0) {
+      return '$days Day${days > 1 ? 's' : ''} ($hours hrs)';
+    }
+    return '$days Day${days > 1 ? 's' : ''} $remHours hr${remHours > 1 ? 's' : ''}';
   }
 
   Future<void> _pickDateTime(bool isPickup) async {
     final initialDate = isPickup ? _pickupDate : _dropDate;
-    final firstDate = isPickup ? DateTime.now() : _pickupDate.add(const Duration(hours: 24));
+    final firstDate = isPickup
+        ? DateTime.now()
+        : _pickupDate.add(const Duration(hours: 24));
     final pickedDate = await showDatePicker(
       context: context,
       initialDate: initialDate.isBefore(firstDate) ? firstDate : initialDate,
@@ -93,68 +108,150 @@ class _QuickSearchCardState extends State<QuickSearchCard> {
 
   @override
   Widget build(BuildContext context) {
-    final dateFormat = DateFormat('EEE, dd MMM • hh:mm a');
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return GlassCard(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
+      borderRadius: 22,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Quick Reservation',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: isDark ? AppColors.textPrimary : AppColors.lightTextPrimary,
-            ),
+          // Drive mode selector
+          Row(
+            children: [
+              Expanded(
+                child: _buildDriveModeTab(
+                  index: 0,
+                  label: 'Self-Drive',
+                  subtitle: 'Total Freedom',
+                  icon: Icons.directions_car_filled_rounded,
+                  isDark: isDark,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildDriveModeTab(
+                  index: 1,
+                  label: 'Doorstep Drop',
+                  subtitle: 'Airport & Home',
+                  icon: Icons.hail_rounded,
+                  isDark: isDark,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 14),
+
+          // Date & Time Selectors Row
           Row(
             children: [
               Expanded(
                 child: _buildDateTile(
                   title: 'PICKUP',
-                  formattedDate: dateFormat.format(_pickupDate),
-                  icon: Icons.calendar_today_outlined,
+                  date: _pickupDate,
+                  icon: Icons.calendar_today_rounded,
                   isDark: isDark,
                   onTap: () => _pickDateTime(true),
                 ),
               ),
-              const SizedBox(width: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 14,
+                    color: AppColors.primaryLight,
+                  ),
+                ),
+              ),
               Expanded(
                 child: _buildDateTile(
-                  title: 'DROP-OFF',
-                  formattedDate: dateFormat.format(_dropDate),
-                  icon: Icons.event_available_outlined,
+                  title: 'RETURN',
+                  date: _dropDate,
+                  icon: Icons.event_available_rounded,
                   isDark: isDark,
                   onTap: () => _pickDateTime(false),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
+
+          // Duration summary pill
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: isDark ? AppColors.surfaceElevated : AppColors.lightSurfaceElevated,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: isDark ? AppColors.border : AppColors.lightBorder),
+              color: isDark
+                  ? const Color(0xFF0F172A)
+                  : const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFCBD5E1),
+              ),
             ),
             child: Row(
               children: [
-                const Icon(Icons.location_on_outlined, color: AppColors.primary, size: 20),
+                const Icon(
+                  Icons.timelapse_rounded,
+                  size: 14,
+                  color: AppColors.primaryLight,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Trip Duration: $_durationText',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white70 : const Color(0xFF334155),
+                  ),
+                ),
+                const Spacer(),
+                const Text(
+                  'Min. 24h Enforced',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF06D6A0),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Hub selector dropdown
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.surfaceElevated : AppColors.lightSurfaceElevated,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isDark ? AppColors.border : AppColors.lightBorder,
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.storefront_rounded,
+                  color: AppColors.primaryLight,
+                  size: 18,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
                       value: _selectedHub,
                       isExpanded: true,
-                      dropdownColor: isDark ? AppColors.surfaceElevated : Colors.white,
+                      dropdownColor: isDark ? const Color(0xFF0F172A) : Colors.white,
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 12.5,
                         color: isDark ? AppColors.textPrimary : AppColors.lightTextPrimary,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                       ),
                       icon: Icon(
                         Icons.keyboard_arrow_down_rounded,
@@ -163,11 +260,11 @@ class _QuickSearchCardState extends State<QuickSearchCard> {
                       items: const [
                         DropdownMenuItem(
                           value: 'all',
-                          child: Text('All Mumbai & Navi Mumbai Hubs'),
+                          child: Text('All Hubs (Mumbai, Navi Mumbai, Pune)'),
                         ),
                         DropdownMenuItem(
                           value: 'ghansoli',
-                          child: Text('Ghansoli Hub (Gavson Business Park)'),
+                          child: Text('Ghansoli Hub (Gavson Park, Navi Mumbai)'),
                         ),
                         DropdownMenuItem(
                           value: 'kandivali',
@@ -185,62 +282,174 @@ class _QuickSearchCardState extends State<QuickSearchCard> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          CustomButton(
-            text: 'Find Available Fleet',
-            icon: Icons.search_rounded,
-            height: 48,
-            onPressed: () => widget.onSearch(_pickupDate, _dropDate, _selectedHub),
+          const SizedBox(height: 14),
+
+          // Find Cars Button
+          GestureDetector(
+            onTap: () => widget.onSearch(_pickupDate, _dropDate, _selectedHub),
+            child: Container(
+              height: 48,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0066FF), Color(0xFF0052CC), Color(0xFF003D99)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF0066FF).withValues(alpha: 0.35),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.search_rounded, color: Colors.white, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Search Available Cars (Lock for ₹500)',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
+  Widget _buildDriveModeTab({
+    required int index,
+    required String label,
+    required String subtitle,
+    required IconData icon,
+    required bool isDark,
+  }) {
+    final isSelected = _driveMode == index;
+    return GestureDetector(
+      onTap: () => setState(() => _driveMode = index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.15)
+              : (isDark ? AppColors.surfaceElevated : AppColors.lightSurfaceElevated),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? AppColors.primary
+                : (isDark ? AppColors.border : AppColors.lightBorder),
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: isSelected
+                  ? AppColors.primaryLight
+                  : (isDark ? Colors.white60 : Colors.black54),
+            ),
+            const SizedBox(width: 7),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: isSelected
+                          ? (isDark ? Colors.white : AppColors.primary)
+                          : (isDark ? Colors.white70 : Colors.black87),
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      color: isDark ? Colors.white54 : Colors.black45,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildDateTile({
     required String title,
-    required String formattedDate,
+    required DateTime date,
     required IconData icon,
     required VoidCallback onTap,
     required bool isDark,
   }) {
+    final dayFormat = DateFormat('EEE, dd MMM');
+    final timeFormat = DateFormat('hh:mm a');
+
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
         decoration: BoxDecoration(
           color: isDark ? AppColors.surfaceElevated : AppColors.lightSurfaceElevated,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isDark ? AppColors.border : AppColors.lightBorder),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isDark ? AppColors.border : AppColors.lightBorder,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(icon, size: 14, color: AppColors.primary),
+                Icon(icon, size: 12, color: AppColors.primaryLight),
                 const SizedBox(width: 4),
                 Text(
                   title,
                   style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primary,
-                    letterSpacing: 0.5,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.primaryLight,
+                    letterSpacing: 0.6,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 5),
             Text(
-              formattedDate,
+              dayFormat.format(date),
               style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
                 color: isDark ? AppColors.textPrimary : AppColors.lightTextPrimary,
               ),
-              maxLines: 2,
+            ),
+            Text(
+              timeFormat.format(date),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white60 : Colors.black54,
+              ),
             ),
           ],
         ),

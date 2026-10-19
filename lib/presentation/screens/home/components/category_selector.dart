@@ -11,13 +11,37 @@ class CategorySelector extends StatelessWidget {
     required this.onSelectCategory,
   });
 
-  static const List<Map<String, String>> categories = [
-    {'id': 'all', 'label': 'All Fleet', 'icon': 'fleet'},
-    {'id': 'suv', 'label': 'SUVs', 'icon': 'suv'},
-    {'id': 'luxury', 'label': 'Luxury', 'icon': 'luxury'},
-    {'id': 'mpv', 'label': '7-Seater / MPV', 'icon': 'mpv'},
-    {'id': 'sedan', 'label': 'Sedan', 'icon': 'sedan'},
-    {'id': 'economy', 'label': 'Hatchback', 'icon': 'economy'},
+  static const List<Map<String, dynamic>> categories = [
+    {
+      'id': 'all',
+      'label': 'All Fleet',
+      'icon': Icons.grid_view_rounded,
+    },
+    {
+      'id': 'suv',
+      'label': 'SUVs & 4x4',
+      'icon': Icons.terrain_rounded,
+    },
+    {
+      'id': 'luxury',
+      'label': 'Executive Luxury',
+      'icon': Icons.diamond_rounded,
+    },
+    {
+      'id': 'mpv',
+      'label': '7-Seaters / MPVs',
+      'icon': Icons.groups_rounded,
+    },
+    {
+      'id': 'sedan',
+      'label': 'Premium Sedans',
+      'icon': Icons.directions_car_rounded,
+    },
+    {
+      'id': 'economy',
+      'label': 'City Hatchbacks',
+      'icon': Icons.commute_rounded,
+    },
   ];
 
   @override
@@ -25,7 +49,7 @@ class CategorySelector extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SizedBox(
-      height: 40,
+      height: 44,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: categories.length,
@@ -33,42 +57,69 @@ class CategorySelector extends StatelessWidget {
         itemBuilder: (context, index) {
           final cat = categories[index];
           final isSelected =
-              selectedCategory.toLowerCase() == cat['id']!.toLowerCase();
+              selectedCategory.toLowerCase() == (cat['id'] as String).toLowerCase();
+          final icon = cat['icon'] as IconData;
 
           return InkWell(
-            onTap: () => onSelectCategory(cat['id']!),
-            borderRadius: BorderRadius.circular(20),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            onTap: () => onSelectCategory(cat['id'] as String),
+            borderRadius: BorderRadius.circular(14),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
+                gradient: isSelected
+                    ? const LinearGradient(
+                        colors: [Color(0xFF0066FF), Color(0xFF0052CC)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : null,
                 color: isSelected
-                    ? AppColors.primary
-                    : (isDark ? AppColors.surfaceElevated : AppColors.lightSurfaceElevated),
-                borderRadius: BorderRadius.circular(20),
+                    ? null
+                    : (isDark
+                        ? AppColors.surfaceElevated
+                        : AppColors.lightSurfaceElevated),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: isSelected ? AppColors.primary : (isDark ? AppColors.border : AppColors.lightBorder),
+                  color: isSelected
+                      ? const Color(0xFF3385FF)
+                      : (isDark ? AppColors.border : AppColors.lightBorder),
+                  width: isSelected ? 1.5 : 1,
                 ),
                 boxShadow: isSelected
                     ? [
                         BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.35),
+                          color: const Color(0xFF0066FF).withValues(alpha: 0.35),
                           blurRadius: 10,
-                          offset: const Offset(0, 2),
+                          offset: const Offset(0, 3),
                         ),
                       ]
                     : null,
               ),
-              child: Center(
-                child: Text(
-                  cat['label']!,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
+                    size: 16,
                     color: isSelected
                         ? Colors.white
-                        : (isDark ? AppColors.textSecondary : AppColors.lightTextPrimary),
+                        : (isDark ? AppColors.primaryLight : AppColors.primary),
                   ),
-                ),
+                  const SizedBox(width: 6),
+                  Text(
+                    cat['label'] as String,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                      color: isSelected
+                          ? Colors.white
+                          : (isDark
+                              ? AppColors.textPrimary
+                              : AppColors.lightTextPrimary),
+                    ),
+                  ),
+                ],
               ),
             ),
           );

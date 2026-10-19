@@ -25,12 +25,12 @@ class AppAssets {
 
   /// Maps known vehicle aliases, models, or backend paths to available local assets
   static final Map<String, String> _knownAliases = {
-    // Thar Roxx (matches exact asset: assets/fleet/Mahindra Thar Roxx.png)
-    'thar roxx': 'assets/fleet/Mahindra Thar Roxx.png',
-    'thar roxx sunroof': 'assets/fleet/Mahindra Thar Roxx.png',
-    'mahindra thar roxx': 'assets/fleet/Mahindra Thar Roxx.png',
-    'thar': 'assets/fleet/Mahindra Thar.png',
-    'mahindra thar': 'assets/fleet/Mahindra Thar.png',
+    // Thar Roxx (matches exact asset: assets/fleet/Thar Roxx.png)
+    'thar roxx': 'assets/fleet/Thar Roxx.png',
+    'thar roxx sunroof': 'assets/fleet/Thar Roxx.png',
+    'mahindra thar roxx': 'assets/fleet/Thar Roxx.png',
+    'thar': 'assets/fleet/Thar Roxx.png',
+    'mahindra thar': 'assets/fleet/Thar Roxx.png',
 
     // BMW (matches exact asset: assets/fleet/BMW 520D.png)
     'bmw': 'assets/fleet/BMW 520D.png',
@@ -143,9 +143,11 @@ class AppAssets {
 
     // 0. Keyword-based authoritative matching for Thar Roxx & BMW
     if (combinedKey.contains('thar roxx') || modelKey.contains('thar roxx')) {
+      candidates.add('assets/fleet/Thar Roxx.jpg');
+      candidates.add('assets/fleet/Mahindra Thar Roxx.jpg');
       candidates.add('assets/fleet/Mahindra Thar Roxx.png');
-      candidates.add('assets/fleet/thar roxx.png');
     } else if (combinedKey.contains('thar') || modelKey.contains('thar')) {
+      candidates.add('assets/fleet/Thar Roxx.jpg');
       candidates.add('assets/fleet/Mahindra Thar.png');
     }
 

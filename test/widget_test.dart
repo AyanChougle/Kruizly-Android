@@ -583,15 +583,15 @@ void main() {
 
     test('5. AppAssets candidates correctly resolve Thar Roxx and BMW', () {
       final tharCandidates = AppAssets.getCarImageCandidates('Mahindra', 'Thar Roxx');
-      expect(tharCandidates.first, 'assets/fleet/Mahindra Thar Roxx.png');
+      expect(tharCandidates.first, 'assets/fleet/Thar Roxx.jpg');
 
       final bmwCandidates = AppAssets.getCarImageCandidates('BMW', '520D');
       expect(bmwCandidates.first, 'assets/fleet/BMW 520D.png');
     });
 
     test('6. AppAssets.getFleetImage authoritative resolver', () {
-      expect(AppAssets.getFleetImage('Mahindra Thar Roxx'), 'assets/fleet/Mahindra Thar Roxx.png');
-      expect(AppAssets.getFleetImage('Thar Roxx Sunroof'), 'assets/fleet/Mahindra Thar Roxx.png');
+      expect(AppAssets.getFleetImage('Mahindra Thar Roxx'), 'assets/fleet/Thar Roxx.jpg');
+      expect(AppAssets.getFleetImage('Thar Roxx Sunroof'), 'assets/fleet/Thar Roxx.jpg');
       expect(AppAssets.getFleetImage('BMW 520D'), 'assets/fleet/BMW 520D.png');
       expect(AppAssets.getFleetImage('BMW M5 Modified'), 'assets/fleet/BMW 520D.png');
     });
