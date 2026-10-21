@@ -180,56 +180,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             height: 1,
           ),
         ),
-        title: Row(
-          children: [
-            Image.asset(
-              isDark ? AppAssets.logoDark : AppAssets.logoLight,
-              height: 32,
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) => Text(
-                'Kruizly',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.8,
-                  color: isDark ? AppColors.primaryLight : AppColors.primary,
-                ),
-              ),
+        title: Image.asset(
+          isDark ? AppAssets.logoDark : AppAssets.logoLight,
+          height: 32,
+          fit: BoxFit.contain,
+          errorBuilder: (_, _, _) => Text(
+            'Kruizly',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.8,
+              color: isDark ? AppColors.primaryLight : AppColors.primary,
             ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? const Color(0xFF0F172A)
-                    : const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFCBD5E1),
-                  width: 0.8,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.location_on_rounded,
-                    size: 11,
-                    color: AppColors.primary,
-                  ),
-                  const SizedBox(width: 3),
-                  Text(
-                    'Mumbai / Pune',
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w800,
-                      color: isDark ? Colors.white70 : const Color(0xFF334155),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
         actions: [
           if (authState.isAuthenticated && (authState.user?.isStaff ?? false))

@@ -95,31 +95,38 @@ class VehicleDetailScreen extends ConsumerWidget {
                 return CachedNetworkImage(
                   imageUrl: netUrl,
                   fit: BoxFit.contain,
-                  errorWidget: (_, _, _) => Image.asset(AppAssets.carPlaceholder, fit: BoxFit.contain),
+                  errorWidget: (_, _, _) => Image.asset(
+                    AppAssets.carPlaceholder,
+                    fit: BoxFit.contain,
+                  ),
                 );
               }
               return Image.asset(AppAssets.carPlaceholder, fit: BoxFit.contain);
             }
             final asset = candidates[index];
-            final isJpg = asset.toLowerCase().endsWith('.jpg');
             return Image.asset(
               asset,
-              fit: isJpg ? BoxFit.cover : BoxFit.contain,
+              fit: BoxFit.contain,
               errorBuilder: (_, _, _) => buildDetailImage(index + 1),
             );
           }
 
-          final isTopJpg = candidates.isNotEmpty &&
-              candidates.first.toLowerCase().endsWith('.jpg');
-
           return Column(
             children: [
               Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
+                child: RefreshIndicator(
+                  color: AppColors.primary,
+                  backgroundColor: isDark ? AppColors.surface : AppColors.lightSurface,
+                  onRefresh: () async {
+                    ref.invalidate(vehicleDetailProvider(vehicleId));
+                    await ref.read(fleetProvider.notifier).fetchFleet();
+                  },
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -128,18 +135,12 @@ class VehicleDetailScreen extends ConsumerWidget {
                         child: Container(
                           width: double.infinity,
                           height: 220,
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
+                          decoration: const BoxDecoration(color: Colors.white),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
                           ),
-                          padding: isTopJpg
-                              ? EdgeInsets.zero
-                              : const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 10,
-                                ),
-                          child: Center(
-                            child: buildDetailImage(0),
-                          ),
+                          child: Center(child: buildDetailImage(0)),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -300,6 +301,7 @@ class VehicleDetailScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
+              ),
               ),
               VehiclePricingSheet(
                 vehicle: vehicle,

@@ -151,15 +151,16 @@ class FeaturedFleetSection extends ConsumerWidget {
                 physics: const NeverScrollableScrollPhysics(),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 0.78,
+                  crossAxisSpacing: 14,
+                  mainAxisSpacing: 14,
+                  childAspectRatio: 0.82,
                 ),
                 itemCount: displayVehicles.length,
                 itemBuilder: (context, idx) {
                   final v = displayVehicles[idx];
                   return VehicleCard(
                     vehicle: v,
+                    margin: EdgeInsets.zero,
                     onTap: () => onVehicleTap(v.id.toString()),
                     onBookNow: () => onBookNow(v.id.toString()),
                   );

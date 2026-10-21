@@ -1,20 +1,103 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../state/admin_provider.dart';
 import '../../state/app_providers.dart';
+import '../../state/auth_provider.dart';
+import '../../state/fleet_provider.dart';
+import '../../state/profile_provider.dart';
+import '../../state/trips_provider.dart';
 import '../../widgets/background_video_widget.dart';
 
-class MainShell extends ConsumerWidget {
+class MainShell extends ConsumerStatefulWidget {
   final StatefulNavigationShell navigationShell;
 
   const MainShell({super.key, required this.navigationShell});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentIndex = navigationShell.currentIndex;
+  ConsumerState<MainShell> createState() => _MainShellState();
+}
+
+class _MainShellState extends ConsumerState<MainShell>
+    with WidgetsBindingObserver {
+  Timer? _heartbeatTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // Background dynamic sync heartbeat (keeps app synced with website actions)
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 25), (_) {
+      if (mounted) {
+        _refreshActiveTab(widget.navigationShell.currentIndex, silent: true);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _heartbeatTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // When user switches back from browser or website to the app, sync immediately!
+      _refreshAllData();
+    }
+  }
+
+  void _refreshAllData() {
+    ref.read(fleetProvider.notifier).fetchFleet();
+    ref.invalidate(activeFleetProvider);
+    final auth = ref.read(authProvider);
+    if (auth.isAuthenticated) {
+      ref.read(tripsProvider.notifier).fetchTrips();
+      ref.read(authProvider.notifier).refreshProfile();
+      ref.read(profileProvider.notifier).fetchKyc();
+      if (auth.user?.isStaff ?? false) {
+        ref.invalidate(adminStatsProvider);
+        ref.read(adminBookingsProvider.notifier).fetchBookings();
+        ref.invalidate(adminUsersProvider);
+        ref.invalidate(adminKycListProvider);
+      }
+    }
+  }
+
+  void _refreshActiveTab(int index, {bool silent = false}) {
+    switch (index) {
+      case 0: // Home
+        ref.read(fleetProvider.notifier).fetchFleet();
+        ref.invalidate(activeFleetProvider);
+        break;
+      case 1: // Fleet
+        ref.read(fleetProvider.notifier).fetchFleet();
+        break;
+      case 3: // Trips
+        final auth = ref.read(authProvider);
+        if (auth.isAuthenticated) {
+          ref.read(tripsProvider.notifier).fetchTrips();
+        }
+        break;
+      case 4: // Profile
+        final auth = ref.read(authProvider);
+        if (auth.isAuthenticated) {
+          ref.read(authProvider.notifier).refreshProfile();
+          ref.read(profileProvider.notifier).fetchKyc();
+        }
+        break;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentIndex = widget.navigationShell.currentIndex;
     final themeMode = ref.watch(themeModeProvider);
     final isDark = themeMode == ThemeMode.dark;
 
@@ -25,17 +108,18 @@ class MainShell extends ConsumerWidget {
         isEnabled: true,
         isDark: isDark,
         overlayOpacity: isDark ? 0.68 : 0.85,
-        child: navigationShell,
+        child: widget.navigationShell,
       ),
       bottomNavigationBar: _AppleNavBar(
         currentIndex: currentIndex,
         isDark: isDark,
         onTap: (index) {
           HapticFeedback.selectionClick();
-          navigationShell.goBranch(
+          widget.navigationShell.goBranch(
             index,
-            initialLocation: index == navigationShell.currentIndex,
+            initialLocation: index == widget.navigationShell.currentIndex,
           );
+          _refreshActiveTab(index);
         },
       ),
     );

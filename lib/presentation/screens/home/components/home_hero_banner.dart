@@ -31,8 +31,8 @@ class _HomeHeroBannerState extends State<HomeHeroBanner> {
       'badge': 'SELF-DRIVE 4X4',
       'title': 'Mahindra Thar Roxx 4x4',
       'subtitle': 'Panoramic Sunroof • Diesel Automatic • 5-Door Luxury',
-      'image': 'assets/fleet/Thar Roxx.jpg',
-      'fallback': 'assets/fleet/Mahindra Thar Roxx.jpg',
+      'image': 'assets/fleet/Mahindra Thar Roxx.png',
+      'fallback': 'assets/fleet/Mahindra Thar.png',
       'specs': ['Diesel AT', 'Panoramic Sunroof', '4x4 Trail Ready', '5 Seater'],
       'price': '₹5,500',
       'token': 'Lock for ₹500',
@@ -269,29 +269,6 @@ class _HomeHeroBannerState extends State<HomeHeroBanner> {
                               child: Builder(
                                 builder: (context) {
                                   final imgPath = slide['image'] as String;
-                                  final isJpg = imgPath.toLowerCase().endsWith('.jpg');
-                                  if (isJpg) {
-                                    return ClipRRect(
-                                      borderRadius: BorderRadius.circular(16),
-                                      child: Image.asset(
-                                        imgPath,
-                                        width: double.infinity,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, _, _) => Image.asset(
-                                          slide['fallback'] as String,
-                                          width: double.infinity,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (_, _, _) => Image.asset(
-                                            AppAssets.getFleetImage(
-                                              slide['title'] as String,
-                                            ),
-                                            width: double.infinity,
-                                            fit: BoxFit.cover,
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  }
                                   return Stack(
                                     alignment: Alignment.center,
                                     children: [

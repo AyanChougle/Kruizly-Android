@@ -226,6 +226,7 @@ class AdminBookingsNotifier extends StateNotifier<AsyncValue<List<BookingModel>>
         bookingId: bookingOrPaymentId,
         newStatus: action == 'approve' ? 'confirmed' : 'cancelled',
       );
+      await fetchBookings();
     }
     return success;
   }
@@ -237,12 +238,15 @@ class AdminBookingsNotifier extends StateNotifier<AsyncValue<List<BookingModel>>
     String? reason,
   }) async {
     final repo = _ref.read(adminRepositoryProvider);
-    return await repo.updateKycStatus(
+    final res = await repo.updateKycStatus(
       uid: uid,
       documentType: documentType,
       status: status,
       reason: reason,
     );
+    _ref.invalidate(adminKycListProvider);
+    _ref.invalidate(adminStatsProvider);
+    return res;
   }
 
   Future<bool> updateRole({
@@ -250,7 +254,9 @@ class AdminBookingsNotifier extends StateNotifier<AsyncValue<List<BookingModel>>
     required String role,
   }) async {
     final repo = _ref.read(adminRepositoryProvider);
-    return await repo.updateUserRole(uid: uid, role: role);
+    final res = await repo.updateUserRole(uid: uid, role: role);
+    _ref.invalidate(adminUsersProvider);
+    return res;
   }
 }
 

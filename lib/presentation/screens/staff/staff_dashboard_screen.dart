@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -81,11 +82,39 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   String _selectedRole = 'ADMIN';
   final bool _bgVideoEnabled = true;
   String? _cachedAuthToken;
+  Timer? _autoSyncTimer;
+  bool _hasLoadedDynamicRoster = false;
 
   @override
   void initState() {
     super.initState();
     _fetchAuthToken();
+    // Auto sync staff data every 12 seconds so changes on website reflect in app dynamically
+    _autoSyncTimer = Timer.periodic(const Duration(seconds: 12), (_) {
+      if (mounted) {
+        _refreshAllStaffData(silent: true);
+      }
+    });
+  }
+
+  Future<void> _refreshAllStaffData({bool silent = false}) async {
+    ref.invalidate(adminStatsProvider);
+    ref.invalidate(activeFleetProvider);
+    ref.invalidate(adminKycListProvider);
+    ref.invalidate(adminCouponsProvider);
+    ref.invalidate(adminUsersProvider);
+    await Future.wait([
+      ref.read(adminBookingsProvider.notifier).fetchBookings(),
+      ref.read(fleetProvider.notifier).fetchFleet(),
+    ]);
+    if (!silent && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Synchronized live database'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+    }
   }
 
   Future<void> _fetchAuthToken() async {
@@ -188,6 +217,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
 
   @override
   void dispose() {
+    _autoSyncTimer?.cancel();
     _addFleetRegController.dispose();
     _addFleetBrandController.dispose();
     _addFleetModelController.dispose();
@@ -390,13 +420,25 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   }
 
   bool _isVehicleOnTripNow(VehicleModel v, List<BookingModel> bookings) {
-    return _getActiveBookingForVehicle(v, bookings) != null;
+    if (_getActiveBookingForVehicle(v, bookings) != null) return true;
+    final stat = v.status.toLowerCase().trim();
+    if (!v.isAvailable ||
+        stat == 'rented' ||
+        stat == 'on_trip' ||
+        stat == 'trip' ||
+        stat == 'booked' ||
+        stat == 'in_trip' ||
+        stat == 'active') {
+      return true;
+    }
+    return false;
   }
 
   BookingModel? _getActiveBookingForVehicle(VehicleModel v, List<BookingModel> bookings) {
     final now = DateTime.now();
     for (final b in bookings) {
       if (b.isCancelled || b.status.toLowerCase() == 'completed') continue;
+      if (b.endOdometer != null && b.endOdometer!.trim().isNotEmpty) continue;
       if (!_doesBookingMatchVehicle(b, v)) continue;
 
       final stat = b.status.toLowerCase().trim();
@@ -406,11 +448,17 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           stat == 'in_trip' ||
           stat == 'started' ||
           stat == 'ongoing' ||
+          stat == 'on_trip' ||
+          stat == 'picked_up' ||
           pickupStat == 'picked_up' ||
           (b.startOdometer != null && b.startOdometer!.trim().isNotEmpty);
       if (isExplicitActive) return b;
 
-      final isConfirmed = stat == 'confirmed' || stat == 'approved';
+      final isConfirmed = stat == 'confirmed' ||
+          stat == 'approved' ||
+          stat == 'paid' ||
+          stat == 'advance_paid' ||
+          b.paymentStatus.toLowerCase().trim() == 'paid';
       if (isConfirmed) {
         if (!now.isBefore(b.pickupDate) && !now.isAfter(b.dropDate.add(const Duration(hours: 4)))) {
           return b;
@@ -440,7 +488,8 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final stats = ref.watch(adminStatsProvider).value ?? AdminStatsModel.empty;
+    final rawStats = ref.watch(adminStatsProvider).value ?? AdminStatsModel.empty;
+    final stats = rawStats.forHub(_selectedHub);
     final bookingsAsync = ref.watch(adminBookingsProvider);
     final vehicles = ref.watch(fleetProvider).vehicles;
     final authState = ref.watch(authProvider);
@@ -466,9 +515,19 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     };
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: context.isDarkMode ? const Color(0xFF030712) : const Color(0xFFF8FAFC),
       appBar: AppBar(
         automaticallyImplyLeading: false,
+        surfaceTintColor: Colors.transparent,
+        backgroundColor: context.isDarkMode ? const Color(0xFF070D19) : Colors.white,
+        elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            color: context.isDarkMode ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+            height: 1,
+          ),
+        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 18),
           tooltip: 'Back',
@@ -499,27 +558,11 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
             ),
           ],
         ),
-        backgroundColor: context.themeBackground.withValues(alpha: 0.88),
-        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, size: 20),
             tooltip: 'Refresh MySQL Data',
-            onPressed: () {
-              ref.invalidate(adminStatsProvider);
-              ref.read(adminBookingsProvider.notifier).fetchBookings();
-              ref.read(fleetProvider.notifier).fetchFleet();
-              ref.invalidate(adminKycListProvider);
-              ref.invalidate(adminCouponsProvider);
-              ref.invalidate(adminUsersProvider);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'Synchronizing live Hostinger MySQL database...',
-                  ),
-                ),
-              );
-            },
+            onPressed: () => _refreshAllStaffData(silent: false),
           ),
         ],
       ),
@@ -553,15 +596,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
               child: RefreshIndicator(
                 color: accentColor,
                 backgroundColor: context.themeSurfaceElevated,
-                onRefresh: () async {
-                  ref.invalidate(adminStatsProvider);
-                  await ref
-                      .read(adminBookingsProvider.notifier)
-                      .fetchBookings();
-                  await ref.read(fleetProvider.notifier).fetchFleet();
-                  ref.invalidate(adminKycListProvider);
-                  ref.invalidate(adminCouponsProvider);
-                },
+                onRefresh: () => _refreshAllStaffData(silent: true),
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 260),
                   switchInCurve: Curves.easeOutCubic,
@@ -617,7 +652,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     final isTablet = screenWidth >= 600;
 
     return Container(
-      color: context.themeBackground.withValues(alpha: 0.88),
+      color: context.isDarkMode ? const Color(0xFF090F1E) : const Color(0xFFF1F5F9),
       padding: EdgeInsets.symmetric(
         horizontal: isTablet ? 24 : 16,
         vertical: isTablet ? 12 : 8,
@@ -795,7 +830,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     final isTablet = screenWidth >= 600;
 
     return Container(
-      color: context.themeBackground.withValues(alpha: 0.95),
+      color: context.isDarkMode ? const Color(0xFF070D19) : Colors.white,
       padding: EdgeInsets.symmetric(
         horizontal: isTablet ? 24 : 14,
         vertical: isTablet ? 10 : 8,
@@ -2520,17 +2555,23 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 width: 200,
                 onPressed: () => setState(() {
                   _currentRosterRegs.clear();
-                  _currentRosterRegs.addAll([
-                    'MH03EL1025',
-                    'MH05GJ4711',
-                    'MH48GJ4153',
-                    'MH04MU1178',
-                    'MH05FV3454',
-                    'MH43CU1632',
-                    'MH02FU6808',
-                    'CPR-007',
-                    'MH43BY2773',
-                  ]);
+                  if (vehicles.isNotEmpty) {
+                    _currentRosterRegs.addAll(
+                      vehicles.map((v) => v.regNo).where((r) => r.isNotEmpty),
+                    );
+                  } else {
+                    _currentRosterRegs.addAll([
+                      'MH03EL1025',
+                      'MH05GJ4711',
+                      'MH48GJ4153',
+                      'MH04MU1178',
+                      'MH05FV3454',
+                      'MH43CU1632',
+                      'MH02FU6808',
+                      'CPR-007',
+                      'MH43BY2773',
+                    ]);
+                  }
                 }),
               ),
               const SizedBox(height: 12),
@@ -2913,6 +2954,20 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     final allRawBookings = bookingsAsync.value ?? [];
     final activeFleetAsync = ref.watch(activeFleetProvider);
     final allActiveFleet = activeFleetAsync.value ?? [];
+
+    if (allActiveFleet.isNotEmpty && !_hasLoadedDynamicRoster) {
+      _hasLoadedDynamicRoster = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            _currentRosterRegs.clear();
+            _currentRosterRegs.addAll(
+              allActiveFleet.map((v) => v.regNo).where((r) => r.isNotEmpty),
+            );
+          });
+        }
+      });
+    }
 
     // Filter by selected operational Hub
     final allBookings = _selectedHub == 'all'

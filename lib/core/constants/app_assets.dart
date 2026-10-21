@@ -25,12 +25,14 @@ class AppAssets {
 
   /// Maps known vehicle aliases, models, or backend paths to available local assets
   static final Map<String, String> _knownAliases = {
-    // Thar Roxx (matches exact asset: assets/fleet/Thar Roxx.png)
-    'thar roxx': 'assets/fleet/Thar Roxx.png',
-    'thar roxx sunroof': 'assets/fleet/Thar Roxx.png',
-    'mahindra thar roxx': 'assets/fleet/Thar Roxx.png',
-    'thar': 'assets/fleet/Thar Roxx.png',
-    'mahindra thar': 'assets/fleet/Thar Roxx.png',
+    // Thar Roxx (5-Door)
+    'thar roxx': 'assets/fleet/Mahindra Thar Roxx.png',
+    'thar roxx sunroof': 'assets/fleet/Mahindra Thar Roxx.png',
+    'mahindra thar roxx': 'assets/fleet/Mahindra Thar Roxx.png',
+    // Mahindra Thar (3-Door)
+    'thar': 'assets/fleet/Mahindra Thar.png',
+    'mahindra thar': 'assets/fleet/Mahindra Thar.png',
+    'thar 4x4': 'assets/fleet/Mahindra Thar.png',
 
     // BMW (matches exact asset: assets/fleet/BMW 520D.png)
     'bmw': 'assets/fleet/BMW 520D.png',
@@ -136,21 +138,72 @@ class AppAssets {
   static List<String> getCarImageCandidates(String brand, String model, [String? serverPath]) {
     final b = brand.trim();
     final m = model.trim();
-    final combinedKey = '$b $m'.toLowerCase();
+    final combinedKey = m.isEmpty ? b.toLowerCase() : '$b $m'.replaceAll(RegExp(r'\s+'), ' ').trim().toLowerCase();
     final modelKey = m.toLowerCase();
 
     final candidates = <String>[];
 
-    // 0. Keyword-based authoritative matching for Thar Roxx & BMW
-    if (combinedKey.contains('thar roxx') || modelKey.contains('thar roxx')) {
-      candidates.add('assets/fleet/Thar Roxx.jpg');
-      candidates.add('assets/fleet/Mahindra Thar Roxx.jpg');
+    // 0. Keyword-based authoritative matching
+    if (combinedKey.contains('thar roxx') || modelKey.contains('thar roxx') || combinedKey.contains('roxx')) {
       candidates.add('assets/fleet/Mahindra Thar Roxx.png');
-    } else if (combinedKey.contains('thar') || modelKey.contains('thar')) {
+      candidates.add('assets/fleet/Thar Roxx.png');
       candidates.add('assets/fleet/Thar Roxx.jpg');
+    } else if (combinedKey.contains('thar') || modelKey.contains('thar')) {
       candidates.add('assets/fleet/Mahindra Thar.png');
     }
 
+    if (combinedKey.contains('ertiga') || modelKey.contains('ertiga')) {
+      candidates.add('assets/fleet/Maruti Suzuki Ertiga.png');
+    }
+    if (combinedKey.contains('fronx') || modelKey.contains('fronx')) {
+      candidates.add('assets/fleet/Maruti Suzuki Fronx.png');
+    }
+    if (combinedKey.contains('baleno') || modelKey.contains('baleno')) {
+      candidates.add('assets/fleet/Maruti Suzuki Baleno.png');
+    }
+    if (combinedKey.contains('glanza') || modelKey.contains('glanza')) {
+      candidates.add('assets/fleet/Toyota Glanza.png');
+    }
+    if (combinedKey.contains('innova') || modelKey.contains('innova')) {
+      candidates.add('assets/fleet/Toyota Innova Crysta.png');
+    }
+    if (combinedKey.contains('taisor') || modelKey.contains('taisor')) {
+      candidates.add('assets/fleet/Toyota Urban Cruiser Taisor.png');
+    }
+    if (combinedKey.contains('safari') || modelKey.contains('safari')) {
+      candidates.add('assets/fleet/Tata Safari.png');
+    }
+    if (combinedKey.contains('7xo') || modelKey.contains('7xo')) {
+      candidates.add('assets/fleet/Mahindra 7XO.png');
+    }
+    if (combinedKey.contains('punch') || modelKey.contains('punch')) {
+      candidates.add('assets/fleet/Tata Punch.png');
+    }
+    if (combinedKey.contains('nexon') || modelKey.contains('nexon')) {
+      candidates.add('assets/fleet/Tata Nexon.png');
+    }
+    if (combinedKey.contains('altroz') || modelKey.contains('altroz')) {
+      candidates.add('assets/fleet/Tata Altroz.png');
+    }
+    if (combinedKey.contains('hector') || modelKey.contains('hector')) {
+      candidates.add('assets/fleet/MG Hector.png');
+      candidates.add('assets/fleet/MG Hector.jpg');
+    }
+    if (combinedKey.contains('swift') || modelKey.contains('swift')) {
+      candidates.add('assets/fleet/Maruti Suzuki Swift.png');
+    }
+    if (combinedKey.contains('dzire') || modelKey.contains('dzire')) {
+      candidates.add('assets/fleet/Maruti Suzuki Dzire.png');
+    }
+    if (combinedKey.contains('wagonr') || modelKey.contains('wagonr')) {
+      candidates.add('assets/fleet/Maruti Suzuki WagonR.png');
+    }
+    if (combinedKey.contains('xuv700') || modelKey.contains('xuv700')) {
+      candidates.add('assets/fleet/Mahindra XUV700.png');
+    }
+    if (combinedKey.contains('scorpio') || modelKey.contains('scorpio')) {
+      candidates.add('assets/fleet/Mahindra Scorpio N.png');
+    }
     if (combinedKey.contains('bmw') || modelKey.contains('bmw') || modelKey.contains('520d') || modelKey.contains('m5')) {
       candidates.add('assets/fleet/BMW 520D.png');
     }

@@ -130,21 +130,59 @@ class _FleetCatalogScreenState extends ConsumerState<FleetCatalogScreen> {
                         ],
                       ),
                     )
-                  : ListView.builder(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      itemCount: fleetState.filteredVehicles.length,
-                      itemBuilder: (context, index) {
-                        final v = fleetState.filteredVehicles[index];
-                        return VehicleCard(
-                          vehicle: v,
-                          onTap: () => context.push('/fleet/${v.id}'),
-                          onBookNow: () {
-                            ref.read(bookingProvider.notifier).setVehicle(v);
-                            context.push('/booking');
+                  : LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isTablet = constraints.maxWidth >= 600;
+                        if (isTablet) {
+                          return GridView.builder(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              crossAxisSpacing: 14,
+                              mainAxisSpacing: 14,
+                              childAspectRatio: 0.82,
+                            ),
+                            itemCount: fleetState.filteredVehicles.length,
+                            itemBuilder: (context, index) {
+                              final v = fleetState.filteredVehicles[index];
+                              return VehicleCard(
+                                vehicle: v,
+                                margin: EdgeInsets.zero,
+                                onTap: () => context.push('/fleet/${v.id}'),
+                                onBookNow: () {
+                                  ref
+                                      .read(bookingProvider.notifier)
+                                      .setVehicle(v);
+                                  context.push('/booking');
+                                },
+                              );
+                            },
+                          );
+                        }
+                        return ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          itemCount: fleetState.filteredVehicles.length,
+                          itemBuilder: (context, index) {
+                            final v = fleetState.filteredVehicles[index];
+                            return VehicleCard(
+                              vehicle: v,
+                              onTap: () => context.push('/fleet/${v.id}'),
+                              onBookNow: () {
+                                ref
+                                    .read(bookingProvider.notifier)
+                                    .setVehicle(v);
+                                context.push('/booking');
+                              },
+                            );
                           },
                         );
                       },

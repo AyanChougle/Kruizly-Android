@@ -56,9 +56,17 @@ class TripDetailScreen extends ConsumerWidget {
           final canCancel = booking.status.toLowerCase() != 'cancelled' &&
               booking.status.toLowerCase() != 'completed';
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Column(
+          return RefreshIndicator(
+            color: AppColors.primary,
+            backgroundColor: context.themeSurface,
+            onRefresh: () async {
+              ref.invalidate(bookingDetailProvider(bookingId));
+              await ref.read(tripsProvider.notifier).fetchTrips();
+            },
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 GlassCard(
@@ -390,8 +398,9 @@ class TripDetailScreen extends ConsumerWidget {
                 const SizedBox(height: 32),
               ],
             ),
-          );
-        },
+          ),
+        );
+      },
       ),
     );
   }

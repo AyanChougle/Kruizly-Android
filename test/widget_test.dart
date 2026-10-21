@@ -371,6 +371,87 @@ void main() {
       },
     );
 
+    test('AdminStatsModel parses data.hubs and accurately filters with forHub', () {
+      final payloadWithHubs = {
+        'status': 'success',
+        'data': {
+          'live': {
+            'total_revenue': 500000.0,
+            'month_revenue': 150000.0,
+            'total_bookings': 50,
+            'paid_bookings': 45,
+            'pending_docs': 3,
+            'pending_payments': 2,
+            'active_trips': 6,
+            'total_fleet': 20,
+            'available_in_yard': 14,
+            'fleet_utilization': 30,
+          },
+          'hubs': {
+            '0': {
+              'hub_id': 0,
+              'hub_name': 'All Operating Hubs',
+              'total_revenue': 500000.0,
+              'month_revenue': 150000.0,
+              'total_bookings': 50,
+              'paid_bookings': 45,
+              'pending_docs': 3,
+              'pending_payments': 2,
+              'active_trips': 6,
+              'total_fleet': 20,
+              'available_fleet': 14,
+              'occupancy_pct': 30.0,
+            },
+            '1': {
+              'hub_id': 1,
+              'hub_name': 'Gavson Business Park, Ghansoli',
+              'total_revenue': 350000.0,
+              'month_revenue': 100000.0,
+              'total_bookings': 35,
+              'paid_bookings': 32,
+              'pending_docs': 2,
+              'pending_payments': 1,
+              'active_trips': 4,
+              'total_fleet': 12,
+              'available_fleet': 8,
+              'occupancy_pct': 33.33,
+            },
+            '2': {
+              'hub_id': 2,
+              'hub_name': 'Kandivali Hub, Mumbai',
+              'total_revenue': 150000.0,
+              'month_revenue': 50000.0,
+              'total_bookings': 15,
+              'paid_bookings': 13,
+              'pending_docs': 1,
+              'pending_payments': 1,
+              'active_trips': 2,
+              'total_fleet': 8,
+              'available_fleet': 6,
+              'occupancy_pct': 25.0,
+            },
+          },
+        },
+      };
+
+      final stats = AdminStatsModel.fromJson(payloadWithHubs);
+      expect(stats.totalRevenue, 500000.0);
+      expect(stats.hubs.length, 3);
+
+      final ghansoli = stats.forHub('ghansoli');
+      expect(ghansoli.totalRevenue, 350000.0);
+      expect(ghansoli.totalBookings, 35);
+      expect(ghansoli.activeTrips, 4);
+
+      final kandivali = stats.forHub('kandivali');
+      expect(kandivali.totalRevenue, 150000.0);
+      expect(kandivali.totalBookings, 15);
+      expect(kandivali.activeTrips, 2);
+
+      final allHubs = stats.forHub('all');
+      expect(allHubs.totalRevenue, 500000.0);
+    });
+
     test(
       'AdminStatsModel.empty has strictly zeroed values with no hardcoded demo data',
       () {
@@ -583,15 +664,15 @@ void main() {
 
     test('5. AppAssets candidates correctly resolve Thar Roxx and BMW', () {
       final tharCandidates = AppAssets.getCarImageCandidates('Mahindra', 'Thar Roxx');
-      expect(tharCandidates.first, 'assets/fleet/Thar Roxx.jpg');
+      expect(tharCandidates.first, 'assets/fleet/Mahindra Thar Roxx.png');
 
       final bmwCandidates = AppAssets.getCarImageCandidates('BMW', '520D');
       expect(bmwCandidates.first, 'assets/fleet/BMW 520D.png');
     });
 
     test('6. AppAssets.getFleetImage authoritative resolver', () {
-      expect(AppAssets.getFleetImage('Mahindra Thar Roxx'), 'assets/fleet/Thar Roxx.jpg');
-      expect(AppAssets.getFleetImage('Thar Roxx Sunroof'), 'assets/fleet/Thar Roxx.jpg');
+      expect(AppAssets.getFleetImage('Mahindra Thar Roxx'), 'assets/fleet/Mahindra Thar Roxx.png');
+      expect(AppAssets.getFleetImage('Thar Roxx Sunroof'), 'assets/fleet/Mahindra Thar Roxx.png');
       expect(AppAssets.getFleetImage('BMW 520D'), 'assets/fleet/BMW 520D.png');
       expect(AppAssets.getFleetImage('BMW M5 Modified'), 'assets/fleet/BMW 520D.png');
     });

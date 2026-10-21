@@ -16,6 +16,7 @@ class AdminStatsModel {
   final int availableInYard;
   final int fleetUtilization;
   final Map<String, dynamic> monthly;
+  final Map<String, AdminStatsModel> hubs;
 
   const AdminStatsModel({
     required this.totalRevenue,
@@ -35,7 +36,22 @@ class AdminStatsModel {
     required this.availableInYard,
     required this.fleetUtilization,
     this.monthly = const {},
+    this.hubs = const {},
   });
+
+  AdminStatsModel forHub(String hubCode) {
+    final lower = hubCode.toLowerCase().trim();
+    if (lower == 'all' || lower == '0') {
+      return hubs['0'] ?? this;
+    }
+    if (lower == 'ghansoli' || lower == 'gavson' || lower == '1') {
+      return hubs['1'] ?? hubs['ghansoli'] ?? this;
+    }
+    if (lower == 'kandivali' || lower == '2') {
+      return hubs['2'] ?? hubs['kandivali'] ?? this;
+    }
+    return this;
+  }
 
   factory AdminStatsModel.fromJson(Map<String, dynamic> json) {
     final data = json['data'] is Map<String, dynamic> ? json['data'] as Map<String, dynamic> : json;
@@ -48,6 +64,16 @@ class AdminStatsModel {
     final monthlyMap = (data['monthly'] is Map)
         ? Map<String, dynamic>.from(data['monthly'] as Map)
         : const <String, dynamic>{};
+
+    final Map<String, AdminStatsModel> parsedHubs = {};
+    if (data['hubs'] is Map) {
+      final hubsRaw = data['hubs'] as Map;
+      for (final entry in hubsRaw.entries) {
+        if (entry.value is Map<String, dynamic>) {
+          parsedHubs[entry.key.toString()] = AdminStatsModel.fromJson(entry.value as Map<String, dynamic>);
+        }
+      }
+    }
 
     double parseDouble(dynamic val, [double def = 0.0]) {
       if (val == null) return def;
@@ -85,6 +111,7 @@ class AdminStatsModel {
       availableInYard: parseInt(live['available_in_yard'] ?? live['available_fleet']),
       fleetUtilization: parseInt(live['fleet_utilization'] ?? live['occupancy_pct']),
       monthly: monthlyMap,
+      hubs: parsedHubs,
     );
   }
 

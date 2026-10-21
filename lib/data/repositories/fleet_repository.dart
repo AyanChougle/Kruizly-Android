@@ -252,9 +252,12 @@ class FleetRepository {
   }
 
   Future<VehicleModel?> getVehicleDetail(String regNo) async {
+    final Map<String, dynamic> qp = int.tryParse(regNo) != null
+        ? {'id': regNo, 'regNo': regNo}
+        : {'regNo': regNo};
     final response = await _apiClient.get(
       ApiEndpoints.vehicleDetail,
-      queryParameters: {'''regNo''': regNo},
+      queryParameters: qp,
     );
 
     if (response is Map<String, dynamic> && response['''vehicle'''] != null) {
