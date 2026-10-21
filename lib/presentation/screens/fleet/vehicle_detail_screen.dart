@@ -116,7 +116,9 @@ class VehicleDetailScreen extends ConsumerWidget {
               Expanded(
                 child: RefreshIndicator(
                   color: AppColors.primary,
-                  backgroundColor: isDark ? AppColors.surface : AppColors.lightSurface,
+                  backgroundColor: isDark
+                      ? AppColors.surface
+                      : AppColors.lightSurface,
                   onRefresh: () async {
                     ref.invalidate(vehicleDetailProvider(vehicleId));
                     await ref.read(fleetProvider.notifier).fetchFleet();
@@ -127,181 +129,187 @@ class VehicleDetailScreen extends ConsumerWidget {
                       horizontal: 16,
                       vertical: 8,
                     ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          width: double.infinity,
-                          height: 220,
-                          decoration: const BoxDecoration(color: Colors.white),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 10,
-                          ),
-                          child: Center(child: buildDetailImage(0)),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Container(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            width: double.infinity,
+                            height: 220,
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                            ),
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 4,
+                              horizontal: 14,
+                              vertical: 10,
                             ),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: AppColors.primary.withValues(alpha: 0.3),
-                              ),
-                            ),
-                            child: Text(
-                              vehicle.categoryDisplay.toUpperCase(),
-                              style: const TextStyle(
-                                color: AppColors.primary,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
+                            child: Center(child: buildDetailImage(0)),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: vehicle.isAvailable
-                                  ? AppColors.success.withValues(alpha: 0.15)
-                                  : AppColors.error.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: vehicle.isAvailable
-                                    ? AppColors.success.withValues(alpha: 0.4)
-                                    : AppColors.error.withValues(alpha: 0.4),
-                              ),
-                            ),
-                            child: Text(
-                              vehicle.isAvailable ? 'AVAILABLE' : 'BOOKED',
-                              style: TextStyle(
-                                color: vehicle.isAvailable
-                                    ? AppColors.success
-                                    : AppColors.error,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        vehicle.fullName,
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                          color: isDark
-                              ? AppColors.textPrimary
-                              : AppColors.lightTextPrimary,
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Registration: ${vehicle.regNo} • Year ${vehicle.year}',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: isDark
-                              ? AppColors.textSecondary
-                              : AppColors.lightTextSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      VehicleSpecGrid(vehicle: vehicle),
-                      const SizedBox(height: 20),
-                      GlassCard(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'Included with Rental',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: isDark
-                                    ? AppColors.textPrimary
-                                    : AppColors.lightTextPrimary,
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(
+                                  alpha: 0.15,
+                                ),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: AppColors.primary.withValues(
+                                    alpha: 0.3,
+                                  ),
+                                ),
+                              ),
+                              child: Text(
+                                vehicle.categoryDisplay.toUpperCase(),
+                                style: const TextStyle(
+                                  color: AppColors.primary,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
-                            const SizedBox(height: 12),
-                            _buildBenefitRow(
-                              Icons.check_circle_outline,
-                              'Comprehensive vehicle insurance covered',
-                              isDark,
-                            ),
-                            const SizedBox(height: 8),
-                            _buildBenefitRow(
-                              Icons.check_circle_outline,
-                              '100% Sanitized & clean cabin guarantee',
-                              isDark,
-                            ),
-                            const SizedBox(height: 8),
-                            _buildBenefitRow(
-                              Icons.check_circle_outline,
-                              '24/7 Roadside breakdown assistance in MH',
-                              isDark,
-                            ),
-                            const SizedBox(height: 8),
-                            _buildBenefitRow(
-                              Icons.check_circle_outline,
-                              'Doorstep delivery & pickup available on request',
-                              isDark,
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: vehicle.isAvailable
+                                    ? AppColors.success.withValues(alpha: 0.15)
+                                    : AppColors.error.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: vehicle.isAvailable
+                                      ? AppColors.success.withValues(alpha: 0.4)
+                                      : AppColors.error.withValues(alpha: 0.4),
+                                ),
+                              ),
+                              child: Text(
+                                vehicle.isAvailable ? 'AVAILABLE' : 'BOOKED',
+                                style: TextStyle(
+                                  color: vehicle.isAvailable
+                                      ? AppColors.success
+                                      : AppColors.error,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             ),
                           ],
                         ),
-                      ),
-                      const SizedBox(height: 20),
-                      GlassCard(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Requirements for Self-Drive',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: isDark
-                                    ? AppColors.textPrimary
-                                    : AppColors.lightTextPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            _buildRequirementRow(
-                              '1. Minimum age of 21 years with valid original Driving License.',
-                              isDark,
-                            ),
-                            const SizedBox(height: 6),
-                            _buildRequirementRow(
-                              '2. Aadhaar Card / Passport original verification at handover.',
-                              isDark,
-                            ),
-                            const SizedBox(height: 6),
-                            _buildRequirementRow(
-                              '3. Security deposit refunded within 24 hours of car return.',
-                              isDark,
-                            ),
-                          ],
+                        const SizedBox(height: 10),
+                        Text(
+                          vehicle.fullName,
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            color: isDark
+                                ? AppColors.textPrimary
+                                : AppColors.lightTextPrimary,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 24),
-                    ],
+                        const SizedBox(height: 4),
+                        Text(
+                          'Registration: ${vehicle.regNo} • Year ${vehicle.year}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: isDark
+                                ? AppColors.textSecondary
+                                : AppColors.lightTextSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        VehicleSpecGrid(vehicle: vehicle),
+                        const SizedBox(height: 20),
+                        GlassCard(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Included with Rental',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: isDark
+                                      ? AppColors.textPrimary
+                                      : AppColors.lightTextPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              _buildBenefitRow(
+                                Icons.check_circle_outline,
+                                'Comprehensive vehicle insurance covered',
+                                isDark,
+                              ),
+                              const SizedBox(height: 8),
+                              _buildBenefitRow(
+                                Icons.check_circle_outline,
+                                '100% Sanitized & clean cabin guarantee',
+                                isDark,
+                              ),
+                              const SizedBox(height: 8),
+                              _buildBenefitRow(
+                                Icons.check_circle_outline,
+                                '24/7 Roadside breakdown assistance in MH',
+                                isDark,
+                              ),
+                              const SizedBox(height: 8),
+                              _buildBenefitRow(
+                                Icons.check_circle_outline,
+                                'Doorstep delivery & pickup available on request',
+                                isDark,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        GlassCard(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Requirements for Self-Drive',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: isDark
+                                      ? AppColors.textPrimary
+                                      : AppColors.lightTextPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              _buildRequirementRow(
+                                '1. Minimum age of 21 years with valid original Driving License.',
+                                isDark,
+                              ),
+                              const SizedBox(height: 6),
+                              _buildRequirementRow(
+                                '2. Aadhaar Card / Passport original verification at handover.',
+                                isDark,
+                              ),
+                              const SizedBox(height: 6),
+                              _buildRequirementRow(
+                                '3. Security deposit refunded within 24 hours of car return.',
+                                isDark,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                    ),
                   ),
                 ),
-              ),
               ),
               VehiclePricingSheet(
                 vehicle: vehicle,
